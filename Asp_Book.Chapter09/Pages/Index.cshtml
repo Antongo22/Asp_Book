@@ -1,10 +1,190 @@
 ﻿@page
 @model IndexModel
 @{
-    ViewData["Title"] = "Home page";
+    ViewData["Title"] = "Глава 9: WebSockets";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<div class="container-fluid">
+    <h1 class="mb-4">Глава 9: WebSockets</h1>
+
+    <ul class="nav nav-tabs mb-4" id="chapterTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="theory-tab" data-bs-toggle="tab" data-bs-target="#theory" type="button" role="tab">
+                Теория и Демонстрация
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="answers-tab" data-bs-toggle="tab" data-bs-target="#answers" type="button" role="tab">
+                Ответы
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="chapterTabsContent">
+        <div class="tab-pane fade show active" id="theory" role="tabpanel">
+            <h2>Теория</h2>
+
+            <section class="mb-5">
+                <h3>Что такое WebSockets?</h3>
+                <p><strong>WebSocket</strong> — протокол связи, обеспечивающий полнодуплексную (двустороннюю) связь между клиентом и сервером через одно TCP-соединение.</p>
+                
+                <h4>Преимущества WebSockets:</h4>
+                <ul>
+                    <li><strong>Двусторонняя связь:</strong> Сервер может отправлять данные клиенту без запроса</li>
+                    <li><strong>Низкая задержка:</strong> Нет накладных расходов HTTP заголовков</li>
+                    <li><strong>Постоянное соединение:</strong> Соединение остается открытым</li>
+                    <li><strong>Реальное время:</strong> Идеально для чатов, уведомлений, игр</li>
+                </ul>
+            </section>
+
+            <section class="mb-5">
+                <h3>Задача: Реализовать WebSocket</h3>
+                <div class="alert alert-warning">
+                    <h5>Ваша задача:</h5>
+                    <p>Изучите реализацию WebSocket в проекте:</p>
+                    <ul>
+                        <li>Как создать WebSocket middleware?</li>
+                        <li>Как отправлять сообщения всем подключенным клиентам?</li>
+                        <li>Как отправлять сообщение конкретному клиенту?</li>
+                    </ul>
+                </div>
+            </section>
+        </div>
+
+        <div class="tab-pane fade" id="answers" role="tabpanel">
+            <h2>Решение: Реализация WebSocket</h2>
+
+            <section class="mb-5">
+                <h3>1. WebSocket Middleware</h3>
+                <div class="code-block">
+                    <pre><code>public class WebSocketMiddleware
+{
+    private readonly RequestDelegate _next;
+    private static readonly Dictionary&lt;string, WebSocket&gt; _connections = new();
+
+    public WebSocketMiddleware(RequestDelegate next)
+    {
+        _next = next;
+    }
+
+    public async Task InvokeAsync(HttpContext context)
+    {
+        if (context.WebSockets.IsWebSocketRequest)
+        {
+            var webSocket = await context.WebSockets.AcceptWebSocketAsync();
+            var connectionId = Guid.NewGuid().ToString();
+            _connections[connectionId] = webSocket;
+
+            await HandleWebSocket(webSocket, connectionId);
+        }
+        else
+        {
+            await _next(context);
+        }
+    }
+
+    private async Task HandleWebSocket(WebSocket webSocket, string connectionId)
+    {
+        var buffer = new byte[1024 * 4];
+
+        while (webSocket.State == WebSocketState.Open)
+        {
+            var result = await webSocket.ReceiveAsync(
+                new ArraySegment&lt;byte&gt;(buffer), CancellationToken.None);
+
+            if (result.MessageType == WebSocketMessageType.Text)
+            {
+                var message = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                await BroadcastMessageAsync($"{connectionId}: {message}");
+            }
+        }
+    }
+
+    private async Task BroadcastMessageAsync(string message)
+    {
+        var messageBytes = Encoding.UTF8.GetBytes(message);
+        var tasks = _connections.Values
+            .Where(ws => ws.State == WebSocketState.Open)
+            .Select(ws => ws.SendAsync(
+                new ArraySegment&lt;byte&gt;(messageBytes),
+                WebSocketMessageType.Text,
+                true,
+                CancellationToken.None));
+
+        await Task.WhenAll(tasks);
+    }
+
+    public static async Task SendToConnectionAsync(string connectionId, string message)
+    {
+        if (_connections.TryGetValue(connectionId, out var webSocket) 
+            && webSocket.State == WebSocketState.Open)
+        {
+            var messageBytes = Encoding.UTF8.GetBytes(message);
+            await webSocket.SendAsync(
+                new ArraySegment&lt;byte&gt;(messageBytes),
+                WebSocketMessageType.Text,
+                true,
+                CancellationToken.None);
+        }
+    }
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>2. Настройка в Program.cs</h3>
+                <div class="code-block">
+                    <pre><code>var app = builder.Build();
+
+// WebSocket middleware должен быть до UseAuthorization
+app.UseWebSockets();
+app.UseMiddleware&lt;WebSocketMiddleware&gt;();
+
+app.UseAuthorization();</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>3. Клиентский код (JavaScript)</h3>
+                <div class="code-block">
+                    <pre><code>// Подключение к WebSocket
+const ws = new WebSocket('ws://localhost:5009/ws');
+
+ws.onopen = () => {
+    console.log('WebSocket подключен');
+    ws.send('Привет, сервер!');
+};
+
+ws.onmessage = (event) => {
+    console.log('Получено сообщение:', event.data);
+    document.getElementById('messages').innerHTML += 
+        '&lt;div&gt;' + event.data + '&lt;/div&gt;';
+};
+
+ws.onerror = (error) => {
+    console.error('WebSocket ошибка:', error);
+};
+
+ws.onclose = () => {
+    console.log('WebSocket отключен');
+};
+
+// Отправка сообщения
+function sendMessage() {
+    const message = document.getElementById('messageInput').value;
+    ws.send(message);
+}</code></pre>
+                </div>
+            </section>
+        </div>
+    </div>
 </div>
+
+@section Scripts {
+    <script>
+        var triggerTabList = [].slice.call(document.querySelectorAll('#chapterTabs button'))
+        triggerTabList.forEach(function (triggerEl) {
+            var tabTrigger = new bootstrap.Tab(triggerEl)
+        })
+    </script>
+}

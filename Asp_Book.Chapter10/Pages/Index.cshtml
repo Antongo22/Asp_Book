@@ -1,10 +1,161 @@
 ﻿@page
 @model IndexModel
 @{
-    ViewData["Title"] = "Home page";
+    ViewData["Title"] = "Глава 10: SignalR";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<div class="container-fluid">
+    <h1 class="mb-4">Глава 10: SignalR</h1>
+
+    <ul class="nav nav-tabs mb-4" id="chapterTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="theory-tab" data-bs-toggle="tab" data-bs-target="#theory" type="button" role="tab">
+                Теория и Демонстрация
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="answers-tab" data-bs-toggle="tab" data-bs-target="#answers" type="button" role="tab">
+                Ответы
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="chapterTabsContent">
+        <div class="tab-pane fade show active" id="theory" role="tabpanel">
+            <h2>Теория</h2>
+
+            <section class="mb-5">
+                <h3>Что такое SignalR?</h3>
+                <p><strong>SignalR</strong> — библиотека Microsoft для добавления функциональности реального времени в веб-приложения.</p>
+                
+                <h4>Преимущества SignalR:</h4>
+                <ul>
+                    <li><strong>Автоматический выбор транспорта:</strong> WebSocket, Server-Sent Events, Long Polling</li>
+                    <li><strong>Простота использования:</strong> Высокоуровневый API</li>
+                    <li><strong>Группы:</strong> Легко отправлять сообщения группам пользователей</li>
+                    <li><strong>Масштабируемость:</strong> Поддержка Redis для масштабирования</li>
+                </ul>
+            </section>
+
+            <section class="mb-5">
+                <h3>Задача: Реализовать SignalR Hub</h3>
+                <div class="alert alert-warning">
+                    <h5>Ваша задача:</h5>
+                    <p>Изучите реализацию SignalR в проекте:</p>
+                    <ul>
+                        <li>Как создать SignalR Hub?</li>
+                        <li>Как отправлять сообщения всем клиентам?</li>
+                        <li>Как отправлять сообщение конкретному клиенту?</li>
+                    </ul>
+                </div>
+            </section>
+        </div>
+
+        <div class="tab-pane fade" id="answers" role="tabpanel">
+            <h2>Решение: Реализация SignalR</h2>
+
+            <section class="mb-5">
+                <h3>1. Создание SignalR Hub</h3>
+                <div class="code-block">
+                    <pre><code>using Microsoft.AspNetCore.SignalR;
+
+public class ChatHub : Hub
+{
+    // Отправка сообщения всем подключенным клиентам
+    public async Task SendToAll(string user, string message)
+    {
+        await Clients.All.SendAsync("ReceiveMessage", user, message);
+    }
+
+    // Отправка сообщения конкретному клиенту
+    public async Task SendToUser(string connectionId, string user, string message)
+    {
+        await Clients.Client(connectionId).SendAsync("ReceiveMessage", user, message);
+    }
+
+    // Отправка всем, кроме отправителя
+    public async Task SendToOthers(string user, string message)
+    {
+        await Clients.Others.SendAsync("ReceiveMessage", user, message);
+    }
+
+    // Подключение клиента
+    public override async Task OnConnectedAsync()
+    {
+        await Clients.All.SendAsync("UserConnected", Context.ConnectionId);
+        await base.OnConnectedAsync();
+    }
+
+    // Отключение клиента
+    public override async Task OnDisconnectedAsync(Exception? exception)
+    {
+        await Clients.All.SendAsync("UserDisconnected", Context.ConnectionId);
+        await base.OnDisconnectedAsync(exception);
+    }
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>2. Настройка в Program.cs</h3>
+                <div class="code-block">
+                    <pre><code>// Регистрация SignalR
+builder.Services.AddSignalR();
+
+var app = builder.Build();
+
+// Маппинг Hub
+app.MapHub&lt;ChatHub&gt;("/chathub");</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>3. Клиентский код (JavaScript)</h3>
+                <div class="code-block">
+                    <pre><code>// Подключение к SignalR Hub
+const connection = new signalR.HubConnectionBuilder()
+    .withUrl("/chathub")
+    .build();
+
+// Подключение
+connection.start().then(() => {
+    console.log('SignalR подключен');
+}).catch(err => {
+    console.error('Ошибка подключения:', err);
+});
+
+// Получение сообщений
+connection.on("ReceiveMessage", (user, message) => {
+    console.log(`${user}: ${message}`);
+    document.getElementById('messages').innerHTML += 
+        `&lt;div&gt;${user}: ${message}&lt;/div&gt;`;
+});
+
+// Отправка сообщения всем
+function sendToAll() {
+    const user = document.getElementById('userInput').value;
+    const message = document.getElementById('messageInput').value;
+    connection.invoke("SendToAll", user, message);
+}
+
+// Отправка конкретному пользователю
+function sendToUser(connectionId) {
+    const user = document.getElementById('userInput').value;
+    const message = document.getElementById('messageInput').value;
+    connection.invoke("SendToUser", connectionId, user, message);
+}</code></pre>
+                </div>
+            </section>
+        </div>
+    </div>
 </div>
+
+@section Scripts {
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.0/signalr.min.js"></script>
+    <script>
+        var triggerTabList = [].slice.call(document.querySelectorAll('#chapterTabs button'))
+        triggerTabList.forEach(function (triggerEl) {
+            var tabTrigger = new bootstrap.Tab(triggerEl)
+        })
+    </script>
+}

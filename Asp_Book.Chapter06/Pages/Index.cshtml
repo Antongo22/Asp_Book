@@ -107,101 +107,150 @@ dotnet ef database update PreviousMigration</code></pre>
         <div class="tab-pane fade" id="answers" role="tabpanel">
             <h2>Решение задачи</h2>
 
-            <div class="alert alert-info">
-                <strong>Где посмотреть код:</strong> Полная реализация находится в файлах:
-                <ul>
-                    <li><code>Models/Product.cs</code> — модель сущности Product</li>
-                    <li><code>DTOs/ProductDto.cs</code> — DTO для передачи данных</li>
-                    <li><code>Data/ApplicationDbContext.cs</code> — контекст базы данных</li>
-                    <li><code>Controllers/ProductsController.cs</code> — контроллер с CRUD операциями</li>
-                </ul>
-                Вы можете открыть эти файлы в проекте и изучить код самостоятельно.
-            </div>
-
             <section class="mb-5">
-                <h3>Готовое решение</h3>
-                <p>В проекте реализована полнофункциональная система работы с базой данных через Entity Framework Core, включающая CRUD операции, миграции и использование DTO.</p>
-                
-                <h4>Что реализовано:</h4>
-                <ol>
-                    <li><strong>Модель Product:</strong> Entity класс с:
-                        <ul>
-                            <li>Свойствами: Id, Name, Price, Description</li>
-                            <li>Настройкой через Fluent API или Data Annotations</li>
-                        </ul>
-                    </li>
-                    <li><strong>DTO (ProductDto):</strong> Объект для передачи данных между слоями:
-                        <ul>
-                            <li>Используется для API ответов</li>
-                            <li>Не содержит внутренних полей Entity (например, навигационных свойств)</li>
-                            <li>Обеспечивает безопасность и производительность</li>
-                        </ul>
-                    </li>
-                    <li><strong>ApplicationDbContext:</strong> Контекст базы данных:
-                        <ul>
-                            <li>Настроен для работы с SQLite</li>
-                            <li>Содержит DbSet для Product</li>
-                            <li>Настроен через OnConfiguring или через DI</li>
-                        </ul>
-                    </li>
-                    <li><strong>ProductsController:</strong> API контроллер с полным набором CRUD операций:
-                        <ul>
-                            <li>GET — получение списка и отдельного продукта</li>
-                            <li>POST — создание нового продукта</li>
-                            <li>PUT — обновление существующего продукта</li>
-                            <li>DELETE — удаление продукта</li>
-                        </ul>
-                    </li>
-                    <li><strong>Миграции:</strong> Настроена система миграций для управления схемой БД.</li>
-                </ol>
-            </section>
+                <h3>1. Модель Product</h3>
+                <div class="code-block">
+                    <pre><code>namespace Asp_Book.Chapter06.Models;
 
-            <section class="mb-5">
-                <h3>Как это работает</h3>
-                <p>При работе с API происходит следующее:</p>
-                <ol>
-                    <li>Запрос приходит в контроллер</li>
-                    <li>Контроллер получает <code>ApplicationDbContext</code> через Dependency Injection</li>
-                    <li>Выполняется запрос к базе данных через LINQ</li>
-                    <li>Entity преобразуется в DTO для возврата клиенту</li>
-                    <li>Данные возвращаются в формате JSON</li>
-                </ol>
-
-                <h4>Примеры операций:</h4>
-                <div class="alert alert-success">
-                    <strong>Создание продукта:</strong><br>
-                    <code>POST /api/Products</code> с телом <code>{"name": "Ноутбук", "price": 50000, "description": "Игровой ноутбук"}</code><br>
-                    Ответ: <code>{"id": 1, "name": "Ноутбук", "price": 50000, "description": "Игровой ноутбук"}</code>
-                </div>
-                <div class="alert alert-success">
-                    <strong>Получение всех продуктов:</strong><br>
-                    <code>GET /api/Products</code><br>
-                    Ответ: Массив всех продуктов в формате DTO
+public class Product
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public decimal Price { get; set; }
+    public int Stock { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}</code></pre>
                 </div>
             </section>
 
             <section class="mb-5">
-                <h3>Ключевые моменты реализации</h3>
-                <ul>
-                    <li><strong>Разделение Entity и DTO:</strong> Entity используется для работы с БД, DTO — для API. Это обеспечивает безопасность и гибкость.</li>
-                    <li><strong>Миграции:</strong> Используйте миграции для управления схемой БД. Команды: <code>dotnet ef migrations add</code> и <code>dotnet ef database update</code>.</li>
-                    <li><strong>Асинхронные операции:</strong> Все операции с БД асинхронные (<code>ToListAsync()</code>, <code>SaveChangesAsync()</code>).</li>
-                    <li><strong>Обработка ошибок:</strong> Проверка существования сущности перед обновлением/удалением.</li>
-                    <li><strong>Валидация:</strong> Валидация данных перед сохранением в БД.</li>
-                </ul>
+                <h3>2. DTO для передачи данных</h3>
+                <div class="code-block">
+                    <pre><code>namespace Asp_Book.Chapter06.DTOs;
+
+public class ProductDto
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public decimal Price { get; set; }
+    public int Stock { get; set; }
+}
+
+public class CreateProductDto
+{
+    public string Name { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public decimal Price { get; set; }
+    public int Stock { get; set; }
+}</code></pre>
+                </div>
             </section>
 
             <section class="mb-5">
-                <h3>Как протестировать</h3>
-                <p>Вы можете протестировать решение через Swagger UI:</p>
-                <ol>
-                    <li>Откройте <a href="/swagger" target="_blank">Swagger UI</a></li>
-                    <li>Найдите раздел <code>Products</code></li>
-                    <li>Создайте новый продукт через POST</li>
-                    <li>Получите список продуктов через GET</li>
-                    <li>Обновите продукт через PUT</li>
-                    <li>Удалите продукт через DELETE</li>
-                </ol>
+                <h3>3. ApplicationDbContext</h3>
+                <div class="code-block">
+                    <pre><code>using Microsoft.EntityFrameworkCore;
+using Asp_Book.Chapter06.Models;
+
+public class ApplicationDbContext : DbContext
+{
+    public ApplicationDbContext(DbContextOptions&lt;ApplicationDbContext&gt; options)
+        : base(options)
+    {
+    }
+
+    public DbSet&lt;Product&gt; Products { get; set; }
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>4. Регистрация в Program.cs</h3>
+                <div class="code-block">
+                    <pre><code>builder.Services.AddDbContext&lt;ApplicationDbContext&gt;(options =>
+    options.UseSqlite("Data Source=products.db"));</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>5. CRUD контроллер</h3>
+                <div class="code-block">
+                    <pre><code>[ApiController]
+[Route("api/[controller]")]
+public class ProductsController : ControllerBase
+{
+    private readonly ApplicationDbContext _context;
+
+    public ProductsController(ApplicationDbContext context)
+    {
+        _context = context;
+    }
+
+    [HttpGet]
+    public async Task&lt;ActionResult&lt;IEnumerable&lt;ProductDto&gt;&gt;&gt; GetProducts()
+    {
+        var products = await _context.Products
+            .Select(p => new ProductDto
+            {
+                Id = p.Id,
+                Name = p.Name,
+                Price = p.Price,
+                Stock = p.Stock
+            })
+            .ToListAsync();
+        return Ok(products);
+    }
+
+    [HttpPost]
+    public async Task&lt;ActionResult&lt;ProductDto&gt;&gt; CreateProduct(CreateProductDto dto)
+    {
+        var product = new Product
+        {
+            Name = dto.Name,
+            Description = dto.Description,
+            Price = dto.Price,
+            Stock = dto.Stock
+        };
+
+        _context.Products.Add(product);
+        await _context.SaveChangesAsync();
+
+        var productDto = new ProductDto
+        {
+            Id = product.Id,
+            Name = product.Name,
+            Price = product.Price,
+            Stock = product.Stock
+        };
+
+        return CreatedAtAction(nameof(GetProduct), new { id = product.Id }, productDto);
+    }
+
+    [HttpDelete("{id}")]
+    public async Task&lt;IActionResult&gt; DeleteProduct(int id)
+    {
+        var product = await _context.Products.FindAsync(id);
+        if (product == null) return NotFound();
+
+        _context.Products.Remove(product);
+        await _context.SaveChangesAsync();
+        return NoContent();
+    }
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>6. Миграции</h3>
+                <div class="code-block">
+                    <pre><code>// Создание миграции
+dotnet ef migrations add InitialCreate
+
+// Применение миграции
+dotnet ef database update</code></pre>
+                </div>
             </section>
         </div>
     </div>

@@ -132,76 +132,120 @@ var response = await client.GetAsync("posts/1");</code></pre>
         <div class="tab-pane fade" id="answers" role="tabpanel">
             <h2>Решение задачи</h2>
 
-            <div class="alert alert-info">
-                <strong>Где посмотреть код:</strong> Полная реализация находится в файлах:
-                <ul>
-                    <li><code>Services/IExternalApiService.cs</code> и <code>Services/ExternalApiService.cs</code> — интерфейс и реализация сервиса</li>
-                    <li><code>Controllers/HttpClientController.cs</code> — контроллер, использующий сервис</li>
-                    <li><code>Program.cs</code> — регистрация HttpClient и сервиса</li>
-                </ul>
-                Вы можете открыть эти файлы в проекте и изучить код самостоятельно.
-            </div>
-
             <section class="mb-5">
-                <h3>Готовое решение</h3>
-                <p>В проекте реализован сервис для работы с внешним API, который демонстрирует правильное использование HttpClient через IHttpClientFactory.</p>
-                
-                <h4>Что реализовано:</h4>
-                <ol>
-                    <li><strong>Регистрация HttpClient:</strong> В <code>Program.cs</code> зарегистрирован именованный HttpClient с настройками базового адреса и таймаута.</li>
-                    <li><strong>Интерфейс IExternalApiService:</strong> Определяет методы для работы с внешним API (получение данных, отправка POST запросов).</li>
-                    <li><strong>Реализация ExternalApiService:</strong> Класс, который:
-                        <ul>
-                            <li>Использует <code>IHttpClientFactory</code> для создания HttpClient экземпляров</li>
-                            <li>Выполняет GET и POST запросы к внешнему API</li>
-                            <li>Обрабатывает ошибки и логирует их</li>
-                            <li>Использует async/await для асинхронных операций</li>
-                        </ul>
-                    </li>
-                    <li><strong>Контроллер HttpClientController:</strong> Предоставляет API endpoints для тестирования работы с внешним сервисом.</li>
-                </ol>
+                <h3>1. Регистрация HttpClient в Program.cs</h3>
+                <div class="code-block">
+                    <pre><code>builder.Services.AddHttpClient&lt;IExternalApiService, ExternalApiService&gt;(client =>
+{
+    client.BaseAddress = new Uri("https://jsonplaceholder.typicode.com/");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+
+builder.Services.AddScoped&lt;IExternalApiService, ExternalApiService&gt;();</code></pre>
+                </div>
             </section>
 
             <section class="mb-5">
-                <h3>Как это работает</h3>
-                <p>При запросе к API происходит следующее:</p>
-                <ol>
-                    <li>Контроллер получает <code>IExternalApiService</code> через Dependency Injection</li>
-                    <li>Сервис использует <code>IHttpClientFactory</code> для создания HttpClient</li>
-                    <li>HttpClient выполняет HTTP запрос к внешнему API</li>
-                    <li>Ответ десериализуется и возвращается клиенту</li>
-                    <li>При ошибках они логируются и обрабатываются корректно</li>
-                </ol>
+                <h3>2. Интерфейс сервиса</h3>
+                <div class="code-block">
+                    <pre><code>namespace Asp_Book.Chapter03.Services;
 
-                <h4>Преимущества использования IHttpClientFactory:</h4>
-                <ul>
-                    <li><strong>Управление соединениями:</strong> Автоматическое управление пулом соединений</li>
-                    <li><strong>Предотвращение утечек:</strong> Правильное освобождение ресурсов</li>
-                    <li><strong>Настройка:</strong> Централизованная конфигурация HttpClient</li>
-                    <li><strong>Производительность:</strong> Переиспользование соединений</li>
-                </ul>
+public interface IExternalApiService
+{
+    Task&lt;string&gt; GetPostAsync(int id);
+    Task&lt;string&gt; GetAllPostsAsync();
+    Task&lt;string&gt; CreatePostAsync(string title, string body, int userId);
+}</code></pre>
+                </div>
             </section>
 
             <section class="mb-5">
-                <h3>Ключевые моменты реализации</h3>
-                <ul>
-                    <li><strong>Использование IHttpClientFactory:</strong> Никогда не создавайте HttpClient напрямую через <code>new HttpClient()</code>. Всегда используйте фабрику.</li>
-                    <li><strong>Обработка ошибок:</strong> Все HTTP запросы обернуты в try-catch для обработки <code>HttpRequestException</code>.</li>
-                    <li><strong>Логирование:</strong> Все ошибки логируются с контекстом для упрощения отладки.</li>
-                    <li><strong>Асинхронность:</strong> Все методы асинхронные, что не блокирует потоки при ожидании ответа от внешнего API.</li>
-                    <li><strong>Проверка статуса:</strong> Использование <code>EnsureSuccessStatusCode()</code> для проверки успешности запроса.</li>
-                </ul>
+                <h3>3. Реализация сервиса</h3>
+                <div class="code-block">
+                    <pre><code>using System.Text;
+using System.Text.Json;
+
+public class ExternalApiService : IExternalApiService
+{
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly ILogger&lt;ExternalApiService&gt; _logger;
+
+    public ExternalApiService(IHttpClientFactory httpClientFactory, ILogger&lt;ExternalApiService&gt; logger)
+    {
+        _httpClientFactory = httpClientFactory;
+        _logger = logger;
+    }
+
+    public async Task&lt;string&gt; GetPostAsync(int id)
+    {
+        var client = _httpClientFactory.CreateClient("ExternalAPI");
+        
+        try
+        {
+            var response = await client.GetAsync($"posts/{id}");
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadAsStringAsync();
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "Ошибка при запросе к внешнему API");
+            throw;
+        }
+    }
+
+    public async Task&lt;string&gt; CreatePostAsync(string title, string body, int userId)
+    {
+        var client = _httpClientFactory.CreateClient("ExternalAPI");
+        
+        try
+        {
+            var post = new { title, body, userId };
+            var json = JsonSerializer.Serialize(post);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var response = await client.PostAsync("posts", content);
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadAsStringAsync();
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "Ошибка при создании поста");
+            throw;
+        }
+    }
+}</code></pre>
+                </div>
             </section>
 
             <section class="mb-5">
-                <h3>Как протестировать</h3>
-                <p>Вы можете протестировать решение через Swagger UI:</p>
-                <ol>
-                    <li>Откройте <a href="/swagger" target="_blank">Swagger UI</a></li>
-                    <li>Найдите раздел <code>HttpClient</code></li>
-                    <li>Попробуйте вызвать методы для работы с внешним API</li>
-                    <li>Проверьте логи в консоли для просмотра деталей запросов</li>
-                </ol>
+                <h3>4. Использование в контроллере</h3>
+                <div class="code-block">
+                    <pre><code>[ApiController]
+[Route("api/[controller]")]
+public class HttpClientController : ControllerBase
+{
+    private readonly IExternalApiService _externalApiService;
+
+    public HttpClientController(IExternalApiService externalApiService)
+    {
+        _externalApiService = externalApiService;
+    }
+
+    [HttpGet("post/{id}")]
+    public async Task&lt;IActionResult&gt; GetPost(int id)
+    {
+        try
+        {
+            var result = await _externalApiService.GetPostAsync(id);
+            return Ok(JsonSerializer.Deserialize&lt;object&gt;(result));
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+}</code></pre>
+                </div>
             </section>
         </div>
     </div>

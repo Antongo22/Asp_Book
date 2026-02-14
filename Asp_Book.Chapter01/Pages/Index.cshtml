@@ -396,86 +396,88 @@ public class WeatherForecastController : ControllerBase
         <div class="tab-pane fade" id="answers" role="tabpanel">
             <h2>Решение задачи: API Калькулятор</h2>
 
-            <div class="alert alert-info">
-                <strong>Где посмотреть код:</strong> Полная реализация находится в файле <code>Controllers/CalculatorController.cs</code>. 
-                Вы можете открыть этот файл в проекте и изучить код самостоятельно.
-            </div>
-
             <section class="mb-5">
-                <h3>Готовое решение</h3>
-                <p>В проекте реализован полнофункциональный API калькулятор со следующими возможностями:</p>
-                
-                <h4>Доступные операции:</h4>
-                <ul>
-                    <li><strong>POST /api/Calculator/add</strong> — сложение двух чисел</li>
-                    <li><strong>POST /api/Calculator/subtract</strong> — вычитание</li>
-                    <li><strong>POST /api/Calculator/multiply</strong> — умножение</li>
-                    <li><strong>POST /api/Calculator/divide</strong> — деление с проверкой на ноль</li>
-                </ul>
-
-                <h4>Как это работает:</h4>
-                <ol>
-                    <li><strong>Модель запроса:</strong> Создан класс <code>CalculationRequest</code> с двумя свойствами <code>A</code> и <code>B</code> типа <code>double</code> для передачи чисел в запросе.</li>
-                    <li><strong>Контроллер:</strong> Реализован <code>CalculatorController</code> с четырьмя методами, каждый из которых:
-                        <ul>
-                            <li>Принимает JSON с двумя числами через атрибут <code>[FromBody]</code></li>
-                            <li>Выполняет соответствующую математическую операцию</li>
-                            <li>Возвращает результат в формате JSON с полем <code>result</code> и <code>operation</code></li>
-                        </ul>
-                    </li>
-                    <li><strong>Обработка ошибок:</strong> В методе деления добавлена проверка на деление на ноль. При попытке деления на ноль возвращается статус 400 (BadRequest) с сообщением об ошибке.</li>
-                    <li><strong>Маршрутизация:</strong> Все методы используют POST запросы, так как они выполняют операции (не просто получают данные).</li>
-                </ol>
+                <h3>1. Модель запроса</h3>
+                <div class="code-block">
+                    <pre><code>public class CalculationRequest
+{
+    public double A { get; set; }
+    public double B { get; set; }
+}</code></pre>
+                </div>
             </section>
 
             <section class="mb-5">
-                <h3>Как протестировать решение</h3>
-                <p>Вы можете протестировать калькулятор несколькими способами:</p>
-                
-                <h4>1. Через Swagger UI:</h4>
-                <ol>
-                    <li>Откройте <a href="/swagger" target="_blank">Swagger UI</a></li>
-                    <li>Найдите раздел <code>Calculator</code></li>
-                    <li>Раскройте любой метод (например, <code>POST /api/Calculator/add</code>)</li>
-                    <li>Нажмите кнопку "Try it out"</li>
-                    <li>Введите JSON в формате: <code>{"a": 10, "b": 5}</code></li>
-                    <li>Нажмите "Execute"</li>
-                    <li>Проверьте результат в разделе "Responses"</li>
-                </ol>
+                <h3>2. Контроллер CalculatorController</h3>
+                <div class="code-block">
+                    <pre><code>using Microsoft.AspNetCore.Mvc;
 
-                <h4>2. Примеры запросов и ответов:</h4>
+namespace Asp_Book.Chapter01.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class CalculatorController : ControllerBase
+{
+    [HttpPost("add")]
+    public IActionResult Add([FromBody] CalculationRequest request)
+    {
+        var result = request.A + request.B;
+        return Ok(new { result = result, operation = "add" });
+    }
+
+    [HttpPost("subtract")]
+    public IActionResult Subtract([FromBody] CalculationRequest request)
+    {
+        var result = request.A - request.B;
+        return Ok(new { result = result, operation = "subtract" });
+    }
+
+    [HttpPost("multiply")]
+    public IActionResult Multiply([FromBody] CalculationRequest request)
+    {
+        var result = request.A * request.B;
+        return Ok(new { result = result, operation = "multiply" });
+    }
+
+    [HttpPost("divide")]
+    public IActionResult Divide([FromBody] CalculationRequest request)
+    {
+        if (request.B == 0)
+        {
+            return BadRequest(new { error = "Деление на ноль невозможно" });
+        }
+        var result = request.A / request.B;
+        return Ok(new { result = result, operation = "divide" });
+    }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Объяснение:</strong>
+                        <ul>
+                            <li><code>[ApiController]</code> — делает класс API контроллером</li>
+                            <li><code>[Route("api/[controller]")]</code> — базовый маршрут: api/Calculator</li>
+                            <li><code>[HttpPost("add")]</code> — метод обрабатывает POST запросы на /api/Calculator/add</li>
+                            <li><code>[FromBody]</code> — данные берутся из тела HTTP запроса (JSON)</li>
+                            <li><code>Ok()</code> — возвращает статус 200 с данными</li>
+                            <li><code>BadRequest()</code> — возвращает статус 400 при ошибке</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>3. Примеры использования</h3>
                 <div class="alert alert-success">
                     <strong>Сложение:</strong><br>
-                    Запрос: <code>POST /api/Calculator/add</code> с телом <code>{"a": 10, "b": 5}</code><br>
+                    <code>POST /api/Calculator/add</code><br>
+                    Тело: <code>{"a": 10, "b": 5}</code><br>
                     Ответ: <code>{"result": 15, "operation": "add"}</code>
                 </div>
                 <div class="alert alert-success">
                     <strong>Деление на ноль:</strong><br>
-                    Запрос: <code>POST /api/Calculator/divide</code> с телом <code>{"a": 10, "b": 0}</code><br>
-                    Ответ: <code>400 Bad Request</code> с сообщением <code>{"error": "Деление на ноль невозможно"}</code>
+                    <code>POST /api/Calculator/divide</code><br>
+                    Тело: <code>{"a": 10, "b": 0}</code><br>
+                    Ответ: <code>400 Bad Request</code> с <code>{"error": "Деление на ноль невозможно"}</code>
                 </div>
-            </section>
-
-            <section class="mb-5">
-                <h3>Ключевые моменты реализации</h3>
-                <ul>
-                    <li><strong>Атрибут [ApiController]:</strong> Автоматически валидирует входящие данные и обрабатывает ошибки модели.</li>
-                    <li><strong>Атрибут [FromBody]:</strong> Указывает, что данные должны быть взяты из тела HTTP запроса (JSON).</li>
-                    <li><strong>Методы Ok() и BadRequest():</strong> Возвращают правильные HTTP статус коды (200 и 400 соответственно).</li>
-                    <li><strong>Обработка ошибок:</strong> Важно всегда проверять входные данные, особенно в операциях, которые могут привести к ошибкам (деление на ноль).</li>
-                    <li><strong>RESTful подход:</strong> Использование правильных HTTP методов и кодов ответов делает API понятным и стандартным.</li>
-                </ul>
-            </section>
-
-            <section class="mb-5">
-                <h3>Что можно улучшить</h3>
-                <p>Для дальнейшего изучения попробуйте добавить:</p>
-                <ul>
-                    <li>Валидацию входных данных с помощью Data Annotations</li>
-                    <li>Логирование операций</li>
-                    <li>Поддержку дополнительных операций (степень, корень и т.д.)</li>
-                    <li>Историю вычислений</li>
-                </ul>
             </section>
         </div>
     </div>

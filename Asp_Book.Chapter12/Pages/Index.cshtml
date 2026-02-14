@@ -1,10 +1,224 @@
 ﻿@page
 @model IndexModel
 @{
-    ViewData["Title"] = "Home page";
+    ViewData["Title"] = "Глава 12: Тестирование API и EF";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<div class="container-fluid">
+    <h1 class="mb-4">Глава 12: Тестирование API и EF</h1>
+
+    <ul class="nav nav-tabs mb-4" id="chapterTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="theory-tab" data-bs-toggle="tab" data-bs-target="#theory" type="button" role="tab">
+                Теория и Демонстрация
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="answers-tab" data-bs-toggle="tab" data-bs-target="#answers" type="button" role="tab">
+                Ответы
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="chapterTabsContent">
+        <div class="tab-pane fade show active" id="theory" role="tabpanel">
+            <h2>Теория</h2>
+
+            <section class="mb-5">
+                <h3>Зачем нужно тестирование?</h3>
+                <p>Тестирование — важная часть разработки, которая помогает:</p>
+                <ul>
+                    <li><strong>Находить ошибки</strong> до продакшена</li>
+                    <li><strong>Обеспечивать качество</strong> кода</li>
+                    <li><strong>Упрощать рефакторинг</strong> — тесты показывают, что ничего не сломалось</li>
+                    <li><strong>Документировать</strong> поведение кода</li>
+                </ul>
+            </section>
+
+            <section class="mb-5">
+                <h3>Типы тестов</h3>
+                <ul>
+                    <li><strong>Unit тесты</strong> — тестирование отдельных компонентов</li>
+                    <li><strong>Integration тесты</strong> — тестирование взаимодействия компонентов</li>
+                    <li><strong>API тесты</strong> — тестирование HTTP endpoints</li>
+                </ul>
+            </section>
+
+            <section class="mb-5">
+                <h3>In-Memory Database для тестирования</h3>
+                <p>Для тестирования EF Core используется In-Memory Database — база данных в памяти, которая не требует реальной БД.</p>
+                <ul>
+                    <li>Быстрая работа</li>
+                    <li>Не требует настройки БД</li>
+                    <li>Изолированность тестов</li>
+                </ul>
+            </section>
+
+            <section class="mb-5">
+                <h3>Задача: Написать чат с тестами</h3>
+                <div class="alert alert-warning">
+                    <h5>Ваша задача:</h5>
+                    <p>Изучите реализацию чата с тестами:</p>
+                    <ul>
+                        <li>Как создать In-Memory базу данных для тестов?</li>
+                        <li>Как тестировать контроллеры?</li>
+                        <li>Как тестировать сервисы с EF Core?</li>
+                    </ul>
+                </div>
+            </section>
+        </div>
+
+        <div class="tab-pane fade" id="answers" role="tabpanel">
+            <h2>Решение: Тестирование чата</h2>
+
+            <section class="mb-5">
+                <h3>1. Настройка In-Memory Database</h3>
+                <div class="code-block">
+                    <pre><code>private ChatDbContext GetInMemoryDbContext()
+{
+    var options = new DbContextOptionsBuilder&lt;ChatDbContext&gt;()
+        .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+        .Options;
+
+    return new ChatDbContext(options);
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Объяснение:</strong> 
+                        <ul>
+                            <li><code>UseInMemoryDatabase</code> — создает БД в памяти</li>
+                            <li><code>Guid.NewGuid()</code> — уникальное имя для изоляции тестов</li>
+                            <li>Каждый тест получает чистую БД</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>2. Тест контроллера</h3>
+                <div class="code-block">
+                    <pre><code>using Xunit;
+using Microsoft.AspNetCore.Mvc;
+
+[Fact]
+public async Task SendMessage_ShouldReturnOk()
+{
+    // Arrange - подготовка
+    var context = GetInMemoryDbContext();
+    var service = new ChatService(context);
+    var controller = new ChatController(service);
+
+    var request = new SendMessageRequest
+    {
+        Text = "Привет",
+        Sender = "User1"
+    };
+
+    // Act - выполнение
+    var result = await controller.SendMessage(request);
+
+    // Assert - проверка
+    var okResult = Assert.IsType&lt;OkObjectResult&gt;(result);
+    var message = Assert.IsType&lt;Message&gt;(okResult.Value);
+    Assert.Equal("Привет", message.Text);
+    Assert.Equal("User1", message.Sender);
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>3. Тест сервиса с EF Core</h3>
+                <div class="code-block">
+                    <pre><code>[Fact]
+public async Task SendMessageAsync_ShouldSaveMessage()
+{
+    // Arrange
+    var context = GetInMemoryDbContext();
+    var service = new ChatService(context);
+
+    // Act
+    var message = await service.SendMessageAsync("Тест", "User1");
+
+    // Assert
+    Assert.NotNull(message);
+    Assert.Equal("Тест", message.Text);
+    Assert.Equal("User1", message.Sender);
+    Assert.True(message.Id > 0);
+    
+    // Проверка что сообщение сохранено в БД
+    var savedMessage = await context.Messages.FindAsync(message.Id);
+    Assert.NotNull(savedMessage);
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>4. Тест с несколькими сообщениями</h3>
+                <div class="code-block">
+                    <pre><code>[Fact]
+public async Task GetMessagesAsync_ShouldReturnMessages()
+{
+    // Arrange
+    var context = GetInMemoryDbContext();
+    var service = new ChatService(context);
+
+    await service.SendMessageAsync("Сообщение 1", "User1");
+    await service.SendMessageAsync("Сообщение 2", "User2");
+
+    // Act
+    var messages = await service.GetMessagesAsync();
+
+    // Assert
+    Assert.Equal(2, messages.Count);
+    Assert.Equal("Сообщение 1", messages[0].Text);
+    Assert.Equal("Сообщение 2", messages[1].Text);
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>5. Тест с группами</h3>
+                <div class="code-block">
+                    <pre><code>[Fact]
+public async Task GetMessagesAsync_WithGroupId_ShouldReturnGroupMessages()
+{
+    // Arrange
+    var context = GetInMemoryDbContext();
+    var service = new ChatService(context);
+
+    var group = await service.CreateGroupAsync("Группа 1");
+    await service.SendMessageAsync("В группе", "User1", group.Id);
+    await service.SendMessageAsync("Вне группы", "User2", null);
+
+    // Act
+    var groupMessages = await service.GetMessagesAsync(group.Id);
+    var allMessages = await service.GetMessagesAsync(null);
+
+    // Assert
+    Assert.Single(groupMessages);
+    Assert.Equal(2, allMessages.Count);
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>6. Запуск тестов</h3>
+                <div class="code-block">
+                    <pre><code>// В терминале:
+dotnet test
+
+// Или в Visual Studio:
+// Test Explorer -> Run All Tests</code></pre>
+                </div>
+            </section>
+        </div>
+    </div>
 </div>
+
+@section Scripts {
+    <script>
+        var triggerTabList = [].slice.call(document.querySelectorAll('#chapterTabs button'))
+        triggerTabList.forEach(function (triggerEl) {
+            var tabTrigger = new bootstrap.Tab(triggerEl)
+        })
+    </script>
+}

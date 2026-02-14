@@ -1,10 +1,303 @@
 ﻿@page
 @model IndexModel
 @{
-    ViewData["Title"] = "Home page";
+    ViewData["Title"] = "Глава 8: Refresh Token";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<div class="container-fluid">
+    <h1 class="mb-4">Глава 8: Refresh Token</h1>
+
+    <ul class="nav nav-tabs mb-4" id="chapterTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="theory-tab" data-bs-toggle="tab" data-bs-target="#theory" type="button" role="tab">
+                Теория и Демонстрация
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="answers-tab" data-bs-toggle="tab" data-bs-target="#answers" type="button" role="tab">
+                Ответы
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="chapterTabsContent">
+        <div class="tab-pane fade show active" id="theory" role="tabpanel">
+            <h2>Теория</h2>
+
+            <section class="mb-5">
+                <h3>Что такое Refresh Token?</h3>
+                <p><strong>Refresh Token</strong> — это долгоживущий токен, который используется для получения новых Access Token без повторного ввода учетных данных.</p>
+                
+                <h4>Проблема без Refresh Token:</h4>
+                <ul>
+                    <li>Access Token имеет короткий срок жизни (15-30 минут) для безопасности</li>
+                    <li>Когда токен истекает, пользователю нужно снова вводить логин и пароль</li>
+                    <li>Плохой пользовательский опыт</li>
+                </ul>
+
+                <h4>Решение с Refresh Token:</h4>
+                <ul>
+                    <li>Access Token — короткоживущий (15 минут) для доступа к ресурсам</li>
+                    <li>Refresh Token — долгоживущий (7-30 дней) для обновления Access Token</li>
+                    <li>При истечении Access Token клиент использует Refresh Token для получения нового</li>
+                    <li>Пользователь не вводит пароль повторно</li>
+                </ul>
+            </section>
+
+            <section class="mb-5">
+                <h3>Как работает Refresh Token</h3>
+                <ol>
+                    <li><strong>Вход:</strong> Пользователь вводит логин и пароль</li>
+                    <li><strong>Получение токенов:</strong> Сервер возвращает Access Token и Refresh Token</li>
+                    <li><strong>Использование Access Token:</strong> Клиент использует Access Token для запросов</li>
+                    <li><strong>Истечение Access Token:</strong> Когда Access Token истекает, сервер возвращает 401</li>
+                    <li><strong>Обновление:</strong> Клиент отправляет Refresh Token на эндпоинт /refresh</li>
+                    <li><strong>Новые токены:</strong> Сервер проверяет Refresh Token и выдает новые Access и Refresh токены</li>
+                    <li><strong>Отзыв старого:</strong> Старый Refresh Token отзывается (revoked)</li>
+                </ol>
+            </section>
+
+            <section class="mb-5">
+                <h3>Безопасность Refresh Token</h3>
+                <ul>
+                    <li><strong>Хранение в БД:</strong> Refresh Token хранится в базе данных для возможности отзыва</li>
+                    <li><strong>Отзыв токенов:</strong> При выходе или подозрительной активности токен можно отозвать</li>
+                    <li><strong>Ротация токенов:</strong> При каждом обновлении выдается новый Refresh Token</li>
+                    <li><strong>Проверка валидности:</strong> Проверяется срок действия и статус отзыва</li>
+                </ul>
+            </section>
+
+            <section class="mb-5">
+                <h3>Задача: Реализовать Refresh Token</h3>
+                <div class="alert alert-warning">
+                    <h5>Ваша задача:</h5>
+                    <p>Изучите реализацию Refresh Token в проекте и ответьте на вопросы:</p>
+                    <ul>
+                        <li>Как генерируется Refresh Token?</li>
+                        <li>Как хранятся Refresh Token в БД?</li>
+                        <li>Как происходит обновление Access Token?</li>
+                        <li>Как отозвать Refresh Token?</li>
+                    </ul>
+                </div>
+            </section>
+        </div>
+
+        <div class="tab-pane fade" id="answers" role="tabpanel">
+            <h2>Решение: Реализация Refresh Token</h2>
+
+            <section class="mb-5">
+                <h3>1. Модель RefreshToken</h3>
+                <div class="code-block">
+                    <pre><code>public class RefreshToken
+{
+    public int Id { get; set; }
+    public string Token { get; set; } = string.Empty;
+    public int UserId { get; set; }
+    public DateTime Expires { get; set; }
+    public bool IsRevoked { get; set; }
+    public DateTime Created { get; set; } = DateTime.UtcNow;
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>2. Генерация Refresh Token</h3>
+                <div class="code-block">
+                    <pre><code>public string GenerateRefreshToken()
+{
+    var randomNumber = new byte[64];
+    using var rng = RandomNumberGenerator.Create();
+    rng.GetBytes(randomNumber);
+    return Convert.ToBase64String(randomNumber);
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Объяснение:</strong> Refresh Token генерируется как криптографически стойкая случайная строка длиной 64 байта, преобразованная в Base64.
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>3. Сохранение Refresh Token в БД</h3>
+                <div class="code-block">
+                    <pre><code>public async Task SaveRefreshTokenAsync(int userId, string refreshToken, DateTime expires)
+{
+    var token = new RefreshToken
+    {
+        Token = refreshToken,
+        UserId = userId,
+        Expires = expires,
+        IsRevoked = false
+    };
+
+    _context.RefreshTokens.Add(token);
+    await _context.SaveChangesAsync();
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>4. Метод Login с выдачей обоих токенов</h3>
+                <div class="code-block">
+                    <pre><code>[HttpPost("login")]
+public async Task&lt;IActionResult&gt; Login([FromBody] LoginRequest request)
+{
+    var user = await _userService.GetUserByUsernameAsync(request.Username);
+    if (user == null || !_userService.VerifyPassword(request.Password, user.PasswordHash))
+    {
+        return Unauthorized(new { message = "Неверные учетные данные" });
+    }
+
+    // Генерация токенов
+    var accessToken = _tokenService.GenerateAccessToken(user);
+    var refreshToken = _tokenService.GenerateRefreshToken();
+    var refreshTokenExpires = DateTime.UtcNow.AddDays(7);
+
+    // Сохранение refresh token
+    await _tokenService.SaveRefreshTokenAsync(
+        user.Id, refreshToken, refreshTokenExpires);
+
+    return Ok(new AuthResponse
+    {
+        AccessToken = accessToken,
+        RefreshToken = refreshToken,
+        Username = user.Username,
+        Role = user.Role,
+        AccessTokenExpires = DateTime.UtcNow.AddMinutes(15),
+        RefreshTokenExpires = refreshTokenExpires
+    });
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>5. Метод Refresh для обновления токенов</h3>
+                <div class="code-block">
+                    <pre><code>[HttpPost("refresh")]
+public async Task&lt;IActionResult&gt; Refresh([FromBody] RefreshTokenRequest request)
+{
+    // Проверка валидности refresh token
+    if (!await _tokenService.IsRefreshTokenValidAsync(request.RefreshToken))
+    {
+        return Unauthorized(new { message = "Недействительный refresh token" });
+    }
+
+    var refreshToken = await _tokenService.GetRefreshTokenAsync(request.RefreshToken);
+    if (refreshToken == null)
+    {
+        return Unauthorized(new { message = "Refresh token не найден" });
+    }
+
+    // Получение пользователя
+    var user = await GetUserByIdAsync(refreshToken.UserId);
+
+    // Отзыв старого refresh token
+    await _tokenService.RevokeRefreshTokenAsync(request.RefreshToken);
+
+    // Генерация новых токенов
+    var newAccessToken = _tokenService.GenerateAccessToken(user);
+    var newRefreshToken = _tokenService.GenerateRefreshToken();
+    var newRefreshTokenExpires = DateTime.UtcNow.AddDays(7);
+
+    // Сохранение нового refresh token
+    await _tokenService.SaveRefreshTokenAsync(
+        user.Id, newRefreshToken, newRefreshTokenExpires);
+
+    return Ok(new AuthResponse
+    {
+        AccessToken = newAccessToken,
+        RefreshToken = newRefreshToken,
+        Username = user.Username,
+        Role = user.Role,
+        AccessTokenExpires = DateTime.UtcNow.AddMinutes(15),
+        RefreshTokenExpires = newRefreshTokenExpires
+    });
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>6. Проверка валидности Refresh Token</h3>
+                <div class="code-block">
+                    <pre><code>public async Task&lt;bool&gt; IsRefreshTokenValidAsync(string token)
+{
+    var refreshToken = await _context.RefreshTokens
+        .FirstOrDefaultAsync(rt => rt.Token == token);
+    
+    return refreshToken != null 
+        && !refreshToken.IsRevoked 
+        && refreshToken.Expires > DateTime.UtcNow;
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>7. Отзыв Refresh Token</h3>
+                <div class="code-block">
+                    <pre><code>[HttpPost("revoke")]
+public async Task&lt;IActionResult&gt; Revoke([FromBody] RefreshTokenRequest request)
+{
+    await _tokenService.RevokeRefreshTokenAsync(request.RefreshToken);
+    return Ok(new { message = "Refresh token отозван" });
+}
+
+// В сервисе:
+public async Task RevokeRefreshTokenAsync(string token)
+{
+    var refreshToken = await GetRefreshTokenAsync(token);
+    if (refreshToken != null)
+    {
+        refreshToken.IsRevoked = true;
+        await _context.SaveChangesAsync();
+    }
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>8. Использование на клиенте</h3>
+                <div class="code-block">
+                    <pre><code>// 1. Вход и получение токенов
+const loginResponse = await fetch('/api/Auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'user', password: 'pass' })
+});
+const { accessToken, refreshToken } = await loginResponse.json();
+
+// Сохранение токенов
+localStorage.setItem('accessToken', accessToken);
+localStorage.setItem('refreshToken', refreshToken);
+
+// 2. При истечении Access Token (401)
+async function refreshAccessToken() {
+    const refreshToken = localStorage.getItem('refreshToken');
+    const response = await fetch('/api/Auth/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken })
+    });
+    
+    if (response.ok) {
+        const { accessToken, refreshToken: newRefreshToken } = await response.json();
+        localStorage.setItem('accessToken', accessToken);
+        localStorage.setItem('refreshToken', newRefreshToken);
+        return accessToken;
+    }
+    
+    // Если refresh token невалиден - перенаправить на логин
+    window.location.href = '/login';
+}</code></pre>
+                </div>
+            </section>
+        </div>
+    </div>
 </div>
+
+@section Scripts {
+    <script>
+        var triggerTabList = [].slice.call(document.querySelectorAll('#chapterTabs button'))
+        triggerTabList.forEach(function (triggerEl) {
+            var tabTrigger = new bootstrap.Tab(triggerEl)
+        })
+    </script>
+}

@@ -143,78 +143,90 @@
         <div class="tab-pane fade" id="answers" role="tabpanel">
             <h2>Решение задачи</h2>
 
-            <div class="alert alert-info">
-                <strong>Где посмотреть код:</strong> Полная реализация находится в файлах:
-                <ul>
-                    <li><code>Services/IMessageService.cs</code> и <code>Services/MessageService.cs</code> — интерфейс и реализация сервиса</li>
-                    <li><code>Controllers/MessageController.cs</code> — контроллер, использующий сервис</li>
-                    <li><code>Program.cs</code> — регистрация сервиса в DI контейнере</li>
-                </ul>
-                Вы можете открыть эти файлы в проекте и изучить код самостоятельно.
-            </div>
-
             <section class="mb-5">
-                <h3>Готовое решение</h3>
-                <p>В проекте реализован сервис для работы с сообщениями, который демонстрирует использование Dependency Injection с логгером.</p>
-                
-                <h4>Что реализовано:</h4>
-                <ol>
-                    <li><strong>Интерфейс IMessageService:</strong> Определяет два метода:
-                        <ul>
-                            <li><code>GetMessage(string name)</code> — генерирует приветственное сообщение</li>
-                            <li><code>LogMessage(string message)</code> — логирует сообщение</li>
-                        </ul>
-                    </li>
-                    <li><strong>Реализация MessageService:</strong> Класс, который:
-                        <ul>
-                            <li>Реализует интерфейс <code>IMessageService</code></li>
-                            <li>Использует <code>ILogger&lt;MessageService&gt;</code>, который внедряется через конструктор (DI)</li>
-                            <li>Логирует все операции с использованием параметризованного логирования</li>
-                        </ul>
-                    </li>
-                    <li><strong>Регистрация в DI:</strong> В <code>Program.cs</code> сервис зарегистрирован как <code>Scoped</code>, что означает создание одного экземпляра на каждый HTTP запрос.</li>
-                    <li><strong>Использование в контроллере:</strong> <code>MessageController</code> получает <code>IMessageService</code> и <code>ILogger</code> через конструктор и использует их для обработки запросов.</li>
-                </ol>
-            </section>
+                <h3>1. Интерфейс IMessageService</h3>
+                <div class="code-block">
+                    <pre><code>namespace Asp_Book.Chapter02.Services;
 
-            <section class="mb-5">
-                <h3>Как это работает</h3>
-                <p>При запросе к API происходит следующее:</p>
-                <ol>
-                    <li>ASP.NET Core создает экземпляр <code>MessageController</code></li>
-                    <li>DI контейнер автоматически создает и внедряет <code>MessageService</code> и <code>ILogger</code></li>
-                    <li>Контроллер вызывает метод сервиса <code>GetMessage()</code></li>
-                    <li>Сервис генерирует сообщение и логирует операцию</li>
-                    <li>Результат возвращается клиенту в формате JSON</li>
-                </ol>
-
-                <h4>Пример работы:</h4>
-                <div class="alert alert-success">
-                    <strong>Запрос:</strong> <code>GET /api/Message/greet/Иван</code><br>
-                    <strong>Ответ:</strong> <code>{"message": "Привет, Иван! Это сообщение от MessageService."}</code><br>
-                    <strong>В логах:</strong> Вы увидите запись <code>Сгенерировано сообщение для Иван</code>
+public interface IMessageService
+{
+    string GetMessage(string name);
+    void LogMessage(string message);
+}</code></pre>
                 </div>
             </section>
 
             <section class="mb-5">
-                <h3>Ключевые моменты реализации</h3>
-                <ul>
-                    <li><strong>Внедрение через конструктор:</strong> Все зависимости передаются через конструктор, что делает зависимости явными и тестируемыми.</li>
-                    <li><strong>Использование интерфейсов:</strong> Регистрация через интерфейс позволяет легко заменять реализацию без изменения кода контроллера.</li>
-                    <li><strong>Жизненный цикл Scoped:</strong> Выбран правильный жизненный цикл для сервиса, который работает с HTTP запросами.</li>
-                    <li><strong>Параметризованное логирование:</strong> Использование плейсхолдеров (<code>{Name}</code>, <code>{Message}</code>) позволяет эффективно структурировать логи.</li>
-                    <li><strong>Автоматическое внедрение:</strong> ASP.NET Core автоматически создает экземпляры всех зарегистрированных сервисов и передает их в конструктор.</li>
-                </ul>
+                <h3>2. Реализация MessageService с DI логгера</h3>
+                <div class="code-block">
+                    <pre><code>namespace Asp_Book.Chapter02.Services;
+
+public class MessageService : IMessageService
+{
+    private readonly ILogger&lt;MessageService&gt; _logger;
+    private readonly List&lt;string&gt; _messages = new();
+
+    // ILogger внедряется через конструктор (DI)
+    public MessageService(ILogger&lt;MessageService&gt; logger)
+    {
+        _logger = logger;
+    }
+
+    public string GetMessage(string name)
+    {
+        var message = $"Привет, {name}! Это сообщение от MessageService.";
+        _logger.LogInformation("Сгенерировано сообщение для {Name}", name);
+        return message;
+    }
+
+    public void LogMessage(string message)
+    {
+        _messages.Add($"{DateTime.Now:HH:mm:ss} - {message}");
+        _logger.LogInformation("Добавлено сообщение: {Message}", message);
+    }
+}</code></pre>
+                </div>
             </section>
 
             <section class="mb-5">
-                <h3>Преимущества такого подхода</h3>
-                <ul>
-                    <li><strong>Тестируемость:</strong> Легко создать моки интерфейсов для unit-тестов</li>
-                    <li><strong>Гибкость:</strong> Можно заменить реализацию без изменения кода контроллера</li>
-                    <li><strong>Читаемость:</strong> Зависимости явно видны в конструкторе</li>
-                    <li><strong>Управление ресурсами:</strong> DI контейнер управляет жизненным циклом объектов</li>
-                </ul>
+                <h3>3. Регистрация в Program.cs</h3>
+                <div class="code-block">
+                    <pre><code>builder.Services.AddScoped&lt;IMessageService, MessageService&gt;();</code></pre>
+                    <div class="code-explanation">
+                        <strong>Объяснение:</strong> <code>AddScoped</code> регистрирует сервис с жизненным циклом Scoped. 
+                        Один экземпляр будет создан на каждый HTTP запрос.
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>4. Использование в контроллере</h3>
+                <div class="code-block">
+                    <pre><code>using Asp_Book.Chapter02.Services;
+using Microsoft.AspNetCore.Mvc;
+
+[ApiController]
+[Route("api/[controller]")]
+public class MessageController : ControllerBase
+{
+    private readonly IMessageService _messageService;
+    private readonly ILogger&lt;MessageController&gt; _logger;
+
+    // Оба сервиса внедряются через конструктор
+    public MessageController(IMessageService messageService, ILogger&lt;MessageController&gt; logger)
+    {
+        _messageService = messageService;
+        _logger = logger;
+    }
+
+    [HttpGet("greet/{name}")]
+    public IActionResult Greet(string name)
+    {
+        var message = _messageService.GetMessage(name);
+        return Ok(new { message });
+    }
+}</code></pre>
+                </div>
             </section>
         </div>
     </div>

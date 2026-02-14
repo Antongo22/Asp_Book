@@ -97,75 +97,117 @@
         <div class="tab-pane fade" id="answers" role="tabpanel">
             <h2>Решение задачи</h2>
 
-            <div class="alert alert-info">
-                <strong>Где посмотреть код:</strong> Полная реализация находится в файлах:
-                <ul>
-                    <li><code>Middleware/RequestLoggingMiddleware.cs</code> — middleware для логирования запросов</li>
-                    <li><code>Middleware/GlobalExceptionHandlerMiddleware.cs</code> — middleware для глобальной обработки ошибок</li>
-                    <li><code>Program.cs</code> — регистрация middleware в конвейере</li>
-                </ul>
-                Вы можете открыть эти файлы в проекте и изучить код самостоятельно.
-            </div>
-
             <section class="mb-5">
-                <h3>Готовое решение</h3>
-                <p>В проекте реализован полнофункциональный middleware для логирования HTTP запросов, который демонстрирует создание и использование custom middleware.</p>
-                
-                <h4>Что реализовано:</h4>
-                <ol>
-                    <li><strong>RequestLoggingMiddleware:</strong> Middleware, который логирует:
-                        <ul>
-                            <li>HTTP метод запроса (GET, POST, PUT, DELETE и т.д.)</li>
-                            <li>Полный путь запроса</li>
-                            <li>Время начала обработки запроса</li>
-                            <li>Время выполнения запроса (в миллисекундах)</li>
-                            <li>HTTP статус код ответа</li>
-                        </ul>
-                    </li>
-                    <li><strong>Глобальная обработка ошибок:</strong> <code>GlobalExceptionHandlerMiddleware</code> перехватывает все необработанные исключения и возвращает корректный JSON ответ.</li>
-                    <li><strong>Правильная регистрация:</strong> Middleware зарегистрирован в правильном порядке в <code>Program.cs</code>.</li>
-                </ol>
-            </section>
+                <h3>1. RequestLoggingMiddleware</h3>
+                <div class="code-block">
+                    <pre><code>namespace Asp_Book.Chapter04.Middleware;
 
-            <section class="mb-5">
-                <h3>Как это работает</h3>
-                <p>При каждом HTTP запросе происходит следующее:</p>
-                <ol>
-                    <li>Запрос попадает в <code>RequestLoggingMiddleware</code></li>
-                    <li>Middleware записывает время начала обработки</li>
-                    <li>Запрос передается следующему middleware в конвейере</li>
-                    <li>После обработки запроса middleware записывает время окончания</li>
-                    <li>Вычисляется время выполнения и логируется вся информация о запросе</li>
-                    <li>Если произошла ошибка, <code>GlobalExceptionHandlerMiddleware</code> перехватывает её и возвращает JSON ответ</li>
-                </ol>
+public class RequestLoggingMiddleware
+{
+    private readonly RequestDelegate _next;
+    private readonly ILogger&lt;RequestLoggingMiddleware&gt; _logger;
 
-                <h4>Пример лога:</h4>
-                <div class="alert alert-success">
-                    <strong>В консоли вы увидите:</strong><br>
-                    <code>GET /api/WeatherForecast - 200 OK - Время выполнения: 15ms</code>
+    public RequestLoggingMiddleware(RequestDelegate next, ILogger&lt;RequestLoggingMiddleware&gt; logger)
+    {
+        _next = next;
+        _logger = logger;
+    }
+
+    public async Task InvokeAsync(HttpContext context)
+    {
+        var startTime = DateTime.UtcNow;
+
+        _logger.LogInformation(
+            "Входящий запрос: {Method} {Path}",
+            context.Request.Method,
+            context.Request.Path);
+
+        try
+        {
+            await _next(context);
+        }
+        finally
+        {
+            var duration = DateTime.UtcNow - startTime;
+            _logger.LogInformation(
+                "Запрос завершен: {Method} {Path} - Статус: {StatusCode} - Время: {Duration}ms",
+                context.Request.Method,
+                context.Request.Path,
+                context.Response.StatusCode,
+                duration.TotalMilliseconds);
+        }
+    }
+}</code></pre>
                 </div>
             </section>
 
             <section class="mb-5">
-                <h3>Ключевые моменты реализации</h3>
-                <ul>
-                    <li><strong>Паттерн Middleware:</strong> Использование метода <code>InvokeAsync</code> с параметром <code>RequestDelegate next</code> для передачи запроса дальше.</li>
-                    <li><strong>Измерение времени:</strong> Использование <code>Stopwatch</code> для точного измерения времени выполнения запроса.</li>
-                    <li><strong>Логирование:</strong> Использование встроенного <code>ILogger</code> для структурированного логирования.</li>
-                    <li><strong>Порядок регистрации:</strong> Middleware должен быть зарегистрирован до <code>UseRouting()</code> для логирования всех запросов.</li>
-                    <li><strong>Обработка ошибок:</strong> Глобальный обработчик ошибок должен быть одним из первых middleware для перехвата всех исключений.</li>
-                </ul>
+                <h3>2. GlobalExceptionHandlerMiddleware</h3>
+                <div class="code-block">
+                    <pre><code>using System.Net;
+using System.Text.Json;
+
+public class GlobalExceptionHandlerMiddleware
+{
+    private readonly RequestDelegate _next;
+    private readonly ILogger&lt;GlobalExceptionHandlerMiddleware&gt; _logger;
+
+    public GlobalExceptionHandlerMiddleware(RequestDelegate next, ILogger&lt;GlobalExceptionHandlerMiddleware&gt; logger)
+    {
+        _next = next;
+        _logger = logger;
+    }
+
+    public async Task InvokeAsync(HttpContext context)
+    {
+        try
+        {
+            await _next(context);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Необработанное исключение: {Message}", ex.Message);
+            await HandleExceptionAsync(context, ex);
+        }
+    }
+
+    private static Task HandleExceptionAsync(HttpContext context, Exception exception)
+    {
+        context.Response.ContentType = "application/json";
+        context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+
+        var response = new
+        {
+            error = new
+            {
+                message = "Произошла внутренняя ошибка сервера",
+                details = exception.Message
+            }
+        };
+
+        var json = JsonSerializer.Serialize(response);
+        return context.Response.WriteAsync(json);
+    }
+}</code></pre>
+                </div>
             </section>
 
             <section class="mb-5">
-                <h3>Как протестировать</h3>
-                <p>Вы можете протестировать middleware несколькими способами:</p>
-                <ol>
-                    <li>Откройте любую страницу или API endpoint</li>
-                    <li>Проверьте консоль приложения — вы увидите логи всех запросов</li>
-                    <li>Попробуйте вызвать endpoint, который выбрасывает ошибку (например, через <code>ErrorDemoController</code>)</li>
-                    <li>Проверьте, что ошибка обрабатывается корректно и возвращается JSON ответ</li>
-                </ol>
+                <h3>3. Регистрация в Program.cs</h3>
+                <div class="code-block">
+                    <pre><code>using Asp_Book.Chapter04.Middleware;
+
+var app = builder.Build();
+
+// Глобальный обработчик ошибок должен быть первым
+app.UseMiddleware&lt;GlobalExceptionHandlerMiddleware&gt;();
+
+// Логирование запросов
+app.UseMiddleware&lt;RequestLoggingMiddleware&gt;();
+
+app.UseRouting();
+app.UseAuthorization();</code></pre>
+                </div>
             </section>
         </div>
     </div>

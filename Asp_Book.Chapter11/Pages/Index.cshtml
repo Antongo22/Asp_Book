@@ -1,10 +1,171 @@
 ﻿@page
 @model IndexModel
 @{
-    ViewData["Title"] = "Home page";
+    ViewData["Title"] = "Глава 11: Авторизация с SignalR и WebSockets";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<div class="container-fluid">
+    <h1 class="mb-4">Глава 11: Авторизация с SignalR и WebSockets</h1>
+
+    <ul class="nav nav-tabs mb-4" id="chapterTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="theory-tab" data-bs-toggle="tab" data-bs-target="#theory" type="button" role="tab">
+                Теория и Демонстрация
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="answers-tab" data-bs-toggle="tab" data-bs-target="#answers" type="button" role="tab">
+                Ответы
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="chapterTabsContent">
+        <div class="tab-pane fade show active" id="theory" role="tabpanel">
+            <h2>Теория</h2>
+
+            <section class="mb-5">
+                <h3>Авторизация в SignalR</h3>
+                <p>SignalR поддерживает авторизацию через атрибут <code>[Authorize]</code> на Hub классе или методах.</p>
+                
+                <h4>Способы авторизации:</h4>
+                <ul>
+                    <li><strong>На уровне Hub:</strong> <code>[Authorize]</code> на классе Hub</li>
+                    <li><strong>На уровне метода:</strong> <code>[Authorize(Roles = "Admin")]</code> на конкретном методе</li>
+                    <li><strong>Передача токена:</strong> Через query параметр <code>access_token</code></li>
+                </ul>
+            </section>
+
+            <section class="mb-5">
+                <h3>Задача: Реализовать авторизацию</h3>
+                <div class="alert alert-warning">
+                    <h5>Ваша задача:</h5>
+                    <p>Изучите реализацию авторизации в SignalR и WebSockets:</p>
+                    <ul>
+                        <li>Как защитить SignalR Hub авторизацией?</li>
+                        <li>Как передать JWT токен в SignalR?</li>
+                        <li>Как авторизовать WebSocket соединение?</li>
+                    </ul>
+                </div>
+            </section>
+        </div>
+
+        <div class="tab-pane fade" id="answers" role="tabpanel">
+            <h2>Решение: Авторизация с SignalR и WebSockets</h2>
+
+            <section class="mb-5">
+                <h3>1. SignalR Hub с авторизацией</h3>
+                <div class="code-block">
+                    <pre><code>using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.SignalR;
+
+[Authorize] // Требует авторизации для подключения
+public class AuthorizedChatHub : Hub
+{
+    public async Task SendToAll(string message)
+    {
+        var username = Context.User?.Identity?.Name ?? "Unknown";
+        await Clients.All.SendAsync("ReceiveMessage", username, message);
+    }
+
+    [Authorize(Roles = "Admin")] // Только для администраторов
+    public async Task SendToAdmins(string message)
+    {
+        var username = Context.User?.Identity?.Name ?? "Unknown";
+        await Clients.Group("Admins").SendAsync("ReceiveAdminMessage", username, message);
+    }
+
+    public override async Task OnConnectedAsync()
+    {
+        // Добавление в группу по роли
+        if (Context.User?.IsInRole("Admin") == true)
+        {
+            await Groups.AddToGroupAsync(Context.ConnectionId, "Admins");
+        }
+        await base.OnConnectedAsync();
+    }
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>2. Настройка JWT для SignalR в Program.cs</h3>
+                <div class="code-block">
+                    <pre><code>.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        // ... параметры валидации
+    };
+
+    // Настройка для SignalR - получение токена из query
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/chathub"))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
+    };
+});</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>3. Клиентский код с токеном</h3>
+                <div class="code-block">
+                    <pre><code>const token = localStorage.getItem('accessToken');
+const connection = new signalR.HubConnectionBuilder()
+    .withUrl("/authorizedchathub", {
+        accessTokenFactory: () => token // Передача токена
+    })
+    .build();
+
+connection.start().then(() => {
+    console.log('Подключено с авторизацией');
+});</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>4. WebSocket с авторизацией</h3>
+                <div class="code-block">
+                    <pre><code>public async Task InvokeAsync(HttpContext context)
+{
+    if (context.WebSockets.IsWebSocketRequest)
+    {
+        // Получение токена из query
+        var token = context.Request.Query["access_token"].ToString();
+        if (string.IsNullOrEmpty(token))
+        {
+            context.Response.StatusCode = 401;
+            return;
+        }
+
+        // Валидация токена (упрощенно)
+        // В реальном приложении используйте JwtSecurityTokenHandler
+        
+        var webSocket = await context.WebSockets.AcceptWebSocketAsync();
+        // ... обработка WebSocket
+    }
+}</code></pre>
+                </div>
+            </section>
+        </div>
+    </div>
 </div>
+
+@section Scripts {
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.0/signalr.min.js"></script>
+    <script>
+        var triggerTabList = [].slice.call(document.querySelectorAll('#chapterTabs button'))
+        triggerTabList.forEach(function (triggerEl) {
+            var tabTrigger = new bootstrap.Tab(triggerEl)
+        })
+    </script>
+}

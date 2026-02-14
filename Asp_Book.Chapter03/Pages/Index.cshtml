@@ -1,0 +1,217 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Глава 3: HTTP Requests";
+}
+
+<div class="container-fluid">
+    <h1 class="mb-4">Глава 3: HTTP Requests</h1>
+
+    <ul class="nav nav-tabs mb-4" id="chapterTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="theory-tab" data-bs-toggle="tab" data-bs-target="#theory" type="button" role="tab">
+                Теория и Демонстрация
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="answers-tab" data-bs-toggle="tab" data-bs-target="#answers" type="button" role="tab">
+                Ответы
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="chapterTabsContent">
+        <div class="tab-pane fade show active" id="theory" role="tabpanel">
+            <h2>Теория</h2>
+
+            <section class="mb-5">
+                <h3>Что такое HttpClient?</h3>
+                <p><strong>HttpClient</strong> — это класс в .NET для отправки HTTP-запросов и получения HTTP-ответов от ресурсов, идентифицируемых URI.</p>
+                
+                <h4>Важные моменты:</h4>
+                <ul>
+                    <li><strong>Не создавайте HttpClient напрямую</strong> — используйте IHttpClientFactory</li>
+                    <li><strong>HttpClient реализует IDisposable</strong> — но не используйте using, используйте фабрику</li>
+                    <li><strong>IHttpClientFactory</strong> — правильный способ создания HttpClient в ASP.NET Core</li>
+                </ul>
+            </section>
+
+            <section class="mb-5">
+                <h3>IHttpClientFactory</h3>
+                <p>IHttpClientFactory — это фабрика для создания экземпляров HttpClient. Она управляет жизненным циклом и предотвращает проблемы с сокетами.</p>
+
+                <div class="code-block">
+                    <pre><code>// Регистрация в Program.cs
+builder.Services.AddHttpClient();
+
+// Использование в контроллере
+public class MyController : ControllerBase
+{
+    private readonly IHttpClientFactory _httpClientFactory;
+
+    public MyController(IHttpClientFactory httpClientFactory)
+    {
+        _httpClientFactory = httpClientFactory;
+    }
+
+    public async Task&lt;IActionResult&gt; GetData()
+    {
+        var client = _httpClientFactory.CreateClient();
+        var response = await client.GetAsync("https://api.example.com/data");
+        var content = await response.Content.ReadAsStringAsync();
+        return Ok(content);
+    }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Объяснение:</strong> 
+                        <code>AddHttpClient()</code> регистрирует IHttpClientFactory в DI контейнере.
+                        <code>CreateClient()</code> создает новый экземпляр HttpClient, который правильно управляется фабрикой.
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Именованные HttpClient</h3>
+                <p>Можно создавать именованные HttpClient с предварительной настройкой:</p>
+
+                <div class="code-block">
+                    <pre><code>// Регистрация именованного HttpClient
+builder.Services.AddHttpClient("ExternalAPI", client =>
+{
+    client.BaseAddress = new Uri("https://jsonplaceholder.typicode.com/");
+    client.Timeout = TimeSpan.FromSeconds(30);
+    client.DefaultRequestHeaders.Add("User-Agent", "MyApp");
+});
+
+// Использование
+var client = _httpClientFactory.CreateClient("ExternalAPI");
+var response = await client.GetAsync("posts/1");</code></pre>
+                    <div class="code-explanation">
+                        <strong>Объяснение:</strong> 
+                        Именованный HttpClient позволяет настроить базовый адрес, таймауты и заголовки один раз при регистрации.
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Демонстрация: Запрос к внешнему API</h3>
+                <p>Пример использования HttpClient для запроса к публичному API (JSONPlaceholder):</p>
+
+                <div class="alert alert-info mt-3">
+                    <strong>Попробуйте:</strong> Откройте <a href="/swagger" target="_blank">Swagger UI</a> и вызовите:
+                    <ul>
+                        <li><code>GET /api/HttpClient/post/1</code> — получить пост по ID</li>
+                        <li><code>GET /api/HttpClient/posts</code> — получить все посты</li>
+                        <li><code>POST /api/HttpClient/post</code> — создать новый пост</li>
+                    </ul>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Задача: Интеграция с внешним сервисом</h3>
+                <div class="alert alert-warning">
+                    <h5>Ваша задача:</h5>
+                    <p>Создайте сервис для работы с внешним API со следующими методами:</p>
+                    <ul>
+                        <li><strong>GetUserAsync(int id)</strong> — получить пользователя по ID</li>
+                        <li><strong>GetUserPostsAsync(int userId)</strong> — получить посты пользователя</li>
+                        <li><strong>CreateCommentAsync(int postId, string name, string email, string body)</strong> — создать комментарий</li>
+                    </ul>
+                    <p><strong>Требования:</strong></p>
+                    <ul>
+                        <li>Используйте IHttpClientFactory</li>
+                        <li>Создайте именованный HttpClient "UsersAPI"</li>
+                        <li>Обработайте ошибки (HttpRequestException)</li>
+                        <li>Используйте логирование (ILogger)</li>
+                        <li>API endpoint: https://jsonplaceholder.typicode.com/</li>
+                    </ul>
+                </div>
+            </section>
+        </div>
+
+        <div class="tab-pane fade" id="answers" role="tabpanel">
+            <h2>Решение задачи</h2>
+
+            <div class="alert alert-info">
+                <strong>Где посмотреть код:</strong> Полная реализация находится в файлах:
+                <ul>
+                    <li><code>Services/IExternalApiService.cs</code> и <code>Services/ExternalApiService.cs</code> — интерфейс и реализация сервиса</li>
+                    <li><code>Controllers/HttpClientController.cs</code> — контроллер, использующий сервис</li>
+                    <li><code>Program.cs</code> — регистрация HttpClient и сервиса</li>
+                </ul>
+                Вы можете открыть эти файлы в проекте и изучить код самостоятельно.
+            </div>
+
+            <section class="mb-5">
+                <h3>Готовое решение</h3>
+                <p>В проекте реализован сервис для работы с внешним API, который демонстрирует правильное использование HttpClient через IHttpClientFactory.</p>
+                
+                <h4>Что реализовано:</h4>
+                <ol>
+                    <li><strong>Регистрация HttpClient:</strong> В <code>Program.cs</code> зарегистрирован именованный HttpClient с настройками базового адреса и таймаута.</li>
+                    <li><strong>Интерфейс IExternalApiService:</strong> Определяет методы для работы с внешним API (получение данных, отправка POST запросов).</li>
+                    <li><strong>Реализация ExternalApiService:</strong> Класс, который:
+                        <ul>
+                            <li>Использует <code>IHttpClientFactory</code> для создания HttpClient экземпляров</li>
+                            <li>Выполняет GET и POST запросы к внешнему API</li>
+                            <li>Обрабатывает ошибки и логирует их</li>
+                            <li>Использует async/await для асинхронных операций</li>
+                        </ul>
+                    </li>
+                    <li><strong>Контроллер HttpClientController:</strong> Предоставляет API endpoints для тестирования работы с внешним сервисом.</li>
+                </ol>
+            </section>
+
+            <section class="mb-5">
+                <h3>Как это работает</h3>
+                <p>При запросе к API происходит следующее:</p>
+                <ol>
+                    <li>Контроллер получает <code>IExternalApiService</code> через Dependency Injection</li>
+                    <li>Сервис использует <code>IHttpClientFactory</code> для создания HttpClient</li>
+                    <li>HttpClient выполняет HTTP запрос к внешнему API</li>
+                    <li>Ответ десериализуется и возвращается клиенту</li>
+                    <li>При ошибках они логируются и обрабатываются корректно</li>
+                </ol>
+
+                <h4>Преимущества использования IHttpClientFactory:</h4>
+                <ul>
+                    <li><strong>Управление соединениями:</strong> Автоматическое управление пулом соединений</li>
+                    <li><strong>Предотвращение утечек:</strong> Правильное освобождение ресурсов</li>
+                    <li><strong>Настройка:</strong> Централизованная конфигурация HttpClient</li>
+                    <li><strong>Производительность:</strong> Переиспользование соединений</li>
+                </ul>
+            </section>
+
+            <section class="mb-5">
+                <h3>Ключевые моменты реализации</h3>
+                <ul>
+                    <li><strong>Использование IHttpClientFactory:</strong> Никогда не создавайте HttpClient напрямую через <code>new HttpClient()</code>. Всегда используйте фабрику.</li>
+                    <li><strong>Обработка ошибок:</strong> Все HTTP запросы обернуты в try-catch для обработки <code>HttpRequestException</code>.</li>
+                    <li><strong>Логирование:</strong> Все ошибки логируются с контекстом для упрощения отладки.</li>
+                    <li><strong>Асинхронность:</strong> Все методы асинхронные, что не блокирует потоки при ожидании ответа от внешнего API.</li>
+                    <li><strong>Проверка статуса:</strong> Использование <code>EnsureSuccessStatusCode()</code> для проверки успешности запроса.</li>
+                </ul>
+            </section>
+
+            <section class="mb-5">
+                <h3>Как протестировать</h3>
+                <p>Вы можете протестировать решение через Swagger UI:</p>
+                <ol>
+                    <li>Откройте <a href="/swagger" target="_blank">Swagger UI</a></li>
+                    <li>Найдите раздел <code>HttpClient</code></li>
+                    <li>Попробуйте вызвать методы для работы с внешним API</li>
+                    <li>Проверьте логи в консоли для просмотра деталей запросов</li>
+                </ol>
+            </section>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        var triggerTabList = [].slice.call(document.querySelectorAll('#chapterTabs button'))
+        triggerTabList.forEach(function (triggerEl) {
+            var tabTrigger = new bootstrap.Tab(triggerEl)
+        })
+    </script>
+}

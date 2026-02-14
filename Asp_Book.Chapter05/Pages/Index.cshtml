@@ -1,0 +1,253 @@
+﻿@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Глава 5: Razor Pages UI";
+}
+
+<div class="container-fluid">
+    <h1 class="mb-4">Глава 5: Razor Pages UI</h1>
+
+    <ul class="nav nav-tabs mb-4" id="chapterTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="theory-tab" data-bs-toggle="tab" data-bs-target="#theory" type="button" role="tab">
+                Теория и Демонстрация
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="answers-tab" data-bs-toggle="tab" data-bs-target="#answers" type="button" role="tab">
+                Ответы
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="chapterTabsContent">
+        <div class="tab-pane fade show active" id="theory" role="tabpanel">
+            <h2>Теория</h2>
+
+            <section class="mb-5">
+                <h3>Что такое Razor Pages?</h3>
+                <p><strong>Razor Pages</strong> — это модель программирования в ASP.NET Core, которая упрощает создание веб-страниц с кодом на сервере.</p>
+                
+                <h4>Основные компоненты:</h4>
+                <ul>
+                    <li><strong>.cshtml</strong> — файл с разметкой Razor и HTML</li>
+                    <li><strong>.cshtml.cs</strong> — файл с кодом (PageModel)</li>
+                    <li><strong>@@page</strong> — директива, указывающая что это Razor Page</li>
+                    <li><strong>Model Binding</strong> — автоматическое связывание данных формы с моделью</li>
+                </ul>
+            </section>
+
+            <section class="mb-5">
+                <h3>Синтаксис Razor</h3>
+                <p>Razor позволяет смешивать C# код с HTML:</p>
+
+                <div class="code-block">
+                    <pre><code>@@* Комментарий Razor *@@
+&lt;p&gt;Текущая дата: @@DateTime.Now.ToString("dd.MM.yyyy")&lt;/p&gt;
+
+@@if (Model.IsLoggedIn)
+{
+    &lt;p&gt;Добро пожаловать, @@Model.UserName!&lt;/p&gt;
+}
+else
+{
+    &lt;p&gt;Пожалуйста, войдите в систему&lt;/p&gt;
+}
+
+@@for (int i = 0; i &lt; 10; i++)
+{
+    &lt;li&gt;Элемент @@i&lt;/li&gt;
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Объяснение:</strong>
+                        <ul>
+                            <li><code>@@</code> — начало выражения C#</li>
+                            <li><code>@@* *@@</code> — комментарий Razor</li>
+                            <li>Блоки кода заключаются в <code>{ }</code></li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Model Binding</h3>
+                <p>Model Binding автоматически связывает данные из HTTP запроса с параметрами методов или свойствами модели.</p>
+
+                <div class="code-block">
+                    <pre><code>public class ContactModel : PageModel
+{
+    [BindProperty]
+    public ContactFormModel ContactForm { get; set; } = new();
+
+    public void OnGet()
+    {
+        // Обработка GET запроса
+    }
+
+    public IActionResult OnPost()
+    {
+        // Обработка POST запроса
+        // ContactForm автоматически заполняется данными из формы
+        if (!ModelState.IsValid)
+        {
+            return Page();
+        }
+        // Обработка данных...
+        return Page();
+    }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Объяснение:</strong>
+                        <ul>
+                            <li><code>[BindProperty]</code> — атрибут для автоматического связывания</li>
+                            <li><code>OnGet()</code> — вызывается при GET запросе</li>
+                            <li><code>OnPost()</code> — вызывается при POST запросе</li>
+                            <li><code>ModelState.IsValid</code> — проверка валидности модели</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Валидация данных</h3>
+                <p>Используйте Data Annotations для валидации:</p>
+
+                <div class="code-block">
+                    <pre><code>public class ContactFormModel
+{
+    [Required(ErrorMessage = "Имя обязательно")]
+    [StringLength(50, MinimumLength = 2)]
+    public string Name { get; set; } = string.Empty;
+
+    [Required]
+    [EmailAddress(ErrorMessage = "Некорректный email")]
+    public string Email { get; set; } = string.Empty;
+
+    [Phone]
+    public string? Phone { get; set; }
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Демонстрация: Контактная форма</h3>
+                <p>Посмотрите на пример работающей формы с валидацией:</p>
+
+                <div class="alert alert-info mt-3">
+                    <strong>Попробуйте:</strong> Откройте <a asp-page="/Contact">Контактную форму</a> и попробуйте отправить данные с ошибками и без.
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Задача: Создать форму с валидацией</h3>
+                <div class="alert alert-warning">
+                    <h5>Ваша задача:</h5>
+                    <p>Создайте форму регистрации пользователя со следующими полями:</p>
+                    <ul>
+                        <li><strong>Имя пользователя</strong> — обязательно, от 3 до 20 символов</li>
+                        <li><strong>Email</strong> — обязательно, валидный email</li>
+                        <li><strong>Пароль</strong> — обязательно, минимум 8 символов</li>
+                        <li><strong>Подтверждение пароля</strong> — должно совпадать с паролем</li>
+                        <li><strong>Возраст</strong> — от 18 до 120 лет</li>
+                    </ul>
+                    <p><strong>Требования:</strong></p>
+                    <ul>
+                        <li>Создайте модель с валидацией</li>
+                        <li>Создайте Razor Page для формы</li>
+                        <li>Добавьте клиентскую валидацию</li>
+                        <li>Покажите сообщение об успешной регистрации</li>
+                    </ul>
+                </div>
+            </section>
+        </div>
+
+        <div class="tab-pane fade" id="answers" role="tabpanel">
+            <h2>Решение задачи</h2>
+
+            <div class="alert alert-info">
+                <strong>Где посмотреть код:</strong> Полная реализация находится в файлах:
+                <ul>
+                    <li><code>Models/ContactFormModel.cs</code> — модель с валидацией</li>
+                    <li><code>Pages/Contact.cshtml</code> и <code>Pages/Contact.cshtml.cs</code> — Razor Page с формой</li>
+                </ul>
+                Вы можете открыть эти файлы в проекте и изучить код самостоятельно.
+            </div>
+
+            <section class="mb-5">
+                <h3>Готовое решение</h3>
+                <p>В проекте реализована полнофункциональная форма обратной связи с валидацией на стороне сервера и клиента, которая демонстрирует работу Razor Pages и Model Binding.</p>
+                
+                <h4>Что реализовано:</h4>
+                <ol>
+                    <li><strong>Модель ContactFormModel:</strong> Класс с валидационными атрибутами:
+                        <ul>
+                            <li><code>[Required]</code> — обязательные поля</li>
+                            <li><code>[EmailAddress]</code> — валидация email</li>
+                            <li><code>[StringLength]</code> — ограничение длины строки</li>
+                            <li><code>[Display]</code> — отображаемые имена полей</li>
+                        </ul>
+                    </li>
+                    <li><strong>Razor Page Contact:</strong> Страница с формой, которая:
+                        <ul>
+                            <li>Отображает форму с полями для ввода</li>
+                            <li>Показывает ошибки валидации рядом с полями</li>
+                            <li>Обрабатывает POST запросы через метод <code>OnPost()</code></li>
+                            <li>Использует Model Binding для автоматического связывания данных формы с моделью</li>
+                        </ul>
+                    </li>
+                    <li><strong>Валидация:</strong> Работает как на клиенте (JavaScript), так и на сервере (C#).</li>
+                </ol>
+            </section>
+
+            <section class="mb-5">
+                <h3>Как это работает</h3>
+                <p>При работе с формой происходит следующее:</p>
+                <ol>
+                    <li>Пользователь открывает страницу <code>/Contact</code> и видит форму</li>
+                    <li>При заполнении формы клиентская валидация (JavaScript) проверяет данные в реальном времени</li>
+                    <li>При отправке формы данные отправляются на сервер через POST запрос</li>
+                    <li>ASP.NET Core автоматически связывает данные формы с моделью (Model Binding)</li>
+                    <li>Проверяется валидность модели (валидация на сервере)</li>
+                    <li>Если данные валидны — обрабатываются, если нет — форма показывается снова с ошибками</li>
+                </ol>
+
+                <h4>Пример работы:</h4>
+                <div class="alert alert-success">
+                    <strong>Успешная отправка:</strong> После заполнения всех полей корректно, форма отправляется и показывается сообщение об успехе.<br>
+                    <strong>Ошибки валидации:</strong> Если поле заполнено неправильно, рядом с ним появляется красное сообщение об ошибке.
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Ключевые моменты реализации</h3>
+                <ul>
+                    <li><strong>Model Binding:</strong> ASP.NET Core автоматически связывает данные формы с свойствами модели благодаря соглашению об именовании.</li>
+                    <li><strong>Валидационные атрибуты:</strong> Использование Data Annotations для декларативной валидации данных.</li>
+                    <li><strong>Tag Helpers:</strong> Использование <code>asp-for</code>, <code>asp-validation-for</code> для генерации HTML с правильными именами и ID.</li>
+                    <li><strong>Двусторонняя валидация:</strong> Валидация работает и на клиенте (быстрая обратная связь), и на сервере (безопасность).</li>
+                    <li><strong>Обработка POST:</strong> Метод <code>OnPost()</code> в PageModel обрабатывает отправку формы.</li>
+                </ul>
+            </section>
+
+            <section class="mb-5">
+                <h3>Как протестировать</h3>
+                <p>Вы можете протестировать форму:</p>
+                <ol>
+                    <li>Откройте страницу <a href="/Contact" target="_blank">Contact</a></li>
+                    <li>Попробуйте отправить пустую форму — увидите ошибки валидации</li>
+                    <li>Введите некорректный email — увидите ошибку валидации email</li>
+                    <li>Заполните все поля корректно и отправьте — увидите сообщение об успехе</li>
+                </ol>
+            </section>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        var triggerTabList = [].slice.call(document.querySelectorAll('#chapterTabs button'))
+        triggerTabList.forEach(function (triggerEl) {
+            var tabTrigger = new bootstrap.Tab(triggerEl)
+        })
+    </script>
+}

@@ -1,0 +1,326 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Глава 1: Начало работы";
+}
+
+<div class="container-fluid">
+    <h1 class="mb-4">Глава 1: Начало работы с ASP.NET</h1>
+
+    <!-- Навигация по вкладкам -->
+    <ul class="nav nav-tabs mb-4" id="chapterTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="theory-tab" data-bs-toggle="tab" data-bs-target="#theory" type="button" role="tab">
+                Теория и Демонстрация
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="answers-tab" data-bs-toggle="tab" data-bs-target="#answers" type="button" role="tab">
+                Ответы
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="chapterTabsContent">
+        <!-- Вкладка: Теория и Демонстрация -->
+        <div class="tab-pane fade show active" id="theory" role="tabpanel">
+            <h2>Теория</h2>
+
+            <section class="mb-5">
+                <h3>Что такое ASP.NET Core?</h3>
+                <p>ASP.NET Core — это кроссплатформенный фреймворк для создания веб-приложений от Microsoft. Он позволяет создавать веб-API, веб-приложения и микросервисы.</p>
+                
+                <h4>Основные компоненты:</h4>
+                <ul>
+                    <li><strong>Middleware</strong> — компоненты, которые обрабатывают HTTP-запросы и ответы</li>
+                    <li><strong>Controllers</strong> — классы, обрабатывающие HTTP-запросы</li>
+                    <li><strong>Routing</strong> — маршрутизация запросов к контроллерам</li>
+                    <li><strong>Dependency Injection</strong> — встроенная система внедрения зависимостей</li>
+                </ul>
+            </section>
+
+            <section class="mb-5">
+                <h3>Что такое Middleware?</h3>
+                <p>Middleware — это компоненты, которые формируют конвейер обработки HTTP-запросов. Каждый middleware может:</p>
+                <ul>
+                    <li>Обработать входящий запрос</li>
+                    <li>Передать запрос следующему middleware</li>
+                    <li>Обработать исходящий ответ</li>
+                </ul>
+
+                <div class="code-block mt-3">
+                    <pre><code>// Пример конфигурации middleware в Program.cs
+app.UseHttpsRedirection();  // Перенаправление на HTTPS
+app.UseRouting();          // Маршрутизация
+app.UseAuthorization();    // Авторизация
+app.MapControllers();      // Маппинг контроллеров</code></pre>
+                    <div class="code-explanation">
+                        <strong>Объяснение:</strong> Middleware выполняются в порядке их регистрации. 
+                        <code>UseHttpsRedirection</code> перенаправляет HTTP на HTTPS, 
+                        <code>UseRouting</code> определяет маршрут, 
+                        <code>UseAuthorization</code> проверяет права доступа, 
+                        <code>MapControllers</code> связывает маршруты с контроллерами.
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Что такое REST API?</h3>
+                <p><strong>REST (Representational State Transfer)</strong> — архитектурный стиль для создания веб-сервисов.</p>
+                
+                <h4>Основные принципы:</h4>
+                <ul>
+                    <li><strong>Ресурсы</strong> — все представлено как ресурсы (URL)</li>
+                    <li><strong>HTTP методы</strong> — GET (получить), POST (создать), PUT (обновить), DELETE (удалить)</li>
+                    <li><strong>Stateless</strong> — каждый запрос независим</li>
+                    <li><strong>JSON</strong> — формат обмена данными</li>
+                </ul>
+
+                <div class="code-block mt-3">
+                    <pre><code>// Пример REST API контроллера
+[ApiController]
+[Route("api/[controller]")]
+public class WeatherForecastController : ControllerBase
+{
+    [HttpGet]  // GET запрос
+    public IEnumerable&lt;WeatherForecast&gt; Get()
+    {
+        // Возвращает список прогнозов погоды
+        return forecasts;
+    }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Объяснение:</strong> 
+                        <code>[ApiController]</code> — атрибут для API контроллера,
+                        <code>[Route("api/[controller]")]</code> — маршрут будет "api/WeatherForecast",
+                        <code>[HttpGet]</code> — метод обрабатывает GET запросы.
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Что такое Swagger?</h3>
+                <p><strong>Swagger</strong> — инструмент для документирования и тестирования API. Он автоматически генерирует интерактивную документацию на основе ваших контроллеров.</p>
+                
+                <h4>Преимущества:</h4>
+                <ul>
+                    <li>Автоматическая документация API</li>
+                    <li>Интерактивное тестирование эндпоинтов</li>
+                    <li>Просмотр моделей данных</li>
+                    <li>Генерация клиентского кода</li>
+                </ul>
+
+                <div class="code-block mt-3">
+                    <pre><code>// Настройка Swagger в Program.cs
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Мое API",
+        Version = "v1"
+    });
+});
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Объяснение:</strong> 
+                        <code>AddSwaggerGen</code> — настраивает генерацию документации,
+                        <code>UseSwagger</code> — включает Swagger endpoint,
+                        <code>UseSwaggerUI</code> — включает веб-интерфейс Swagger.
+                    </div>
+                </div>
+
+                <div class="alert alert-info mt-3">
+                    <strong>Попробуйте:</strong> Откройте <a href="/swagger" target="_blank">Swagger UI</a> чтобы увидеть документацию API и протестировать эндпоинты.
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Демонстрация: Простой контроллер погоды</h3>
+                <p>Давайте посмотрим на пример простого API контроллера, который возвращает прогноз погоды:</p>
+
+                <div class="code-block">
+                    <pre><code>using Microsoft.AspNetCore.Mvc;
+
+[ApiController]
+[Route("api/[controller]")]
+public class WeatherForecastController : ControllerBase
+{
+    private static readonly string[] Summaries = new[]
+    {
+        "Freezing", "Bracing", "Chilly", "Cool", "Mild", 
+        "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
+    };
+
+    private readonly ILogger&lt;WeatherForecastController&gt; _logger;
+
+    public WeatherForecastController(ILogger&lt;WeatherForecastController&gt; logger)
+    {
+        _logger = logger;
+    }
+
+    [HttpGet]
+    public IEnumerable&lt;WeatherForecast&gt; Get()
+    {
+        _logger.LogInformation("Получен запрос на прогноз погоды");
+        
+        return Enumerable.Range(1, 5).Select(index => new WeatherForecast
+        {
+            Date = DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
+            TemperatureC = Random.Shared.Next(-20, 55),
+            Summary = Summaries[Random.Shared.Next(Summaries.Length)]
+        }).ToArray();
+    }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Разбор кода:</strong>
+                        <ul>
+                            <li><code>[ApiController]</code> — делает класс API контроллером</li>
+                            <li><code>[Route("api/[controller]")]</code> — маршрут: api/WeatherForecast</li>
+                            <li><code>ILogger</code> — встроенный логгер (DI)</li>
+                            <li><code>[HttpGet]</code> — метод обрабатывает GET запросы</li>
+                            <li>Метод возвращает массив из 5 прогнозов погоды</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="alert alert-success mt-3">
+                    <strong>Попробуйте:</strong> Откройте Swagger UI и вызовите метод <code>GET /api/WeatherForecast</code> чтобы получить прогноз погоды.
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Задача: Создать API калькулятор</h3>
+                <div class="alert alert-warning">
+                    <h5>Ваша задача:</h5>
+                    <p>Создайте API калькулятор с следующими операциями:</p>
+                    <ul>
+                        <li><strong>POST /api/Calculator/add</strong> — сложение двух чисел</li>
+                        <li><strong>POST /api/Calculator/subtract</strong> — вычитание</li>
+                        <li><strong>POST /api/Calculator/multiply</strong> — умножение</li>
+                        <li><strong>POST /api/Calculator/divide</strong> — деление (проверка деления на ноль!)</li>
+                    </ul>
+                    <p><strong>Требования:</strong></p>
+                    <ul>
+                        <li>Создайте контроллер <code>CalculatorController</code></li>
+                        <li>Используйте модель запроса с двумя числами (A и B)</li>
+                        <li>Возвращайте результат в формате JSON</li>
+                        <li>Обработайте ошибку деления на ноль</li>
+                        <li>Протестируйте через Swagger</li>
+                    </ul>
+                </div>
+
+                <div class="alert alert-info">
+                    <strong>Подсказки:</strong>
+                    <ul>
+                        <li>Используйте атрибут <code>[HttpPost]</code> для POST методов</li>
+                        <li>Используйте <code>[FromBody]</code> для получения данных из тела запроса</li>
+                        <li>Используйте <code>BadRequest()</code> для возврата ошибки</li>
+                        <li>Посмотрите пример WeatherForecastController для вдохновения</li>
+                    </ul>
+                </div>
+            </section>
+        </div>
+
+        <!-- Вкладка: Ответы -->
+        <div class="tab-pane fade" id="answers" role="tabpanel">
+            <h2>Решение задачи: API Калькулятор</h2>
+
+            <div class="alert alert-info">
+                <strong>Где посмотреть код:</strong> Полная реализация находится в файле <code>Controllers/CalculatorController.cs</code>. 
+                Вы можете открыть этот файл в проекте и изучить код самостоятельно.
+            </div>
+
+            <section class="mb-5">
+                <h3>Готовое решение</h3>
+                <p>В проекте реализован полнофункциональный API калькулятор со следующими возможностями:</p>
+                
+                <h4>Доступные операции:</h4>
+                <ul>
+                    <li><strong>POST /api/Calculator/add</strong> — сложение двух чисел</li>
+                    <li><strong>POST /api/Calculator/subtract</strong> — вычитание</li>
+                    <li><strong>POST /api/Calculator/multiply</strong> — умножение</li>
+                    <li><strong>POST /api/Calculator/divide</strong> — деление с проверкой на ноль</li>
+                </ul>
+
+                <h4>Как это работает:</h4>
+                <ol>
+                    <li><strong>Модель запроса:</strong> Создан класс <code>CalculationRequest</code> с двумя свойствами <code>A</code> и <code>B</code> типа <code>double</code> для передачи чисел в запросе.</li>
+                    <li><strong>Контроллер:</strong> Реализован <code>CalculatorController</code> с четырьмя методами, каждый из которых:
+                        <ul>
+                            <li>Принимает JSON с двумя числами через атрибут <code>[FromBody]</code></li>
+                            <li>Выполняет соответствующую математическую операцию</li>
+                            <li>Возвращает результат в формате JSON с полем <code>result</code> и <code>operation</code></li>
+                        </ul>
+                    </li>
+                    <li><strong>Обработка ошибок:</strong> В методе деления добавлена проверка на деление на ноль. При попытке деления на ноль возвращается статус 400 (BadRequest) с сообщением об ошибке.</li>
+                    <li><strong>Маршрутизация:</strong> Все методы используют POST запросы, так как они выполняют операции (не просто получают данные).</li>
+                </ol>
+            </section>
+
+            <section class="mb-5">
+                <h3>Как протестировать решение</h3>
+                <p>Вы можете протестировать калькулятор несколькими способами:</p>
+                
+                <h4>1. Через Swagger UI:</h4>
+                <ol>
+                    <li>Откройте <a href="/swagger" target="_blank">Swagger UI</a></li>
+                    <li>Найдите раздел <code>Calculator</code></li>
+                    <li>Раскройте любой метод (например, <code>POST /api/Calculator/add</code>)</li>
+                    <li>Нажмите кнопку "Try it out"</li>
+                    <li>Введите JSON в формате: <code>{"a": 10, "b": 5}</code></li>
+                    <li>Нажмите "Execute"</li>
+                    <li>Проверьте результат в разделе "Responses"</li>
+                </ol>
+
+                <h4>2. Примеры запросов и ответов:</h4>
+                <div class="alert alert-success">
+                    <strong>Сложение:</strong><br>
+                    Запрос: <code>POST /api/Calculator/add</code> с телом <code>{"a": 10, "b": 5}</code><br>
+                    Ответ: <code>{"result": 15, "operation": "add"}</code>
+                </div>
+                <div class="alert alert-success">
+                    <strong>Деление на ноль:</strong><br>
+                    Запрос: <code>POST /api/Calculator/divide</code> с телом <code>{"a": 10, "b": 0}</code><br>
+                    Ответ: <code>400 Bad Request</code> с сообщением <code>{"error": "Деление на ноль невозможно"}</code>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Ключевые моменты реализации</h3>
+                <ul>
+                    <li><strong>Атрибут [ApiController]:</strong> Автоматически валидирует входящие данные и обрабатывает ошибки модели.</li>
+                    <li><strong>Атрибут [FromBody]:</strong> Указывает, что данные должны быть взяты из тела HTTP запроса (JSON).</li>
+                    <li><strong>Методы Ok() и BadRequest():</strong> Возвращают правильные HTTP статус коды (200 и 400 соответственно).</li>
+                    <li><strong>Обработка ошибок:</strong> Важно всегда проверять входные данные, особенно в операциях, которые могут привести к ошибкам (деление на ноль).</li>
+                    <li><strong>RESTful подход:</strong> Использование правильных HTTP методов и кодов ответов делает API понятным и стандартным.</li>
+                </ul>
+            </section>
+
+            <section class="mb-5">
+                <h3>Что можно улучшить</h3>
+                <p>Для дальнейшего изучения попробуйте добавить:</p>
+                <ul>
+                    <li>Валидацию входных данных с помощью Data Annotations</li>
+                    <li>Логирование операций</li>
+                    <li>Поддержку дополнительных операций (степень, корень и т.д.)</li>
+                    <li>Историю вычислений</li>
+                </ul>
+            </section>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Активация вкладок Bootstrap
+        var triggerTabList = [].slice.call(document.querySelectorAll('#chapterTabs button'))
+        triggerTabList.forEach(function (triggerEl) {
+            var tabTrigger = new bootstrap.Tab(triggerEl)
+        })
+    </script>
+}

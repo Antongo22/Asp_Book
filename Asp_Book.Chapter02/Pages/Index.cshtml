@@ -1,0 +1,230 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Глава 2: Dependency Injection";
+}
+
+<div class="container-fluid">
+    <h1 class="mb-4">Глава 2: Dependency Injection</h1>
+
+    <ul class="nav nav-tabs mb-4" id="chapterTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="theory-tab" data-bs-toggle="tab" data-bs-target="#theory" type="button" role="tab">
+                Теория и Демонстрация
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="answers-tab" data-bs-toggle="tab" data-bs-target="#answers" type="button" role="tab">
+                Ответы
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="chapterTabsContent">
+        <div class="tab-pane fade show active" id="theory" role="tabpanel">
+            <h2>Теория</h2>
+
+            <section class="mb-5">
+                <h3>Что такое Dependency Injection (DI)?</h3>
+                <p><strong>Dependency Injection</strong> — это паттерн проектирования, при котором зависимости объекта предоставляются извне, а не создаются внутри самого объекта.</p>
+                
+                <h4>Преимущества DI:</h4>
+                <ul>
+                    <li><strong>Слабая связанность</strong> — классы не зависят от конкретных реализаций</li>
+                    <li><strong>Тестируемость</strong> — легко подменять зависимости в тестах</li>
+                    <li><strong>Гибкость</strong> — можно менять реализации без изменения кода</li>
+                    <li><strong>Управление жизненным циклом</strong> — фреймворк управляет созданием и уничтожением объектов</li>
+                </ul>
+            </section>
+
+            <section class="mb-5">
+                <h3>Жизненные циклы сервисов</h3>
+                <p>В ASP.NET Core есть три типа регистрации сервисов:</p>
+
+                <h4>1. Transient (Временный)</h4>
+                <p>Создается новый экземпляр каждый раз, когда запрашивается сервис.</p>
+                <div class="code-block">
+                    <pre><code>builder.Services.AddTransient&lt;IMyService, MyService&gt;();</code></pre>
+                    <div class="code-explanation">
+                        <strong>Использование:</strong> Для легковесных, stateless сервисов. Каждый запрос получает новый экземпляр.
+                    </div>
+                </div>
+
+                <h4>2. Scoped (Область действия)</h4>
+                <p>Один экземпляр на HTTP запрос. Создается в начале запроса и уничтожается в конце.</p>
+                <div class="code-block">
+                    <pre><code>builder.Services.AddScoped&lt;IMyService, MyService&gt;();</code></pre>
+                    <div class="code-explanation">
+                        <strong>Использование:</strong> Для сервисов, которые должны быть одинаковыми в рамках одного запроса (например, DbContext).
+                    </div>
+                </div>
+
+                <h4>3. Singleton (Одиночка)</h4>
+                <p>Один экземпляр на все приложение. Создается при первом запросе и живет до остановки приложения.</p>
+                <div class="code-block">
+                    <pre><code>builder.Services.AddSingleton&lt;IMyService, MyService&gt;();</code></pre>
+                    <div class="code-explanation">
+                        <strong>Использование:</strong> Для сервисов, которые должны быть единственными (например, кэш, конфигурация).
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Демонстрация: Использование ILogger через DI</h3>
+                <p>ILogger автоматически доступен через DI в ASP.NET Core:</p>
+
+                <div class="code-block">
+                    <pre><code>public class MyController : ControllerBase
+{
+    private readonly ILogger&lt;MyController&gt; _logger;
+
+    // ILogger автоматически внедряется через конструктор
+    public MyController(ILogger&lt;MyController&gt; logger)
+    {
+        _logger = logger;
+    }
+
+    [HttpGet]
+    public IActionResult Get()
+    {
+        _logger.LogInformation("Обработка запроса");
+        return Ok();
+    }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Объяснение:</strong> ASP.NET Core автоматически регистрирует ILogger в DI контейнере. 
+                        Просто объявите его в конструкторе, и он будет внедрен автоматически.
+                    </div>
+                </div>
+
+                <div class="alert alert-info mt-3">
+                    <strong>Попробуйте:</strong> Откройте <a href="/swagger" target="_blank">Swagger UI</a> и вызовите 
+                    <code>GET /api/DependencyInjection/logger-demo</code> чтобы увидеть логирование в действии.
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Демонстрация: Жизненные циклы сервисов</h3>
+                <p>Посмотрите, как работают разные жизненные циклы:</p>
+
+                <div class="alert alert-success mt-3">
+                    <strong>Попробуйте:</strong> Вызовите <code>GET /api/DependencyInjection/lifetimes</code> несколько раз. 
+                    Обратите внимание на ID сервисов:
+                    <ul>
+                        <li><strong>Scoped:</strong> ID одинаковые в рамках одного запроса</li>
+                        <li><strong>Singleton:</strong> ID одинаковые во всех запросах</li>
+                        <li><strong>Transient:</strong> ID разные каждый раз</li>
+                    </ul>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Задача: Создать сервис и внедрить его</h3>
+                <div class="alert alert-warning">
+                    <h5>Ваша задача:</h5>
+                    <p>Создайте сервис <code>IMessageService</code> и его реализацию <code>MessageService</code> со следующими методами:</p>
+                    <ul>
+                        <li><strong>GetMessage(string name)</strong> — возвращает приветственное сообщение</li>
+                        <li><strong>LogMessage(string message)</strong> — логирует сообщение</li>
+                    </ul>
+                    <p><strong>Требования:</strong></p>
+                    <ul>
+                        <li>Создайте интерфейс <code>IMessageService</code></li>
+                        <li>Создайте класс <code>MessageService</code>, реализующий интерфейс</li>
+                        <li>Используйте <code>ILogger</code> для логирования (внедрите через DI)</li>
+                        <li>Зарегистрируйте сервис в <code>Program.cs</code> как <code>Scoped</code></li>
+                        <li>Создайте контроллер <code>MessageController</code>, который использует этот сервис</li>
+                        <li>Добавьте эндпоинт <code>GET /api/Message/greet/{name}</code></li>
+                    </ul>
+                </div>
+            </section>
+        </div>
+
+        <div class="tab-pane fade" id="answers" role="tabpanel">
+            <h2>Решение задачи</h2>
+
+            <div class="alert alert-info">
+                <strong>Где посмотреть код:</strong> Полная реализация находится в файлах:
+                <ul>
+                    <li><code>Services/IMessageService.cs</code> и <code>Services/MessageService.cs</code> — интерфейс и реализация сервиса</li>
+                    <li><code>Controllers/MessageController.cs</code> — контроллер, использующий сервис</li>
+                    <li><code>Program.cs</code> — регистрация сервиса в DI контейнере</li>
+                </ul>
+                Вы можете открыть эти файлы в проекте и изучить код самостоятельно.
+            </div>
+
+            <section class="mb-5">
+                <h3>Готовое решение</h3>
+                <p>В проекте реализован сервис для работы с сообщениями, который демонстрирует использование Dependency Injection с логгером.</p>
+                
+                <h4>Что реализовано:</h4>
+                <ol>
+                    <li><strong>Интерфейс IMessageService:</strong> Определяет два метода:
+                        <ul>
+                            <li><code>GetMessage(string name)</code> — генерирует приветственное сообщение</li>
+                            <li><code>LogMessage(string message)</code> — логирует сообщение</li>
+                        </ul>
+                    </li>
+                    <li><strong>Реализация MessageService:</strong> Класс, который:
+                        <ul>
+                            <li>Реализует интерфейс <code>IMessageService</code></li>
+                            <li>Использует <code>ILogger&lt;MessageService&gt;</code>, который внедряется через конструктор (DI)</li>
+                            <li>Логирует все операции с использованием параметризованного логирования</li>
+                        </ul>
+                    </li>
+                    <li><strong>Регистрация в DI:</strong> В <code>Program.cs</code> сервис зарегистрирован как <code>Scoped</code>, что означает создание одного экземпляра на каждый HTTP запрос.</li>
+                    <li><strong>Использование в контроллере:</strong> <code>MessageController</code> получает <code>IMessageService</code> и <code>ILogger</code> через конструктор и использует их для обработки запросов.</li>
+                </ol>
+            </section>
+
+            <section class="mb-5">
+                <h3>Как это работает</h3>
+                <p>При запросе к API происходит следующее:</p>
+                <ol>
+                    <li>ASP.NET Core создает экземпляр <code>MessageController</code></li>
+                    <li>DI контейнер автоматически создает и внедряет <code>MessageService</code> и <code>ILogger</code></li>
+                    <li>Контроллер вызывает метод сервиса <code>GetMessage()</code></li>
+                    <li>Сервис генерирует сообщение и логирует операцию</li>
+                    <li>Результат возвращается клиенту в формате JSON</li>
+                </ol>
+
+                <h4>Пример работы:</h4>
+                <div class="alert alert-success">
+                    <strong>Запрос:</strong> <code>GET /api/Message/greet/Иван</code><br>
+                    <strong>Ответ:</strong> <code>{"message": "Привет, Иван! Это сообщение от MessageService."}</code><br>
+                    <strong>В логах:</strong> Вы увидите запись <code>Сгенерировано сообщение для Иван</code>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Ключевые моменты реализации</h3>
+                <ul>
+                    <li><strong>Внедрение через конструктор:</strong> Все зависимости передаются через конструктор, что делает зависимости явными и тестируемыми.</li>
+                    <li><strong>Использование интерфейсов:</strong> Регистрация через интерфейс позволяет легко заменять реализацию без изменения кода контроллера.</li>
+                    <li><strong>Жизненный цикл Scoped:</strong> Выбран правильный жизненный цикл для сервиса, который работает с HTTP запросами.</li>
+                    <li><strong>Параметризованное логирование:</strong> Использование плейсхолдеров (<code>{Name}</code>, <code>{Message}</code>) позволяет эффективно структурировать логи.</li>
+                    <li><strong>Автоматическое внедрение:</strong> ASP.NET Core автоматически создает экземпляры всех зарегистрированных сервисов и передает их в конструктор.</li>
+                </ul>
+            </section>
+
+            <section class="mb-5">
+                <h3>Преимущества такого подхода</h3>
+                <ul>
+                    <li><strong>Тестируемость:</strong> Легко создать моки интерфейсов для unit-тестов</li>
+                    <li><strong>Гибкость:</strong> Можно заменить реализацию без изменения кода контроллера</li>
+                    <li><strong>Читаемость:</strong> Зависимости явно видны в конструкторе</li>
+                    <li><strong>Управление ресурсами:</strong> DI контейнер управляет жизненным циклом объектов</li>
+                </ul>
+            </section>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        var triggerTabList = [].slice.call(document.querySelectorAll('#chapterTabs button'))
+        triggerTabList.forEach(function (triggerEl) {
+            var tabTrigger = new bootstrap.Tab(triggerEl)
+        })
+    </script>
+}

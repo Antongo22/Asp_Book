@@ -1,0 +1,168 @@
+﻿@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Учебник по ASP.NET";
+}
+
+<div class="container mt-5">
+    <div class="text-center mb-5">
+        <h1 class="display-4">Учебник по ASP.NET</h1>
+        <p class="lead">Полное руководство для начинающих разработчиков</p>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="badge bg-primary">Глава 1</span> Начало работы
+                    </h5>
+                    <p class="card-text">Middleware, REST API, Swagger. Создание простого контроллера.</p>
+                    <a href="http://localhost:5001" class="btn btn-primary" target="_blank">Открыть →</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="badge bg-primary">Глава 2</span> Dependency Injection
+                    </h5>
+                    <p class="card-text">Паттерн DI, регистрация сервисов, жизненный цикл.</p>
+                    <a href="http://localhost:5002" class="btn btn-primary" target="_blank">Открыть →</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="badge bg-primary">Глава 3</span> HTTP Requests
+                    </h5>
+                    <p class="card-text">HttpClient, запросы к внешним API.</p>
+                    <a href="http://localhost:5003" class="btn btn-primary" target="_blank">Открыть →</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="badge bg-primary">Глава 4</span> Error Handling
+                    </h5>
+                    <p class="card-text">Глобальный обработчик ошибок, кастомный middleware.</p>
+                    <a href="http://localhost:5004" class="btn btn-primary" target="_blank">Открыть →</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="badge bg-success">Глава 5</span> Razor Pages UI
+                    </h5>
+                    <p class="card-text">Создание UI, синтаксис Razor, Model Binding.</p>
+                    <a href="http://localhost:5005" class="btn btn-success" target="_blank">Открыть →</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="badge bg-success">Глава 6</span> Entity Framework
+                    </h5>
+                    <p class="card-text">EF Core, DTO, миграции, SQLite, CRUD операции.</p>
+                    <a href="http://localhost:5006" class="btn btn-success" target="_blank">Открыть →</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="badge bg-success">Глава 7</span> Authentication & Authorization
+                    </h5>
+                    <p class="card-text">Разница между AuthN и AuthZ, JWT токены, Swagger интеграция.</p>
+                    <a href="http://localhost:5007" class="btn btn-success" target="_blank">Открыть →</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="badge bg-success">Глава 8</span> Refresh Tokens
+                    </h5>
+                    <p class="card-text">Refresh токены, механизм обновления access токенов.</p>
+                    <a href="http://localhost:5008" class="btn btn-success" target="_blank">Открыть →</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="badge bg-success">Глава 9</span> WebSockets
+                    </h5>
+                    <p class="card-text">WebSockets, отправка сообщений одному и всем.</p>
+                    <a href="http://localhost:5009" class="btn btn-success" target="_blank">Открыть →</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="badge bg-success">Глава 10</span> SignalR
+                    </h5>
+                    <p class="card-text">SignalR, Hubs, Groups, отправка сообщений одному и всем.</p>
+                    <a href="http://localhost:5010" class="btn btn-success" target="_blank">Открыть →</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="badge bg-success">Глава 11</span> Auth с SignalR/WebSockets
+                    </h5>
+                    <p class="card-text">Аутентификация в real-time соединениях.</p>
+                    <a href="http://localhost:5011" class="btn btn-success" target="_blank">Открыть →</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="badge bg-success">Глава 12</span> Тестирование
+                    </h5>
+                    <p class="card-text">Unit тесты, интеграционные тесты, In-Memory БД. Финальная задача - чат.</p>
+                    <a href="http://localhost:5012" class="btn btn-success" target="_blank">Открыть →</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="alert alert-info mt-5">
+        <h5>Как использовать учебник:</h5>
+        <ul>
+            <li>Каждая глава содержит теорию, демонстрацию, задачу и ответы</li>
+            <li>С главы 5 все примеры показывают работу с UI (Razor Pages)</li>
+            <li>Для тестирования API используйте Swagger (доступен в каждой главе)</li>
+            <li>Проекты можно запускать локально через <code>dotnet run</code> или все сразу через Docker Compose</li>
+        </ul>
+    </div>
+</div>

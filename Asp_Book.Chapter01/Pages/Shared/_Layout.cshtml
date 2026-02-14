@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Глава 1: Начало работы</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <style>
+        pre {
+            background-color: #f8f9fa;
+            padding: 1rem;
+            border-radius: 0.25rem;
+            border: 1px solid #dee2e6;
+        }
+        code {
+            color: #d63384;
+        }
+        .code-block {
+            position: relative;
+        }
+        .code-explanation {
+            background-color: #e7f3ff;
+            padding: 0.5rem;
+            margin-top: 0.5rem;
+            border-left: 3px solid #0d6efd;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav class="navbar navbar-expand-sm navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" asp-page="/Index">Глава 1: Начало работы</a>
+                <div class="navbar-nav">
+                    <a class="nav-link" href="/swagger" target="_blank">Swagger UI</a>
+                    <a class="nav-link" href="http://localhost:5000" target="_blank">Главная</a>
+                </div>
+            </div>
+        </nav>
+    </header>
+    <div class="container mt-4">
+        <main role="main">
+            @RenderBody()
+        </main>
+    </div>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

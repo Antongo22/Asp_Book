@@ -1,0 +1,217 @@
+﻿@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Глава 6: Entity Framework";
+}
+
+<div class="container-fluid">
+    <h1 class="mb-4">Глава 6: Entity Framework</h1>
+
+    <ul class="nav nav-tabs mb-4" id="chapterTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="theory-tab" data-bs-toggle="tab" data-bs-target="#theory" type="button" role="tab">
+                Теория и Демонстрация
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="answers-tab" data-bs-toggle="tab" data-bs-target="#answers" type="button" role="tab">
+                Ответы
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="chapterTabsContent">
+        <div class="tab-pane fade show active" id="theory" role="tabpanel">
+            <h2>Теория</h2>
+
+            <section class="mb-5">
+                <h3>Что такое Entity Framework Core?</h3>
+                <p><strong>Entity Framework Core (EF Core)</strong> — это ORM (Object-Relational Mapping) фреймворк от Microsoft для работы с базами данных.</p>
+                
+                <h4>Основные компоненты:</h4>
+                <ul>
+                    <li><strong>DbContext</strong> — контекст базы данных</li>
+                    <li><strong>DbSet</strong> — набор сущностей</li>
+                    <li><strong>Миграции</strong> — управление схемой БД</li>
+                    <li><strong>LINQ</strong> — запросы к данным</li>
+                </ul>
+            </section>
+
+            <section class="mb-5">
+                <h3>DTO (Data Transfer Objects)</h3>
+                <p>DTO используются для передачи данных между слоями приложения без раскрытия внутренней структуры сущностей.</p>
+
+                <div class="code-block">
+                    <pre><code>// Модель (внутренняя структура)
+public class Product
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public DateTime CreatedAt { get; set; } // Внутреннее поле
+}
+
+// DTO (для API)
+public class ProductDto
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    // CreatedAt не включаем в DTO
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Миграции</h3>
+                <p>Миграции позволяют управлять схемой базы данных через код:</p>
+
+                <div class="code-block">
+                    <pre><code>// Создание миграции
+dotnet ef migrations add InitialCreate
+
+// Применение миграции
+dotnet ef database update
+
+// Откат миграции
+dotnet ef database update PreviousMigration</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>CRUD операции</h3>
+                <p>Базовые операции с данными:</p>
+                <ul>
+                    <li><strong>Create</strong> — создание (Add, SaveChanges)</li>
+                    <li><strong>Read</strong> — чтение (Find, ToList, FirstOrDefault)</li>
+                    <li><strong>Update</strong> — обновление (изменение свойств, SaveChanges)</li>
+                    <li><strong>Delete</strong> — удаление (Remove, SaveChanges)</li>
+                </ul>
+            </section>
+
+            <section class="mb-5">
+                <h3>Задача: Создать модель и миграции</h3>
+                <div class="alert alert-warning">
+                    <h5>Ваша задача:</h5>
+                    <p>Создайте модель <code>Order</code> со следующими полями:</p>
+                    <ul>
+                        <li>Id (int, первичный ключ)</li>
+                        <li>CustomerName (string, обязательно)</li>
+                        <li>TotalAmount (decimal)</li>
+                        <li>OrderDate (DateTime)</li>
+                        <li>Status (string)</li>
+                    </ul>
+                    <p>Создайте миграцию и примените её к базе данных.</p>
+                </div>
+            </section>
+        </div>
+
+        <div class="tab-pane fade" id="answers" role="tabpanel">
+            <h2>Решение задачи</h2>
+
+            <div class="alert alert-info">
+                <strong>Где посмотреть код:</strong> Полная реализация находится в файлах:
+                <ul>
+                    <li><code>Models/Product.cs</code> — модель сущности Product</li>
+                    <li><code>DTOs/ProductDto.cs</code> — DTO для передачи данных</li>
+                    <li><code>Data/ApplicationDbContext.cs</code> — контекст базы данных</li>
+                    <li><code>Controllers/ProductsController.cs</code> — контроллер с CRUD операциями</li>
+                </ul>
+                Вы можете открыть эти файлы в проекте и изучить код самостоятельно.
+            </div>
+
+            <section class="mb-5">
+                <h3>Готовое решение</h3>
+                <p>В проекте реализована полнофункциональная система работы с базой данных через Entity Framework Core, включающая CRUD операции, миграции и использование DTO.</p>
+                
+                <h4>Что реализовано:</h4>
+                <ol>
+                    <li><strong>Модель Product:</strong> Entity класс с:
+                        <ul>
+                            <li>Свойствами: Id, Name, Price, Description</li>
+                            <li>Настройкой через Fluent API или Data Annotations</li>
+                        </ul>
+                    </li>
+                    <li><strong>DTO (ProductDto):</strong> Объект для передачи данных между слоями:
+                        <ul>
+                            <li>Используется для API ответов</li>
+                            <li>Не содержит внутренних полей Entity (например, навигационных свойств)</li>
+                            <li>Обеспечивает безопасность и производительность</li>
+                        </ul>
+                    </li>
+                    <li><strong>ApplicationDbContext:</strong> Контекст базы данных:
+                        <ul>
+                            <li>Настроен для работы с SQLite</li>
+                            <li>Содержит DbSet для Product</li>
+                            <li>Настроен через OnConfiguring или через DI</li>
+                        </ul>
+                    </li>
+                    <li><strong>ProductsController:</strong> API контроллер с полным набором CRUD операций:
+                        <ul>
+                            <li>GET — получение списка и отдельного продукта</li>
+                            <li>POST — создание нового продукта</li>
+                            <li>PUT — обновление существующего продукта</li>
+                            <li>DELETE — удаление продукта</li>
+                        </ul>
+                    </li>
+                    <li><strong>Миграции:</strong> Настроена система миграций для управления схемой БД.</li>
+                </ol>
+            </section>
+
+            <section class="mb-5">
+                <h3>Как это работает</h3>
+                <p>При работе с API происходит следующее:</p>
+                <ol>
+                    <li>Запрос приходит в контроллер</li>
+                    <li>Контроллер получает <code>ApplicationDbContext</code> через Dependency Injection</li>
+                    <li>Выполняется запрос к базе данных через LINQ</li>
+                    <li>Entity преобразуется в DTO для возврата клиенту</li>
+                    <li>Данные возвращаются в формате JSON</li>
+                </ol>
+
+                <h4>Примеры операций:</h4>
+                <div class="alert alert-success">
+                    <strong>Создание продукта:</strong><br>
+                    <code>POST /api/Products</code> с телом <code>{"name": "Ноутбук", "price": 50000, "description": "Игровой ноутбук"}</code><br>
+                    Ответ: <code>{"id": 1, "name": "Ноутбук", "price": 50000, "description": "Игровой ноутбук"}</code>
+                </div>
+                <div class="alert alert-success">
+                    <strong>Получение всех продуктов:</strong><br>
+                    <code>GET /api/Products</code><br>
+                    Ответ: Массив всех продуктов в формате DTO
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Ключевые моменты реализации</h3>
+                <ul>
+                    <li><strong>Разделение Entity и DTO:</strong> Entity используется для работы с БД, DTO — для API. Это обеспечивает безопасность и гибкость.</li>
+                    <li><strong>Миграции:</strong> Используйте миграции для управления схемой БД. Команды: <code>dotnet ef migrations add</code> и <code>dotnet ef database update</code>.</li>
+                    <li><strong>Асинхронные операции:</strong> Все операции с БД асинхронные (<code>ToListAsync()</code>, <code>SaveChangesAsync()</code>).</li>
+                    <li><strong>Обработка ошибок:</strong> Проверка существования сущности перед обновлением/удалением.</li>
+                    <li><strong>Валидация:</strong> Валидация данных перед сохранением в БД.</li>
+                </ul>
+            </section>
+
+            <section class="mb-5">
+                <h3>Как протестировать</h3>
+                <p>Вы можете протестировать решение через Swagger UI:</p>
+                <ol>
+                    <li>Откройте <a href="/swagger" target="_blank">Swagger UI</a></li>
+                    <li>Найдите раздел <code>Products</code></li>
+                    <li>Создайте новый продукт через POST</li>
+                    <li>Получите список продуктов через GET</li>
+                    <li>Обновите продукт через PUT</li>
+                    <li>Удалите продукт через DELETE</li>
+                </ol>
+            </section>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        var triggerTabList = [].slice.call(document.querySelectorAll('#chapterTabs button'))
+        triggerTabList.forEach(function (triggerEl) {
+            var tabTrigger = new bootstrap.Tab(triggerEl)
+        })
+    </script>
+}

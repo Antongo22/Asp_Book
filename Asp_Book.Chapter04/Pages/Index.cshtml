@@ -1,0 +1,181 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Глава 4: Error Handling";
+}
+
+<div class="container-fluid">
+    <h1 class="mb-4">Глава 4: Error Handling</h1>
+
+    <ul class="nav nav-tabs mb-4" id="chapterTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="theory-tab" data-bs-toggle="tab" data-bs-target="#theory" type="button" role="tab">
+                Теория и Демонстрация
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="answers-tab" data-bs-toggle="tab" data-bs-target="#answers" type="button" role="tab">
+                Ответы
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="chapterTabsContent">
+        <div class="tab-pane fade show active" id="theory" role="tabpanel">
+            <h2>Теория</h2>
+
+            <section class="mb-5">
+                <h3>Глобальный обработчик ошибок</h3>
+                <p>Глобальный обработчик ошибок перехватывает все необработанные исключения в приложении и возвращает пользователю понятный ответ.</p>
+
+                <div class="code-block">
+                    <pre><code>public class GlobalExceptionHandlerMiddleware
+{
+    private readonly RequestDelegate _next;
+    private readonly ILogger&lt;GlobalExceptionHandlerMiddleware&gt; _logger;
+
+    public async Task InvokeAsync(HttpContext context)
+    {
+        try
+        {
+            await _next(context);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Необработанное исключение");
+            await HandleExceptionAsync(context, ex);
+        }
+    }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Объяснение:</strong> Middleware перехватывает исключения, логирует их и возвращает JSON ответ с информацией об ошибке.
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Кастомный Middleware</h3>
+                <p>Middleware позволяет добавить логику обработки запросов и ответов в конвейер ASP.NET Core.</p>
+
+                <div class="code-block">
+                    <pre><code>public class RequestLoggingMiddleware
+{
+    private readonly RequestDelegate _next;
+    private readonly ILogger&lt;RequestLoggingMiddleware&gt; _logger;
+
+    public async Task InvokeAsync(HttpContext context)
+    {
+        var startTime = DateTime.UtcNow;
+        _logger.LogInformation("Входящий запрос: {Method} {Path}", 
+            context.Request.Method, context.Request.Path);
+        
+        await _next(context);
+        
+        var duration = DateTime.UtcNow - startTime;
+        _logger.LogInformation("Запрос завершен за {Duration}ms", 
+            duration.TotalMilliseconds);
+    }
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Задача: Создать middleware для логирования</h3>
+                <div class="alert alert-warning">
+                    <h5>Ваша задача:</h5>
+                    <p>Создайте middleware, который логирует:</p>
+                    <ul>
+                        <li>Метод HTTP запроса</li>
+                        <li>Путь запроса</li>
+                        <li>Время выполнения запроса</li>
+                        <li>Статус код ответа</li>
+                    </ul>
+                </div>
+            </section>
+        </div>
+
+        <div class="tab-pane fade" id="answers" role="tabpanel">
+            <h2>Решение задачи</h2>
+
+            <div class="alert alert-info">
+                <strong>Где посмотреть код:</strong> Полная реализация находится в файлах:
+                <ul>
+                    <li><code>Middleware/RequestLoggingMiddleware.cs</code> — middleware для логирования запросов</li>
+                    <li><code>Middleware/GlobalExceptionHandlerMiddleware.cs</code> — middleware для глобальной обработки ошибок</li>
+                    <li><code>Program.cs</code> — регистрация middleware в конвейере</li>
+                </ul>
+                Вы можете открыть эти файлы в проекте и изучить код самостоятельно.
+            </div>
+
+            <section class="mb-5">
+                <h3>Готовое решение</h3>
+                <p>В проекте реализован полнофункциональный middleware для логирования HTTP запросов, который демонстрирует создание и использование custom middleware.</p>
+                
+                <h4>Что реализовано:</h4>
+                <ol>
+                    <li><strong>RequestLoggingMiddleware:</strong> Middleware, который логирует:
+                        <ul>
+                            <li>HTTP метод запроса (GET, POST, PUT, DELETE и т.д.)</li>
+                            <li>Полный путь запроса</li>
+                            <li>Время начала обработки запроса</li>
+                            <li>Время выполнения запроса (в миллисекундах)</li>
+                            <li>HTTP статус код ответа</li>
+                        </ul>
+                    </li>
+                    <li><strong>Глобальная обработка ошибок:</strong> <code>GlobalExceptionHandlerMiddleware</code> перехватывает все необработанные исключения и возвращает корректный JSON ответ.</li>
+                    <li><strong>Правильная регистрация:</strong> Middleware зарегистрирован в правильном порядке в <code>Program.cs</code>.</li>
+                </ol>
+            </section>
+
+            <section class="mb-5">
+                <h3>Как это работает</h3>
+                <p>При каждом HTTP запросе происходит следующее:</p>
+                <ol>
+                    <li>Запрос попадает в <code>RequestLoggingMiddleware</code></li>
+                    <li>Middleware записывает время начала обработки</li>
+                    <li>Запрос передается следующему middleware в конвейере</li>
+                    <li>После обработки запроса middleware записывает время окончания</li>
+                    <li>Вычисляется время выполнения и логируется вся информация о запросе</li>
+                    <li>Если произошла ошибка, <code>GlobalExceptionHandlerMiddleware</code> перехватывает её и возвращает JSON ответ</li>
+                </ol>
+
+                <h4>Пример лога:</h4>
+                <div class="alert alert-success">
+                    <strong>В консоли вы увидите:</strong><br>
+                    <code>GET /api/WeatherForecast - 200 OK - Время выполнения: 15ms</code>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Ключевые моменты реализации</h3>
+                <ul>
+                    <li><strong>Паттерн Middleware:</strong> Использование метода <code>InvokeAsync</code> с параметром <code>RequestDelegate next</code> для передачи запроса дальше.</li>
+                    <li><strong>Измерение времени:</strong> Использование <code>Stopwatch</code> для точного измерения времени выполнения запроса.</li>
+                    <li><strong>Логирование:</strong> Использование встроенного <code>ILogger</code> для структурированного логирования.</li>
+                    <li><strong>Порядок регистрации:</strong> Middleware должен быть зарегистрирован до <code>UseRouting()</code> для логирования всех запросов.</li>
+                    <li><strong>Обработка ошибок:</strong> Глобальный обработчик ошибок должен быть одним из первых middleware для перехвата всех исключений.</li>
+                </ul>
+            </section>
+
+            <section class="mb-5">
+                <h3>Как протестировать</h3>
+                <p>Вы можете протестировать middleware несколькими способами:</p>
+                <ol>
+                    <li>Откройте любую страницу или API endpoint</li>
+                    <li>Проверьте консоль приложения — вы увидите логи всех запросов</li>
+                    <li>Попробуйте вызвать endpoint, который выбрасывает ошибку (например, через <code>ErrorDemoController</code>)</li>
+                    <li>Проверьте, что ошибка обрабатывается корректно и возвращается JSON ответ</li>
+                </ol>
+            </section>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        var triggerTabList = [].slice.call(document.querySelectorAll('#chapterTabs button'))
+        triggerTabList.forEach(function (triggerEl) {
+            var tabTrigger = new bootstrap.Tab(triggerEl)
+        })
+    </script>
+}

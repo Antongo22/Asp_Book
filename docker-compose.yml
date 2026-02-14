@@ -1,0 +1,162 @@
+version: '3.8'
+
+services:
+  gateway:
+    build:
+      context: ./Asp_Book.Gateway
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5000
+    networks:
+      - aspbook-network
+
+  chapter01:
+    build:
+      context: ./Asp_Book.Chapter01
+      dockerfile: Dockerfile
+    ports:
+      - "5001:5001"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5001
+    networks:
+      - aspbook-network
+
+  chapter02:
+    build:
+      context: ./Asp_Book.Chapter02
+      dockerfile: Dockerfile
+    ports:
+      - "5002:5002"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5002
+    networks:
+      - aspbook-network
+
+  chapter03:
+    build:
+      context: ./Asp_Book.Chapter03
+      dockerfile: Dockerfile
+    ports:
+      - "5003:5003"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5003
+    networks:
+      - aspbook-network
+
+  chapter04:
+    build:
+      context: ./Asp_Book.Chapter04
+      dockerfile: Dockerfile
+    ports:
+      - "5004:5004"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5004
+    networks:
+      - aspbook-network
+
+  chapter05:
+    build:
+      context: ./Asp_Book.Chapter05
+      dockerfile: Dockerfile
+    ports:
+      - "5005:5005"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5005
+    networks:
+      - aspbook-network
+
+  chapter06:
+    build:
+      context: ./Asp_Book.Chapter06
+      dockerfile: Dockerfile
+    ports:
+      - "5006:5006"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5006
+    networks:
+      - aspbook-network
+
+  chapter07:
+    build:
+      context: ./Asp_Book.Chapter07
+      dockerfile: Dockerfile
+    ports:
+      - "5007:5007"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5007
+    networks:
+      - aspbook-network
+
+  chapter08:
+    build:
+      context: ./Asp_Book.Chapter08
+      dockerfile: Dockerfile
+    ports:
+      - "5008:5008"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5008
+    networks:
+      - aspbook-network
+
+  chapter09:
+    build:
+      context: ./Asp_Book.Chapter09
+      dockerfile: Dockerfile
+    ports:
+      - "5009:5009"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5009
+    networks:
+      - aspbook-network
+
+  chapter10:
+    build:
+      context: ./Asp_Book.Chapter10
+      dockerfile: Dockerfile
+    ports:
+      - "5010:5010"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5010
+    networks:
+      - aspbook-network
+
+  chapter11:
+    build:
+      context: ./Asp_Book.Chapter11
+      dockerfile: Dockerfile
+    ports:
+      - "5011:5011"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5011
+    networks:
+      - aspbook-network
+
+  chapter12:
+    build:
+      context: ./Asp_Book.Chapter12
+      dockerfile: Dockerfile
+    ports:
+      - "5012:5012"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5012
+    networks:
+      - aspbook-network
+
+networks:
+  aspbook-network:
+    driver: bridge

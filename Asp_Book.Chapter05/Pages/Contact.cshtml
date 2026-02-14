@@ -1,0 +1,49 @@
+@page
+@model Asp_Book.Chapter05.Pages.ContactModel
+@{
+    ViewData["Title"] = "Контактная форма";
+}
+
+<div class="container mt-4">
+    <h2>Контактная форма</h2>
+    <p>Пример формы с валидацией на Razor Pages</p>
+
+    @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+    {
+        <div class="alert alert-success">
+            @Model.SuccessMessage
+        </div>
+    }
+
+    <form method="post" class="mt-4">
+        <div class="mb-3">
+            <label asp-for="ContactForm.Name" class="form-label"></label>
+            <input asp-for="ContactForm.Name" class="form-control" />
+            <span asp-validation-for="ContactForm.Name" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="ContactForm.Email" class="form-label"></label>
+            <input asp-for="ContactForm.Email" class="form-control" type="email" />
+            <span asp-validation-for="ContactForm.Email" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="ContactForm.Phone" class="form-label"></label>
+            <input asp-for="ContactForm.Phone" class="form-control" type="tel" />
+            <span asp-validation-for="ContactForm.Phone" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="ContactForm.Message" class="form-label"></label>
+            <textarea asp-for="ContactForm.Message" class="form-control" rows="5"></textarea>
+            <span asp-validation-for="ContactForm.Message" class="text-danger"></span>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Отправить</button>
+    </form>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

@@ -40,6 +40,172 @@
             </section>
 
             <section class="mb-5">
+                <h3>Структура проекта ASP.NET Core</h3>
+                <p>Правильная структура проекта — основа для поддержки и масштабирования приложения. Давайте разберем, какие папки и файлы за что отвечают:</p>
+                
+                <h4>Основные папки и файлы:</h4>
+                
+                <div class="code-block mt-3">
+                    <pre><code>Asp_Book.Chapter01/
+├── Controllers/          # Контроллеры API
+│   ├── WeatherForecastController.cs
+│   └── CalculatorController.cs
+├── Models/              # Модели данных
+│   └── WeatherForecast.cs
+├── Pages/               # Razor Pages (для веб-интерфейса)
+│   ├── Index.cshtml
+│   ├── Index.cshtml.cs
+│   └── Shared/
+│       └── _Layout.cshtml
+├── Services/            # Бизнес-логика и сервисы
+│   ├── IMyService.cs
+│   └── MyService.cs
+├── Data/                # Работа с базой данных
+│   └── ApplicationDbContext.cs
+├── DTOs/                # Data Transfer Objects
+│   └── ProductDto.cs
+├── Middleware/          # Custom middleware
+│   └── CustomMiddleware.cs
+├── wwwroot/             # Статические файлы (CSS, JS, изображения)
+│   ├── css/
+│   ├── js/
+│   └── lib/
+├── Properties/           # Настройки проекта
+│   └── launchSettings.json
+├── Program.cs           # Точка входа, конфигурация приложения
+├── appsettings.json     # Конфигурация приложения
+└── Asp_Book.Chapter01.csproj  # Файл проекта</code></pre>
+                    <div class="code-explanation">
+                        <strong>Объяснение структуры:</strong>
+                    </div>
+                </div>
+
+                <h4>Детальное описание:</h4>
+                
+                <div class="alert alert-light">
+                    <h5><strong>📁 Controllers/</strong></h5>
+                    <p>Содержит контроллеры, которые обрабатывают HTTP-запросы. Каждый контроллер отвечает за определенную группу эндпоинтов.</p>
+                    <ul>
+                        <li><code>WeatherForecastController.cs</code> — контроллер для работы с прогнозом погоды</li>
+                        <li><code>CalculatorController.cs</code> — контроллер для калькулятора</li>
+                    </ul>
+                </div>
+
+                <div class="alert alert-light">
+                    <h5><strong>📁 Models/</strong></h5>
+                    <p>Содержит модели данных — классы, которые представляют структуру данных в приложении.</p>
+                    <ul>
+                        <li>Модели для API запросов/ответов</li>
+                        <li>Entity модели для базы данных</li>
+                        <li>ViewModels для Razor Pages</li>
+                    </ul>
+                </div>
+
+                <div class="alert alert-light">
+                    <h5><strong>📁 Pages/</strong></h5>
+                    <p>Содержит Razor Pages — страницы веб-интерфейса. Каждая страница состоит из двух файлов:</p>
+                    <ul>
+                        <li><code>Index.cshtml</code> — разметка (HTML + Razor синтаксис)</li>
+                        <li><code>Index.cshtml.cs</code> — код страницы (PageModel)</li>
+                        <li><code>Shared/_Layout.cshtml</code> — общий макет для всех страниц</li>
+                    </ul>
+                </div>
+
+                <div class="alert alert-light">
+                    <h5><strong>📁 Services/</strong></h5>
+                    <p>Содержит бизнес-логику приложения. Сервисы обычно регистрируются через Dependency Injection.</p>
+                    <ul>
+                        <li>Интерфейсы сервисов (<code>IMyService.cs</code>)</li>
+                        <li>Реализации сервисов (<code>MyService.cs</code>)</li>
+                    </ul>
+                </div>
+
+                <div class="alert alert-light">
+                    <h5><strong>📁 Data/</strong></h5>
+                    <p>Содержит классы для работы с базой данных (Entity Framework Core).</p>
+                    <ul>
+                        <li><code>ApplicationDbContext.cs</code> — контекст базы данных</li>
+                        <li>Конфигурации Entity (опционально)</li>
+                    </ul>
+                </div>
+
+                <div class="alert alert-light">
+                    <h5><strong>📁 DTOs/</strong></h5>
+                    <p>Data Transfer Objects — объекты для передачи данных между слоями приложения.</p>
+                    <ul>
+                        <li>Используются для API ответов</li>
+                        <li>Отделяют внутреннюю структуру данных от внешнего API</li>
+                    </ul>
+                </div>
+
+                <div class="alert alert-light">
+                    <h5><strong>📁 Middleware/</strong></h5>
+                    <p>Содержит кастомные middleware компоненты для обработки HTTP-запросов.</p>
+                </div>
+
+                <div class="alert alert-light">
+                    <h5><strong>📁 wwwroot/</strong></h5>
+                    <p>Корневая папка для статических файлов, которые доступны напрямую через браузер.</p>
+                    <ul>
+                        <li><code>css/</code> — стили CSS</li>
+                        <li><code>js/</code> — JavaScript файлы</li>
+                        <li><code>lib/</code> — библиотеки (Bootstrap, jQuery и т.д.)</li>
+                        <li>Изображения, шрифты и другие статические ресурсы</li>
+                    </ul>
+                </div>
+
+                <div class="alert alert-light">
+                    <h5><strong>📄 Program.cs</strong></h5>
+                    <p>Главный файл приложения — точка входа и место конфигурации.</p>
+                    <ul>
+                        <li>Регистрация сервисов (<code>builder.Services.Add...()</code>)</li>
+                        <li>Настройка middleware (<code>app.Use...()</code>)</li>
+                        <li>Маршрутизация (<code>app.MapControllers()</code>, <code>app.MapRazorPages()</code>)</li>
+                        <li>Запуск приложения (<code>app.Run()</code>)</li>
+                    </ul>
+                </div>
+
+                <div class="alert alert-light">
+                    <h5><strong>📄 appsettings.json</strong></h5>
+                    <p>Файл конфигурации приложения. Содержит настройки:</p>
+                    <ul>
+                        <li>Строки подключения к БД</li>
+                        <li>Настройки логирования</li>
+                        <li>Параметры приложения</li>
+                    </ul>
+                    <p><code>appsettings.Development.json</code> — настройки для режима разработки (переопределяют основной файл).</p>
+                </div>
+
+                <div class="alert alert-light">
+                    <h5><strong>📄 Properties/launchSettings.json</strong></h5>
+                    <p>Настройки запуска приложения:</p>
+                    <ul>
+                        <li>Порты для HTTP и HTTPS</li>
+                        <li>Переменные окружения</li>
+                        <li>Профили запуска</li>
+                    </ul>
+                </div>
+
+                <div class="alert alert-light">
+                    <h5><strong>📄 *.csproj</strong></h5>
+                    <p>Файл проекта — содержит:</p>
+                    <ul>
+                        <li>Целевую платформу (.NET версия)</li>
+                        <li>Зависимости (NuGet пакеты)</li>
+                        <li>Настройки компиляции</li>
+                    </ul>
+                </div>
+
+                <h4>Правила организации проекта:</h4>
+                <ul>
+                    <li><strong>Разделение по ответственности:</strong> Каждая папка отвечает за свою область (Controllers — контроллеры, Services — сервисы, Models — модели)</li>
+                    <li><strong>Именование:</strong> Используйте понятные имена папок и файлов</li>
+                    <li><strong>Масштабируемость:</strong> Структура должна легко расширяться при росте проекта</li>
+                    <li><strong>Соглашения:</strong> Следуйте стандартным соглашениям ASP.NET Core</li>
+                </ul>
+            </section>
+
+            <section class="mb-5">
                 <h3>Что такое Middleware?</h3>
                 <p>Middleware — это компоненты, которые формируют конвейер обработки HTTP-запросов. Каждый middleware может:</p>
                 <ul>

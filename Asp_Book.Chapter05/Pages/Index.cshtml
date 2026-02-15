@@ -215,8 +215,9 @@ public class ContactFormModel
     &lt;button type="submit" class="btn btn-primary"&gt;Отправить&lt;/button&gt;
 &lt;/form&gt;
 
-@section Scripts {
-    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+&lt;!-- В конце файла Contact.cshtml --&gt;
+&#64;section Scripts {
+    &#64;{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
 }</code></pre>
                 </div>
             </section>

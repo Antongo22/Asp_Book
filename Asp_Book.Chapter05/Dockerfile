@@ -15,5 +15,6 @@ RUN dotnet publish "Asp_Book.Chapter05.csproj" -c Release -o /app/publish
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+RUN mkdir -p /app/keys
 ENV ASPNETCORE_URLS=http://+:5005
 ENTRYPOINT ["dotnet", "Asp_Book.Chapter05.dll"]

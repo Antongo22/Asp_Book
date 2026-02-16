@@ -1,3 +1,5 @@
+using System.IO;
+using Microsoft.AspNetCore.DataProtection;
 using Asp_Book.Chapter03.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -5,6 +7,25 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddRazorPages();
+
+// Настройка Data Protection для Docker
+try
+{
+    var keysDir = new DirectoryInfo("/app/keys");
+    if (!keysDir.Exists)
+    {
+        keysDir.Create();
+    }
+    builder.Services.AddDataProtection()
+        .PersistKeysToFileSystem(keysDir)
+        .SetApplicationName("Asp_Book");
+}
+catch
+{
+    // Если не удалось создать директорию, используем in-memory хранилище
+    builder.Services.AddDataProtection()
+        .SetApplicationName("Asp_Book");
+}
 
 // Регистрация HttpClient
 builder.Services.AddHttpClient();
@@ -27,17 +48,23 @@ builder.Services.AddSwaggerGen();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+// Swagger доступен всегда
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Глава 3 API v1");
-        c.RoutePrefix = "swagger";
-    });
-}
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Глава 3 API v1");
+    c.RoutePrefix = "swagger";
+});
 
-app.UseHttpsRedirection();
+// Отключаем HTTPS редирект в Docker
+if (!app.Environment.IsDevelopment() && Environment.GetEnvironmentVariable("ASPNETCORE_URLS")?.Contains("https") != true)
+{
+    // В Docker без HTTPS пропускаем редирект
+}
+else
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseStaticFiles();
 app.UseRouting();

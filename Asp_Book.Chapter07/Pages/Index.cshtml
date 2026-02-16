@@ -105,19 +105,79 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...</code></pre>
 
             <section class="mb-5">
                 <h3>Демонстрация: Работа с JWT</h3>
-                <p>В проекте реализована полная система аутентификации и авторизации:</p>
-                
-                <h4>Доступные эндпоинты:</h4>
-                <ul>
-                    <li><strong>POST /api/Auth/register</strong> — регистрация нового пользователя</li>
-                    <li><strong>POST /api/Auth/login</strong> — вход и получение JWT токена</li>
-                    <li><strong>GET /api/Protected/data</strong> — защищенные данные (требует токен)</li>
-                    <li><strong>GET /api/Protected/admin</strong> — данные только для администраторов</li>
-                </ul>
+                <p>Попробуйте зарегистрироваться, войти и получить защищенные данные:</p>
 
-                <div class="alert alert-success mt-3">
-                    <strong>Попробуйте:</strong> Откройте <a href="/swagger" target="_blank">Swagger UI</a> и протестируйте эндпоинты. 
-                    Обратите внимание на кнопку "Authorize" в Swagger — там можно ввести токен для доступа к защищенным эндпоинтам.
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <ul class="nav nav-tabs card-header-tabs" id="authTabs" role="tablist">
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link active" id="register-tab" data-bs-toggle="tab" data-bs-target="#register" type="button">Регистрация</button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link" id="login-tab" data-bs-toggle="tab" data-bs-target="#login" type="button">Вход</button>
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="card-body">
+                                <div class="tab-content" id="authTabsContent">
+                                    <div class="tab-pane fade show active" id="register" role="tabpanel">
+                                        <form id="registerForm">
+                                            <div class="mb-3">
+                                                <input type="text" id="regUsername" class="form-control" placeholder="Имя пользователя" required />
+                                            </div>
+                                            <div class="mb-3">
+                                                <input type="email" id="regEmail" class="form-control" placeholder="Email" required />
+                                            </div>
+                                            <div class="mb-3">
+                                                <input type="password" id="regPassword" class="form-control" placeholder="Пароль" required />
+                                            </div>
+                                            <button type="submit" class="btn btn-primary w-100">Зарегистрироваться</button>
+                                        </form>
+                                    </div>
+                                    <div class="tab-pane fade" id="login" role="tabpanel">
+                                        <form id="loginForm">
+                                            <div class="mb-3">
+                                                <input type="text" id="loginUsername" class="form-control" placeholder="Имя пользователя" required />
+                                            </div>
+                                            <div class="mb-3">
+                                                <input type="password" id="loginPassword" class="form-control" placeholder="Пароль" required />
+                                            </div>
+                                            <button type="submit" class="btn btn-success w-100">Войти</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Токен и данные</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label class="form-label">JWT Token:</label>
+                                    <textarea id="tokenDisplay" class="form-control" rows="3" readonly></textarea>
+                                    <small class="text-muted">Токен будет отображен после входа</small>
+                                </div>
+                                <div class="mb-3">
+                                    <button class="btn btn-info w-100" id="testProtectedBtn" disabled>Тестировать защищенный API</button>
+                                </div>
+                                <div id="protectedResult" class="alert" style="display:none;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-info mt-3">
+                    <strong>Инструкция:</strong> 
+                    <ol>
+                        <li>Зарегистрируйтесь или войдите с существующими учетными данными</li>
+                        <li>После входа вы получите JWT токен</li>
+                        <li>Используйте кнопку "Тестировать защищенный API" для проверки доступа к защищенным данным</li>
+                    </ol>
                 </div>
             </section>
 
@@ -463,5 +523,122 @@ public class ProtectedController : ControllerBase
         triggerTabList.forEach(function (triggerEl) {
             var tabTrigger = new bootstrap.Tab(triggerEl)
         })
+
+        const API_URL = '/api/Auth';
+        let currentToken = localStorage.getItem('jwt_token');
+
+        if (currentToken) {
+            document.getElementById('tokenDisplay').value = currentToken;
+            document.getElementById('testProtectedBtn').disabled = false;
+        }
+
+        // Регистрация
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                username: document.getElementById('regUsername').value,
+                email: document.getElementById('regEmail').value,
+                password: document.getElementById('regPassword').value
+            };
+
+            try {
+                const response = await fetch(`${API_URL}/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                if (response.ok) {
+                    currentToken = result.token;
+                    localStorage.setItem('jwt_token', currentToken);
+                    document.getElementById('tokenDisplay').value = currentToken;
+                    document.getElementById('testProtectedBtn').disabled = false;
+                    showMessage('Регистрация успешна! Токен получен.', 'success');
+                    // Переключение на вкладку входа
+                    document.getElementById('login-tab').click();
+                } else {
+                    showMessage('Ошибка: ' + (result.message || 'Неизвестная ошибка'), 'danger');
+                }
+            } catch (error) {
+                showMessage('Ошибка: ' + error.message, 'danger');
+            }
+        });
+
+        // Вход
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                username: document.getElementById('loginUsername').value,
+                password: document.getElementById('loginPassword').value
+            };
+
+            try {
+                const response = await fetch(`${API_URL}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                if (response.ok) {
+                    currentToken = result.token;
+                    localStorage.setItem('jwt_token', currentToken);
+                    document.getElementById('tokenDisplay').value = currentToken;
+                    document.getElementById('testProtectedBtn').disabled = false;
+                    showMessage('Вход выполнен успешно! Токен получен.', 'success');
+                } else {
+                    showMessage('Ошибка: ' + (result.message || 'Неверные учетные данные'), 'danger');
+                }
+            } catch (error) {
+                showMessage('Ошибка: ' + error.message, 'danger');
+            }
+        });
+
+        // Тестирование защищенного API
+        document.getElementById('testProtectedBtn').addEventListener('click', async () => {
+            if (!currentToken) {
+                showMessage('Сначала войдите в систему', 'warning');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/Protected/data', {
+                    headers: {
+                        'Authorization': `Bearer ${currentToken}`
+                    }
+                });
+
+                const result = await response.json();
+                const resultDiv = document.getElementById('protectedResult');
+                
+                if (response.ok) {
+                    resultDiv.className = 'alert alert-success';
+                    resultDiv.innerHTML = `<strong>Успешно!</strong><br>Данные: ${JSON.stringify(result, null, 2)}`;
+                    resultDiv.style.display = 'block';
+                } else {
+                    resultDiv.className = 'alert alert-danger';
+                    resultDiv.innerHTML = `<strong>Ошибка:</strong> ${result.message || 'Неизвестная ошибка'}`;
+                    resultDiv.style.display = 'block';
+                }
+            } catch (error) {
+                const resultDiv = document.getElementById('protectedResult');
+                resultDiv.className = 'alert alert-danger';
+                resultDiv.innerHTML = `<strong>Ошибка:</strong> ${error.message}`;
+                resultDiv.style.display = 'block';
+            }
+        });
+
+        function showMessage(text, type) {
+            const resultDiv = document.getElementById('protectedResult');
+            resultDiv.className = `alert alert-${type}`;
+            resultDiv.innerHTML = text;
+            resultDiv.style.display = 'block';
+            setTimeout(() => {
+                if (type !== 'success') {
+                    resultDiv.style.display = 'none';
+                }
+            }, 5000);
+        }
     </script>
 }

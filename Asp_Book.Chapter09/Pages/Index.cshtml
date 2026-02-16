@@ -38,6 +38,46 @@
             </section>
 
             <section class="mb-5">
+                <h3>Демонстрация: WebSocket чат</h3>
+                <p>Попробуйте подключиться к WebSocket и обмениваться сообщениями в реальном времени:</p>
+
+                <div class="card mt-3">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">WebSocket чат</h5>
+                        <span id="connectionStatus" class="badge bg-secondary">Отключен</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <input type="text" id="userNameInput" class="form-control" placeholder="Введите ваше имя" />
+                        </div>
+                        <div class="mb-3">
+                            <button class="btn btn-success" id="connectBtn">Подключиться</button>
+                            <button class="btn btn-danger" id="disconnectBtn" disabled>Отключиться</button>
+                        </div>
+                        <div class="mb-3">
+                            <div id="messagesArea" class="border rounded p-3" style="height: 300px; overflow-y: auto; background-color: #f8f9fa;">
+                                <p class="text-muted text-center">Сообщения будут отображаться здесь</p>
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <input type="text" id="messageInput" class="form-control" placeholder="Введите сообщение..." disabled />
+                            <button class="btn btn-primary" id="sendBtn" disabled>Отправить</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-info mt-3">
+                    <strong>Инструкция:</strong>
+                    <ol>
+                        <li>Введите ваше имя</li>
+                        <li>Нажмите "Подключиться" для установления WebSocket соединения</li>
+                        <li>Отправляйте сообщения - они будут видны всем подключенным пользователям</li>
+                        <li>Откройте эту страницу в нескольких вкладках для демонстрации работы с несколькими клиентами</li>
+                    </ol>
+                </div>
+            </section>
+
+            <section class="mb-5">
                 <h3>Задача: Реализовать WebSocket</h3>
                 <div class="alert alert-warning">
                     <h5>Ваша задача:</h5>
@@ -186,5 +226,120 @@ function sendMessage() {
         triggerTabList.forEach(function (triggerEl) {
             var tabTrigger = new bootstrap.Tab(triggerEl)
         })
+
+        let ws = null;
+        let userName = '';
+
+        // Определение WebSocket URL
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws`;
+
+        // Подключение
+        document.getElementById('connectBtn').addEventListener('click', () => {
+            userName = document.getElementById('userNameInput').value.trim();
+            if (!userName) {
+                alert('Введите ваше имя');
+                return;
+            }
+
+            try {
+                ws = new WebSocket(wsUrl);
+
+                ws.onopen = () => {
+                    updateConnectionStatus(true);
+                    document.getElementById('connectBtn').disabled = true;
+                    document.getElementById('disconnectBtn').disabled = false;
+                    document.getElementById('messageInput').disabled = false;
+                    document.getElementById('sendBtn').disabled = false;
+                    document.getElementById('userNameInput').disabled = true;
+                    addMessage('Система', 'Подключено к WebSocket', 'success');
+                };
+
+                ws.onmessage = (event) => {
+                    const data = event.data;
+                    // Формат сообщения: "connectionId: message"
+                    const parts = data.split(':');
+                    if (parts.length >= 2) {
+                        const connectionId = parts[0].trim();
+                        const message = parts.slice(1).join(':').trim();
+                        addMessage(`ID: ${connectionId.substring(0, 8)}`, message, 'info');
+                    } else {
+                        addMessage('Система', data, 'info');
+                    }
+                };
+
+                ws.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    addMessage('Система', 'Ошибка WebSocket соединения', 'danger');
+                };
+
+                ws.onclose = () => {
+                    updateConnectionStatus(false);
+                    document.getElementById('connectBtn').disabled = false;
+                    document.getElementById('disconnectBtn').disabled = true;
+                    document.getElementById('messageInput').disabled = true;
+                    document.getElementById('sendBtn').disabled = true;
+                    document.getElementById('userNameInput').disabled = false;
+                    addMessage('Система', 'Отключено от WebSocket', 'warning');
+                };
+            } catch (error) {
+                alert('Ошибка подключения: ' + error.message);
+            }
+        });
+
+        // Отключение
+        document.getElementById('disconnectBtn').addEventListener('click', () => {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        });
+
+        // Отправка сообщения
+        document.getElementById('sendBtn').addEventListener('click', sendMessage);
+        document.getElementById('messageInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        function sendMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const message = messageInput.value.trim();
+            
+            if (!message || !ws || ws.readyState !== WebSocket.OPEN) {
+                return;
+            }
+
+            ws.send(`${userName}: ${message}`);
+            addMessage('Вы', message, 'primary');
+            messageInput.value = '';
+        }
+
+        function addMessage(sender, message, type) {
+            const messagesArea = document.getElementById('messagesArea');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `mb-2 p-2 rounded bg-${type === 'success' ? 'success' : type === 'danger' ? 'danger' : type === 'warning' ? 'warning' : type === 'primary' ? 'primary' : 'light'} text-${type === 'success' || type === 'danger' || type === 'warning' || type === 'primary' ? 'white' : 'dark'}`;
+            messageDiv.innerHTML = `<strong>${sender}:</strong> ${message}`;
+            messagesArea.appendChild(messageDiv);
+            messagesArea.scrollTop = messagesArea.scrollHeight;
+
+            // Удаляем начальное сообщение если оно есть
+            const initialMsg = messagesArea.querySelector('p.text-muted');
+            if (initialMsg) {
+                initialMsg.remove();
+            }
+        }
+
+        function updateConnectionStatus(connected) {
+            const statusBadge = document.getElementById('connectionStatus');
+            if (connected) {
+                statusBadge.textContent = 'Подключен';
+                statusBadge.className = 'badge bg-success';
+            } else {
+                statusBadge.textContent = 'Отключен';
+                statusBadge.className = 'badge bg-secondary';
+            }
+        }
     </script>
 }

@@ -38,6 +38,65 @@
             </section>
 
             <section class="mb-5">
+                <h3>Демонстрация: SignalR чат</h3>
+                <p>Попробуйте подключиться к SignalR Hub и обмениваться сообщениями в реальном времени:</p>
+
+                <div class="card mt-3">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">SignalR чат</h5>
+                        <span id="connectionStatus" class="badge bg-secondary">Отключен</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    <input type="text" id="userNameInput" class="form-control" placeholder="Введите ваше имя" />
+                                </div>
+                                <div class="mb-3">
+                                    <button class="btn btn-success" id="connectBtn">Подключиться</button>
+                                    <button class="btn btn-danger" id="disconnectBtn" disabled>Отключиться</button>
+                                </div>
+                                <div class="mb-3">
+                                    <div id="messagesArea" class="border rounded p-3" style="height: 300px; overflow-y: auto; background-color: #f8f9fa;">
+                                        <p class="text-muted text-center">Сообщения будут отображаться здесь</p>
+                                    </div>
+                                </div>
+                                <div class="input-group">
+                                    <input type="text" id="messageInput" class="form-control" placeholder="Введите сообщение..." disabled />
+                                    <button class="btn btn-primary" id="sendBtn" disabled>Отправить всем</button>
+                                </div>
+                                <div class="mt-2">
+                                    <small class="text-muted">Ваш Connection ID: <span id="connectionId">-</span></small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <h6>Подключенные пользователи</h6>
+                                <div id="usersList" class="border rounded p-2" style="height: 200px; overflow-y: auto;">
+                                    <p class="text-muted text-center small">Список пользователей</p>
+                                </div>
+                                <div class="mt-3">
+                                    <h6>Отправить конкретному пользователю</h6>
+                                    <input type="text" id="targetConnectionId" class="form-control form-control-sm mb-2" placeholder="Connection ID" disabled />
+                                    <input type="text" id="privateMessageInput" class="form-control form-control-sm mb-2" placeholder="Приватное сообщение" disabled />
+                                    <button class="btn btn-warning btn-sm w-100" id="sendPrivateBtn" disabled>Отправить</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-info mt-3">
+                    <strong>Инструкция:</strong>
+                    <ol>
+                        <li>Введите ваше имя и нажмите "Подключиться"</li>
+                        <li>Отправляйте сообщения всем подключенным пользователям</li>
+                        <li>Используйте Connection ID для отправки приватных сообщений</li>
+                        <li>Откройте эту страницу в нескольких вкладках для демонстрации работы с несколькими клиентами</li>
+                    </ol>
+                </div>
+            </section>
+
+            <section class="mb-5">
                 <h3>Задача: Реализовать SignalR Hub</h3>
                 <div class="alert alert-warning">
                     <h5>Ваша задача:</h5>
@@ -157,5 +216,159 @@ function sendToUser(connectionId) {
         triggerTabList.forEach(function (triggerEl) {
             var tabTrigger = new bootstrap.Tab(triggerEl)
         })
+
+        let connection = null;
+        let userName = '';
+        let connectionId = '';
+
+        // Подключение
+        document.getElementById('connectBtn').addEventListener('click', () => {
+            userName = document.getElementById('userNameInput').value.trim();
+            if (!userName) {
+                alert('Введите ваше имя');
+                return;
+            }
+
+            connection = new signalR.HubConnectionBuilder()
+                .withUrl("/chathub")
+                .build();
+
+            // Обработка подключения
+            connection.on("ReceiveMessage", (user, message) => {
+                addMessage(user, message, 'info');
+            });
+
+            // Обработка подключения пользователя
+            connection.on("UserConnected", (id) => {
+                addMessage('Система', `Пользователь подключился: ${id.substring(0, 8)}`, 'success');
+                updateUsersList();
+            });
+
+            // Обработка отключения пользователя
+            connection.on("UserDisconnected", (id) => {
+                addMessage('Система', `Пользователь отключился: ${id.substring(0, 8)}`, 'warning');
+                updateUsersList();
+            });
+
+            // Подключение
+            connection.start()
+                .then(() => {
+                    connectionId = connection.connectionId;
+                    document.getElementById('connectionId').textContent = connectionId.substring(0, 8) + '...';
+                    updateConnectionStatus(true);
+                    document.getElementById('connectBtn').disabled = true;
+                    document.getElementById('disconnectBtn').disabled = false;
+                    document.getElementById('messageInput').disabled = false;
+                    document.getElementById('sendBtn').disabled = false;
+                    document.getElementById('userNameInput').disabled = true;
+                    document.getElementById('targetConnectionId').disabled = false;
+                    document.getElementById('privateMessageInput').disabled = false;
+                    document.getElementById('sendPrivateBtn').disabled = false;
+                    addMessage('Система', 'Подключено к SignalR Hub', 'success');
+                })
+                .catch(err => {
+                    console.error('SignalR connection error:', err);
+                    addMessage('Система', 'Ошибка подключения: ' + err, 'danger');
+                });
+        });
+
+        // Отключение
+        document.getElementById('disconnectBtn').addEventListener('click', () => {
+            if (connection) {
+                connection.stop();
+                connection = null;
+                updateConnectionStatus(false);
+                document.getElementById('connectBtn').disabled = false;
+                document.getElementById('disconnectBtn').disabled = true;
+                document.getElementById('messageInput').disabled = true;
+                document.getElementById('sendBtn').disabled = true;
+                document.getElementById('userNameInput').disabled = false;
+                document.getElementById('targetConnectionId').disabled = true;
+                document.getElementById('privateMessageInput').disabled = true;
+                document.getElementById('sendPrivateBtn').disabled = true;
+                document.getElementById('connectionId').textContent = '-';
+            }
+        });
+
+        // Отправка сообщения всем
+        document.getElementById('sendBtn').addEventListener('click', sendToAll);
+        document.getElementById('messageInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendToAll();
+            }
+        });
+
+        function sendToAll() {
+            const messageInput = document.getElementById('messageInput');
+            const message = messageInput.value.trim();
+            
+            if (!message || !connection) {
+                return;
+            }
+
+            connection.invoke("SendToAll", userName, message)
+                .catch(err => {
+                    console.error('SendToAll error:', err);
+                    addMessage('Система', 'Ошибка отправки: ' + err, 'danger');
+                });
+            
+            messageInput.value = '';
+        }
+
+        // Отправка приватного сообщения
+        document.getElementById('sendPrivateBtn').addEventListener('click', () => {
+            const targetId = document.getElementById('targetConnectionId').value.trim();
+            const message = document.getElementById('privateMessageInput').value.trim();
+            
+            if (!targetId || !message || !connection) {
+                alert('Заполните Connection ID и сообщение');
+                return;
+            }
+
+            connection.invoke("SendToUser", targetId, userName, message)
+                .then(() => {
+                    addMessage(`Вы (приватно для ${targetId.substring(0, 8)})`, message, 'warning');
+                    document.getElementById('privateMessageInput').value = '';
+                })
+                .catch(err => {
+                    console.error('SendToUser error:', err);
+                    addMessage('Система', 'Ошибка отправки: ' + err, 'danger');
+                });
+        });
+
+        function addMessage(sender, message, type) {
+            const messagesArea = document.getElementById('messagesArea');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `mb-2 p-2 rounded bg-${type === 'success' ? 'success' : type === 'danger' ? 'danger' : type === 'warning' ? 'warning' : type === 'info' ? 'info' : 'light'} text-${type === 'success' || type === 'danger' || type === 'warning' || type === 'info' ? 'white' : 'dark'}`;
+            messageDiv.innerHTML = `<strong>${sender}:</strong> ${message}`;
+            messagesArea.appendChild(messageDiv);
+            messagesArea.scrollTop = messagesArea.scrollHeight;
+
+            // Удаляем начальное сообщение если оно есть
+            const initialMsg = messagesArea.querySelector('p.text-muted');
+            if (initialMsg) {
+                initialMsg.remove();
+            }
+        }
+
+        function updateConnectionStatus(connected) {
+            const statusBadge = document.getElementById('connectionStatus');
+            if (connected) {
+                statusBadge.textContent = 'Подключен';
+                statusBadge.className = 'badge bg-success';
+            } else {
+                statusBadge.textContent = 'Отключен';
+                statusBadge.className = 'badge bg-secondary';
+            }
+        }
+
+        function updateUsersList() {
+            // В реальном приложении здесь был бы запрос к серверу для получения списка пользователей
+            // Для демонстрации просто показываем текущий Connection ID
+            const usersList = document.getElementById('usersList');
+            if (connectionId) {
+                usersList.innerHTML = `<div class="small">Ваш ID: <code>${connectionId.substring(0, 8)}...</code></div>`;
+            }
+        }
     </script>
 }

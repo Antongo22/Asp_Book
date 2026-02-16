@@ -131,10 +131,50 @@ else
 
             <section class="mb-5">
                 <h3>Демонстрация: Контактная форма</h3>
-                <p>Посмотрите на пример работающей формы с валидацией:</p>
+                <p>Посмотрите на пример работающей формы с валидацией прямо здесь:</p>
+
+                @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+                {
+                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+                        @Model.SuccessMessage
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                }
+
+                <div class="card mt-3">
+                    <div class="card-body">
+                        <form method="post" class="mt-3">
+                            <div class="mb-3">
+                                <label asp-for="DemoForm.Name" class="form-label"></label>
+                                <input asp-for="DemoForm.Name" class="form-control" />
+                                <span asp-validation-for="DemoForm.Name" class="text-danger"></span>
+                            </div>
+
+                            <div class="mb-3">
+                                <label asp-for="DemoForm.Email" class="form-label"></label>
+                                <input asp-for="DemoForm.Email" class="form-control" type="email" />
+                                <span asp-validation-for="DemoForm.Email" class="text-danger"></span>
+                            </div>
+
+                            <div class="mb-3">
+                                <label asp-for="DemoForm.Phone" class="form-label"></label>
+                                <input asp-for="DemoForm.Phone" class="form-control" type="tel" />
+                                <span asp-validation-for="DemoForm.Phone" class="text-danger"></span>
+                            </div>
+
+                            <div class="mb-3">
+                                <label asp-for="DemoForm.Message" class="form-label"></label>
+                                <textarea asp-for="DemoForm.Message" class="form-control" rows="5"></textarea>
+                                <span asp-validation-for="DemoForm.Message" class="text-danger"></span>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary">Отправить</button>
+                        </form>
+                    </div>
+                </div>
 
                 <div class="alert alert-info mt-3">
-                    <strong>Попробуйте:</strong> Откройте <a asp-page="/Contact">Контактную форму</a> и попробуйте отправить данные с ошибками и без.
+                    <strong>Попробуйте:</strong> Отправьте форму с пустыми полями, чтобы увидеть валидацию. Затем заполните все поля корректно и отправьте снова.
                 </div>
             </section>
 
@@ -260,6 +300,7 @@ public class ContactModel : PageModel
 </div>
 
 @section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
     <script>
         var triggerTabList = [].slice.call(document.querySelectorAll('#chapterTabs button'))
         triggerTabList.forEach(function (triggerEl) {

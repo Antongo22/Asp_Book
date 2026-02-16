@@ -37,6 +37,74 @@
             </section>
 
             <section class="mb-5">
+                <h3>Демонстрация: Авторизованный чат</h3>
+                <p>Попробуйте войти и использовать авторизованный SignalR чат:</p>
+
+                <div class="row mt-3">
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Авторизация</h5>
+                            </div>
+                            <div class="card-body">
+                                <form id="loginForm">
+                                    <div class="mb-3">
+                                        <input type="text" id="loginUsername" class="form-control" placeholder="Имя пользователя" required />
+                                    </div>
+                                    <div class="mb-3">
+                                        <input type="password" id="loginPassword" class="form-control" placeholder="Пароль" required />
+                                    </div>
+                                    <button type="submit" class="btn btn-success w-100">Войти</button>
+                                </form>
+                                <div class="mt-3">
+                                    <button class="btn btn-danger w-100" id="logoutBtn" disabled>Выйти</button>
+                                </div>
+                                <div class="mt-3">
+                                    <small class="text-muted">Пользователь: <span id="currentUser">-</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-8">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">Авторизованный SignalR чат</h5>
+                                <span id="connectionStatus" class="badge bg-secondary">Отключен</span>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <button class="btn btn-success" id="connectBtn" disabled>Подключиться к чату</button>
+                                    <button class="btn btn-danger" id="disconnectBtn" disabled>Отключиться</button>
+                                </div>
+                                <div class="mb-3">
+                                    <div id="messagesArea" class="border rounded p-3" style="height: 300px; overflow-y: auto; background-color: #f8f9fa;">
+                                        <p class="text-muted text-center">Сообщения будут отображаться здесь</p>
+                                    </div>
+                                </div>
+                                <div class="input-group">
+                                    <input type="text" id="messageInput" class="form-control" placeholder="Введите сообщение..." disabled />
+                                    <button class="btn btn-primary" id="sendBtn" disabled>Отправить</button>
+                                </div>
+                                <div class="mt-2">
+                                    <small class="text-muted">Ваш Connection ID: <span id="connectionId">-</span></small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-info mt-3">
+                    <strong>Инструкция:</strong>
+                    <ol>
+                        <li>Войдите с учетными данными (username: admin, password: admin123 или зарегистрируйте нового пользователя через API)</li>
+                        <li>После входа нажмите "Подключиться к чату" - соединение будет установлено с JWT токеном</li>
+                        <li>Отправляйте сообщения - они будут видны всем авторизованным пользователям</li>
+                        <li>Попробуйте подключиться без авторизации - соединение будет отклонено</li>
+                    </ol>
+                </div>
+            </section>
+
+            <section class="mb-5">
                 <h3>Задача: Реализовать авторизацию</h3>
                 <div class="alert alert-warning">
                     <h5>Ваша задача:</h5>
@@ -167,5 +235,181 @@ connection.start().then(() => {
         triggerTabList.forEach(function (triggerEl) {
             var tabTrigger = new bootstrap.Tab(triggerEl)
         })
+
+        const API_URL = '/api/Auth';
+        let connection = null;
+        let currentToken = null;
+        let currentUsername = '';
+
+        // Вход
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                username: document.getElementById('loginUsername').value,
+                password: document.getElementById('loginPassword').value
+            };
+
+            try {
+                const response = await fetch(`${API_URL}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                if (response.ok) {
+                    currentToken = result.token;
+                    currentUsername = result.username;
+                    localStorage.setItem('jwt_token', currentToken);
+                    document.getElementById('currentUser').textContent = currentUsername;
+                    document.getElementById('connectBtn').disabled = false;
+                    document.getElementById('logoutBtn').disabled = false;
+                    document.getElementById('loginForm').querySelector('button').disabled = true;
+                    addMessage('Система', 'Авторизация успешна! Теперь можно подключиться к чату.', 'success');
+                } else {
+                    addMessage('Система', 'Ошибка: ' + (result.message || 'Неверные учетные данные'), 'danger');
+                }
+            } catch (error) {
+                addMessage('Система', 'Ошибка: ' + error.message, 'danger');
+            }
+        });
+
+        // Выход
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            if (connection) {
+                connection.stop();
+                connection = null;
+            }
+            currentToken = null;
+            currentUsername = '';
+            localStorage.removeItem('jwt_token');
+            document.getElementById('currentUser').textContent = '-';
+            document.getElementById('connectBtn').disabled = true;
+            document.getElementById('disconnectBtn').disabled = true;
+            document.getElementById('sendBtn').disabled = true;
+            document.getElementById('messageInput').disabled = true;
+            document.getElementById('logoutBtn').disabled = true;
+            document.getElementById('loginForm').querySelector('button').disabled = false;
+            document.getElementById('loginForm').reset();
+            updateConnectionStatus(false);
+            addMessage('Система', 'Выход выполнен', 'warning');
+        });
+
+        // Проверка сохраненного токена
+        const savedToken = localStorage.getItem('jwt_token');
+        if (savedToken) {
+            currentToken = savedToken;
+            // Попытка получить информацию о пользователе из токена (упрощенно)
+            // В реальном приложении здесь был бы запрос к API для проверки токена
+            document.getElementById('connectBtn').disabled = false;
+            document.getElementById('logoutBtn').disabled = false;
+        }
+
+        // Подключение к SignalR
+        document.getElementById('connectBtn').addEventListener('click', () => {
+            if (!currentToken) {
+                addMessage('Система', 'Сначала войдите в систему', 'warning');
+                return;
+            }
+
+            connection = new signalR.HubConnectionBuilder()
+                .withUrl("/authorizedchathub", {
+                    accessTokenFactory: () => currentToken
+                })
+                .build();
+
+            // Обработка сообщений
+            connection.on("ReceiveMessage", (user, message) => {
+                addMessage(user, message, 'info');
+            });
+
+            // Подключение
+            connection.start()
+                .then(() => {
+                    const connectionId = connection.connectionId;
+                    document.getElementById('connectionId').textContent = connectionId ? connectionId.substring(0, 8) + '...' : '-';
+                    updateConnectionStatus(true);
+                    document.getElementById('connectBtn').disabled = true;
+                    document.getElementById('disconnectBtn').disabled = false;
+                    document.getElementById('messageInput').disabled = false;
+                    document.getElementById('sendBtn').disabled = false;
+                    addMessage('Система', 'Подключено к авторизованному чату', 'success');
+                })
+                .catch(err => {
+                    console.error('SignalR connection error:', err);
+                    if (err.message && err.message.includes('401')) {
+                        addMessage('Система', 'Ошибка авторизации. Токен недействителен. Войдите снова.', 'danger');
+                        document.getElementById('logoutBtn').click();
+                    } else {
+                        addMessage('Система', 'Ошибка подключения: ' + err, 'danger');
+                    }
+                });
+        });
+
+        // Отключение
+        document.getElementById('disconnectBtn').addEventListener('click', () => {
+            if (connection) {
+                connection.stop();
+                connection = null;
+                updateConnectionStatus(false);
+                document.getElementById('connectBtn').disabled = false;
+                document.getElementById('disconnectBtn').disabled = true;
+                document.getElementById('sendBtn').disabled = true;
+                document.getElementById('messageInput').disabled = true;
+                document.getElementById('connectionId').textContent = '-';
+                addMessage('Система', 'Отключено от чата', 'warning');
+            }
+        });
+
+        // Отправка сообщения
+        document.getElementById('sendBtn').addEventListener('click', sendMessage);
+        document.getElementById('messageInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        function sendMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const message = messageInput.value.trim();
+            
+            if (!message || !connection) {
+                return;
+            }
+
+            connection.invoke("SendToAll", message)
+                .catch(err => {
+                    console.error('SendToAll error:', err);
+                    addMessage('Система', 'Ошибка отправки: ' + err, 'danger');
+                });
+            
+            messageInput.value = '';
+        }
+
+        function addMessage(sender, message, type) {
+            const messagesArea = document.getElementById('messagesArea');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `mb-2 p-2 rounded bg-${type === 'success' ? 'success' : type === 'danger' ? 'danger' : type === 'warning' ? 'warning' : type === 'info' ? 'info' : 'light'} text-${type === 'success' || type === 'danger' || type === 'warning' || type === 'info' ? 'white' : 'dark'}`;
+            messageDiv.innerHTML = `<strong>${sender}:</strong> ${message}`;
+            messagesArea.appendChild(messageDiv);
+            messagesArea.scrollTop = messagesArea.scrollHeight;
+
+            // Удаляем начальное сообщение если оно есть
+            const initialMsg = messagesArea.querySelector('p.text-muted');
+            if (initialMsg) {
+                initialMsg.remove();
+            }
+        }
+
+        function updateConnectionStatus(connected) {
+            const statusBadge = document.getElementById('connectionStatus');
+            if (connected) {
+                statusBadge.textContent = 'Подключен';
+                statusBadge.className = 'badge bg-success';
+            } else {
+                statusBadge.textContent = 'Отключен';
+                statusBadge.className = 'badge bg-secondary';
+            }
+        }
     </script>
 }

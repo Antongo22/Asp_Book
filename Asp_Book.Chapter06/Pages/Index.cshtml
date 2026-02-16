@@ -88,6 +88,48 @@ dotnet ef database update PreviousMigration</code></pre>
             </section>
 
             <section class="mb-5">
+                <h3>Демонстрация: CRUD операции с продуктами</h3>
+                <p>Попробуйте создать, просмотреть, обновить и удалить продукты через интерактивный UI:</p>
+
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h5 class="mb-0">Управление продуктами</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <h6>Добавить продукт</h6>
+                                <form id="productForm">
+                                    <div class="mb-2">
+                                        <input type="text" id="productName" class="form-control form-control-sm" placeholder="Название" required />
+                                    </div>
+                                    <div class="mb-2">
+                                        <input type="text" id="productDescription" class="form-control form-control-sm" placeholder="Описание" />
+                                    </div>
+                                    <div class="mb-2">
+                                        <input type="number" id="productPrice" class="form-control form-control-sm" placeholder="Цена" step="0.01" required />
+                                    </div>
+                                    <div class="mb-2">
+                                        <input type="number" id="productStock" class="form-control form-control-sm" placeholder="Количество" required />
+                                    </div>
+                                    <input type="hidden" id="productId" />
+                                    <button type="submit" class="btn btn-primary btn-sm" id="submitBtn">Добавить</button>
+                                    <button type="button" class="btn btn-secondary btn-sm" id="cancelBtn" style="display:none;">Отмена</button>
+                                </form>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>Список продуктов</h6>
+                                <div id="productsList" class="border rounded p-2" style="max-height: 300px; overflow-y: auto;">
+                                    <p class="text-muted text-center">Загрузка...</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="messageArea"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
                 <h3>Задача: Создать модель и миграции</h3>
                 <div class="alert alert-warning">
                     <h5>Ваша задача:</h5>
@@ -262,5 +304,137 @@ dotnet ef database update</code></pre>
         triggerTabList.forEach(function (triggerEl) {
             var tabTrigger = new bootstrap.Tab(triggerEl)
         })
+
+        const API_URL = '/api/products';
+        let editingId = null;
+
+        // Загрузка продуктов
+        async function loadProducts() {
+            try {
+                const response = await fetch(API_URL);
+                const products = await response.json();
+                displayProducts(products);
+            } catch (error) {
+                showMessage('Ошибка загрузки продуктов: ' + error.message, 'danger');
+            }
+        }
+
+        // Отображение продуктов
+        function displayProducts(products) {
+            const list = document.getElementById('productsList');
+            if (products.length === 0) {
+                list.innerHTML = '<p class="text-muted text-center">Нет продуктов</p>';
+                return;
+            }
+
+            list.innerHTML = products.map(p => `
+                <div class="border-bottom p-2 mb-2" id="product-${p.id}">
+                    <strong>${p.name}</strong> - ${p.price}₽ (Остаток: ${p.stock})
+                    <br><small class="text-muted">${p.description || 'Без описания'}</small>
+                    <div class="mt-2">
+                        <button class="btn btn-sm btn-warning" onclick="editProduct(${p.id}, '${p.name}', '${(p.description || '').replace(/'/g, "\\'")}', ${p.price}, ${p.stock})">Редактировать</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteProduct(${p.id})">Удалить</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Добавление/обновление продукта
+        document.getElementById('productForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const product = {
+                name: document.getElementById('productName').value,
+                description: document.getElementById('productDescription').value,
+                price: parseFloat(document.getElementById('productPrice').value),
+                stock: parseInt(document.getElementById('productStock').value)
+            };
+
+            try {
+                let response;
+                if (editingId) {
+                    response = await fetch(`${API_URL}/${editingId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(product)
+                    });
+                } else {
+                    response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(product)
+                    });
+                }
+
+                if (response.ok) {
+                    showMessage(editingId ? 'Продукт обновлен' : 'Продукт добавлен', 'success');
+                    resetForm();
+                    loadProducts();
+                } else {
+                    const error = await response.json();
+                    showMessage('Ошибка: ' + (error.message || 'Неизвестная ошибка'), 'danger');
+                }
+            } catch (error) {
+                showMessage('Ошибка: ' + error.message, 'danger');
+            }
+        });
+
+        // Редактирование продукта
+        async function editProduct(id, name, description, price, stock) {
+            editingId = id;
+            document.getElementById('productId').value = id;
+            document.getElementById('productName').value = name;
+            document.getElementById('productDescription').value = description || '';
+            document.getElementById('productPrice').value = price;
+            document.getElementById('productStock').value = stock;
+            document.getElementById('submitBtn').textContent = 'Обновить';
+            document.getElementById('cancelBtn').style.display = 'inline-block';
+        }
+
+        // Отмена редактирования
+        document.getElementById('cancelBtn').addEventListener('click', () => {
+            resetForm();
+        });
+
+        // Сброс формы
+        function resetForm() {
+            editingId = null;
+            document.getElementById('productForm').reset();
+            document.getElementById('productId').value = '';
+            document.getElementById('submitBtn').textContent = 'Добавить';
+            document.getElementById('cancelBtn').style.display = 'none';
+        }
+
+        // Удаление продукта
+        async function deleteProduct(id) {
+            if (!confirm('Вы уверены, что хотите удалить этот продукт?')) return;
+
+            try {
+                const response = await fetch(`${API_URL}/${id}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    showMessage('Продукт удален', 'success');
+                    loadProducts();
+                } else {
+                    showMessage('Ошибка удаления', 'danger');
+                }
+            } catch (error) {
+                showMessage('Ошибка: ' + error.message, 'danger');
+            }
+        }
+
+        // Показать сообщение
+        function showMessage(text, type) {
+            const area = document.getElementById('messageArea');
+            area.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                ${text}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>`;
+            setTimeout(() => area.innerHTML = '', 5000);
+        }
+
+        // Загрузка при открытии страницы
+        loadProducts();
     </script>
 }

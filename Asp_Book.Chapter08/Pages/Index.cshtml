@@ -68,6 +68,78 @@
             </section>
 
             <section class="mb-5">
+                <h3>Демонстрация: Refresh Token</h3>
+                <p>Попробуйте войти, получить токены и обновить Access Token:</p>
+
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Вход</h5>
+                            </div>
+                            <div class="card-body">
+                                <form id="loginForm">
+                                    <div class="mb-3">
+                                        <input type="text" id="loginUsername" class="form-control" placeholder="Имя пользователя" required />
+                                    </div>
+                                    <div class="mb-3">
+                                        <input type="password" id="loginPassword" class="form-control" placeholder="Пароль" required />
+                                    </div>
+                                    <button type="submit" class="btn btn-success w-100">Войти</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Токены</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label class="form-label">Access Token:</label>
+                                    <textarea id="accessTokenDisplay" class="form-control form-control-sm" rows="2" readonly></textarea>
+                                    <div class="mt-1">
+                                        <small class="text-muted">Истекает через: <span id="accessTokenTimer" class="fw-bold">--:--</span></small>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Refresh Token:</label>
+                                    <textarea id="refreshTokenDisplay" class="form-control form-control-sm" rows="2" readonly></textarea>
+                                    <div class="mt-1">
+                                        <small class="text-muted">Истекает через: <span id="refreshTokenTimer" class="fw-bold">--:--</span></small>
+                                    </div>
+                                </div>
+                                <button class="btn btn-primary w-100" id="refreshTokenBtn" disabled>Обновить Access Token</button>
+                                <div id="tokenStatus" class="mt-2"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h5 class="mb-0">Тестирование защищенного API</h5>
+                    </div>
+                    <div class="card-body">
+                        <button class="btn btn-info" id="testApiBtn" disabled>Тестировать защищенный API</button>
+                        <div id="apiResult" class="mt-3"></div>
+                    </div>
+                </div>
+
+                <div class="alert alert-info mt-3">
+                    <strong>Инструкция:</strong>
+                    <ol>
+                        <li>Войдите с учетными данными (username: admin, password: admin123 или зарегистрируйте нового пользователя)</li>
+                        <li>После входа вы получите Access Token (действителен 15 минут) и Refresh Token (действителен 7 дней)</li>
+                        <li>Наблюдайте за таймером обратного отсчета Access Token</li>
+                        <li>Когда Access Token истечет, используйте кнопку "Обновить Access Token" для получения нового токена</li>
+                        <li>Попробуйте использовать защищенный API до и после обновления токена</li>
+                    </ol>
+                </div>
+            </section>
+
+            <section class="mb-5">
                 <h3>Задача: Реализовать Refresh Token</h3>
                 <div class="alert alert-warning">
                     <h5>Ваша задача:</h5>
@@ -299,5 +371,166 @@ async function refreshAccessToken() {
         triggerTabList.forEach(function (triggerEl) {
             var tabTrigger = new bootstrap.Tab(triggerEl)
         })
+
+        const API_URL = '/api/Auth';
+        let accessToken = null;
+        let refreshToken = null;
+        let accessTokenExpires = null;
+        let refreshTokenExpires = null;
+        let accessTokenTimer = null;
+        let refreshTokenTimer = null;
+
+        // Вход
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                username: document.getElementById('loginUsername').value,
+                password: document.getElementById('loginPassword').value
+            };
+
+            try {
+                const response = await fetch(`${API_URL}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                if (response.ok) {
+                    accessToken = result.accessToken;
+                    refreshToken = result.refreshToken;
+                    accessTokenExpires = new Date(result.accessTokenExpires);
+                    refreshTokenExpires = new Date(result.refreshTokenExpires);
+
+                    document.getElementById('accessTokenDisplay').value = accessToken;
+                    document.getElementById('refreshTokenDisplay').value = refreshToken;
+                    document.getElementById('refreshTokenBtn').disabled = false;
+                    document.getElementById('testApiBtn').disabled = false;
+
+                    startTimers();
+                    showStatus('Токены получены успешно!', 'success');
+                } else {
+                    showStatus('Ошибка: ' + (result.message || 'Неверные учетные данные'), 'danger');
+                }
+            } catch (error) {
+                showStatus('Ошибка: ' + error.message, 'danger');
+            }
+        });
+
+        // Обновление токена
+        document.getElementById('refreshTokenBtn').addEventListener('click', async () => {
+            if (!refreshToken) {
+                showStatus('Сначала войдите в систему', 'warning');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/refresh`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ refreshToken: refreshToken })
+                });
+
+                const result = await response.json();
+                if (response.ok) {
+                    accessToken = result.accessToken;
+                    refreshToken = result.refreshToken; // Новый refresh token
+                    accessTokenExpires = new Date(result.accessTokenExpires);
+                    refreshTokenExpires = new Date(result.refreshTokenExpires);
+
+                    document.getElementById('accessTokenDisplay').value = accessToken;
+                    document.getElementById('refreshTokenDisplay').value = refreshToken;
+
+                    startTimers();
+                    showStatus('Access Token успешно обновлен!', 'success');
+                } else {
+                    showStatus('Ошибка обновления: ' + (result.message || 'Неизвестная ошибка'), 'danger');
+                }
+            } catch (error) {
+                showStatus('Ошибка: ' + error.message, 'danger');
+            }
+        });
+
+        // Тестирование API
+        document.getElementById('testApiBtn').addEventListener('click', async () => {
+            if (!accessToken) {
+                showStatus('Сначала войдите в систему', 'warning');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/Protected/data', {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+
+                const result = await response.json();
+                const resultDiv = document.getElementById('apiResult');
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `<div class="alert alert-success"><strong>Успешно!</strong><br>Данные: ${JSON.stringify(result, null, 2)}</div>`;
+                } else if (response.status === 401) {
+                    resultDiv.innerHTML = `<div class="alert alert-warning"><strong>Access Token истек!</strong><br>Используйте кнопку "Обновить Access Token" для получения нового токена.</div>`;
+                } else {
+                    resultDiv.innerHTML = `<div class="alert alert-danger"><strong>Ошибка:</strong> ${result.message || 'Неизвестная ошибка'}</div>`;
+                }
+            } catch (error) {
+                document.getElementById('apiResult').innerHTML = `<div class="alert alert-danger"><strong>Ошибка:</strong> ${error.message}</div>`;
+            }
+        });
+
+        // Запуск таймеров
+        function startTimers() {
+            if (accessTokenTimer) clearInterval(accessTokenTimer);
+            if (refreshTokenTimer) clearInterval(refreshTokenTimer);
+
+            accessTokenTimer = setInterval(() => {
+                if (accessTokenExpires) {
+                    const now = new Date();
+                    const diff = accessTokenExpires - now;
+                    if (diff > 0) {
+                        const minutes = Math.floor(diff / 60000);
+                        const seconds = Math.floor((diff % 60000) / 1000);
+                        document.getElementById('accessTokenTimer').textContent = 
+                            `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                        
+                        if (diff < 60000) { // Меньше минуты
+                            document.getElementById('accessTokenTimer').className = 'fw-bold text-danger';
+                        }
+                    } else {
+                        document.getElementById('accessTokenTimer').textContent = 'Истек';
+                        document.getElementById('accessTokenTimer').className = 'fw-bold text-danger';
+                    }
+                }
+            }, 1000);
+
+            refreshTokenTimer = setInterval(() => {
+                if (refreshTokenExpires) {
+                    const now = new Date();
+                    const diff = refreshTokenExpires - now;
+                    if (diff > 0) {
+                        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                        document.getElementById('refreshTokenTimer').textContent = 
+                            `${days}д ${hours}ч`;
+                    } else {
+                        document.getElementById('refreshTokenTimer').textContent = 'Истек';
+                        document.getElementById('refreshTokenTimer').className = 'fw-bold text-danger';
+                    }
+                }
+            }, 1000);
+        }
+
+        function showStatus(text, type) {
+            const statusDiv = document.getElementById('tokenStatus');
+            statusDiv.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                ${text}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>`;
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 5000);
+        }
     </script>
 }

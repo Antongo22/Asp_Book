@@ -55,6 +55,75 @@
             </section>
 
             <section class="mb-5">
+                <h3>Демонстрация: Чат с тестами</h3>
+                <p>Попробуйте использовать чат и посмотрите, как он работает с тестами:</p>
+
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Чат</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <input type="text" id="senderName" class="form-control mb-2" placeholder="Ваше имя" />
+                                    <input type="text" id="groupName" class="form-control mb-2" placeholder="Название группы (необязательно)" />
+                                    <textarea id="messageText" class="form-control mb-2" rows="3" placeholder="Сообщение"></textarea>
+                                    <button class="btn btn-primary" id="sendMessageBtn">Отправить сообщение</button>
+                                </div>
+                                <div class="mb-3">
+                                    <button class="btn btn-success" id="createGroupBtn">Создать группу</button>
+                                    <input type="text" id="newGroupName" class="form-control mt-2" placeholder="Название группы" />
+                                </div>
+                                <div id="chatMessages" class="border rounded p-2" style="height: 200px; overflow-y: auto; background-color: #f8f9fa;">
+                                    <p class="text-muted text-center small">Сообщения будут отображаться здесь</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Тестирование</h5>
+                            </div>
+                            <div class="card-body">
+                                <p>В этом проекте реализованы тесты для чата:</p>
+                                <ul>
+                                    <li><strong>Unit тесты</strong> для ChatService</li>
+                                    <li><strong>Integration тесты</strong> для ChatController</li>
+                                    <li><strong>In-Memory Database</strong> для изоляции тестов</li>
+                                </ul>
+                                <div class="alert alert-info">
+                                    <strong>Запуск тестов:</strong><br>
+                                    <code>dotnet test</code><br>
+                                    или в Visual Studio: Test Explorer → Run All Tests
+                                </div>
+                                <div class="mt-3">
+                                    <h6>Примеры тестов:</h6>
+                                    <ul class="small">
+                                        <li>Отправка сообщения</li>
+                                        <li>Получение всех сообщений</li>
+                                        <li>Работа с группами</li>
+                                        <li>Фильтрация по группе</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-info mt-3">
+                    <strong>Инструкция:</strong>
+                    <ol>
+                        <li>Отправьте несколько сообщений через форму</li>
+                        <li>Создайте группу и отправьте сообщения в группу</li>
+                        <li>Изучите код тестов в папке Tests</li>
+                        <li>Запустите тесты командой <code>dotnet test</code></li>
+                    </ol>
+                </div>
+            </section>
+
+            <section class="mb-5">
                 <h3>Задача: Написать чат с тестами</h3>
                 <div class="alert alert-warning">
                     <h5>Ваша задача:</h5>
@@ -220,5 +289,115 @@ dotnet test
         triggerTabList.forEach(function (triggerEl) {
             var tabTrigger = new bootstrap.Tab(triggerEl)
         })
+
+        const API_URL = '/api/Chat';
+
+        // Загрузка сообщений
+        async function loadMessages() {
+            try {
+                const response = await fetch(`${API_URL}/messages`);
+                const messages = await response.json();
+                displayMessages(messages);
+            } catch (error) {
+                console.error('Ошибка загрузки сообщений:', error);
+            }
+        }
+
+        // Отображение сообщений
+        function displayMessages(messages) {
+            const messagesArea = document.getElementById('chatMessages');
+            if (messages.length === 0) {
+                messagesArea.innerHTML = '<p class="text-muted text-center small">Нет сообщений</p>';
+                return;
+            }
+
+            messagesArea.innerHTML = messages.map(m => `
+                <div class="mb-2 p-2 border-bottom">
+                    <strong>${m.sender}</strong>${m.groupName ? ` [${m.groupName}]` : ''}<br>
+                    <small>${m.text}</small><br>
+                    <small class="text-muted">${new Date(m.timestamp).toLocaleString()}</small>
+                </div>
+            `).join('');
+            messagesArea.scrollTop = messagesArea.scrollHeight;
+        }
+
+        // Отправка сообщения
+        document.getElementById('sendMessageBtn').addEventListener('click', async () => {
+            const sender = document.getElementById('senderName').value.trim();
+            const text = document.getElementById('messageText').value.trim();
+            const groupName = document.getElementById('groupName').value.trim();
+
+            if (!sender || !text) {
+                alert('Заполните имя и сообщение');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/send`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sender: sender,
+                        text: text,
+                        groupId: groupName ? await getGroupId(groupName) : null
+                    })
+                });
+
+                if (response.ok) {
+                    document.getElementById('messageText').value = '';
+                    loadMessages();
+                } else {
+                    const error = await response.json();
+                    alert('Ошибка: ' + (error.message || 'Неизвестная ошибка'));
+                }
+            } catch (error) {
+                alert('Ошибка: ' + error.message);
+            }
+        });
+
+        // Создание группы
+        document.getElementById('createGroupBtn').addEventListener('click', async () => {
+            const groupName = document.getElementById('newGroupName').value.trim();
+            if (!groupName) {
+                alert('Введите название группы');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/groups`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: groupName })
+                });
+
+                if (response.ok) {
+                    const group = await response.json();
+                    document.getElementById('newGroupName').value = '';
+                    alert(`Группа "${group.name}" создана!`);
+                    loadMessages();
+                } else {
+                    const error = await response.json();
+                    alert('Ошибка: ' + (error.message || 'Неизвестная ошибка'));
+                }
+            } catch (error) {
+                alert('Ошибка: ' + error.message);
+            }
+        });
+
+        // Получение ID группы по имени
+        async function getGroupId(groupName) {
+            try {
+                const response = await fetch(`${API_URL}/groups`);
+                const groups = await response.json();
+                const group = groups.find(g => g.name === groupName);
+                return group ? group.id : null;
+            } catch (error) {
+                return null;
+            }
+        }
+
+        // Загрузка сообщений при открытии страницы
+        loadMessages();
+        setInterval(loadMessages, 3000); // Обновление каждые 3 секунды
     </script>
 }

@@ -47,20 +47,18 @@
                                 <h5 class="mb-0">Авторизация</h5>
                             </div>
                             <div class="card-body">
-                                <form id="loginForm">
+                                <form id="tokenForm">
                                     <div class="mb-3">
-                                        <input type="text" id="loginUsername" class="form-control" placeholder="Имя пользователя" required />
+                                        <textarea id="jwtTokenInput" class="form-control" rows="4" placeholder="Вставьте JWT access token" required></textarea>
+                                        <small class="text-muted">Токен сохраняется локально в браузере.</small>
                                     </div>
-                                    <div class="mb-3">
-                                        <input type="password" id="loginPassword" class="form-control" placeholder="Пароль" required />
-                                    </div>
-                                    <button type="submit" class="btn btn-success w-100">Войти</button>
+                                    <button type="submit" class="btn btn-success w-100">Сохранить токен</button>
                                 </form>
                                 <div class="mt-3">
                                     <button class="btn btn-danger w-100" id="logoutBtn" disabled>Выйти</button>
                                 </div>
                                 <div class="mt-3">
-                                    <small class="text-muted">Пользователь: <span id="currentUser">-</span></div>
+                                    <small class="text-muted">Пользователь: <span id="currentUser">-</span></small>
                                 </div>
                             </div>
                         </div>
@@ -96,8 +94,8 @@
                 <div class="alert alert-info mt-3">
                     <strong>Инструкция:</strong>
                     <ol>
-                        <li>Войдите с учетными данными (username: admin, password: admin123 или зарегистрируйте нового пользователя через API)</li>
-                        <li>После входа нажмите "Подключиться к чату" - соединение будет установлено с JWT токеном</li>
+                        <li>Получите JWT access token (например, из сервиса авторизации предыдущих глав)</li>
+                        <li>Вставьте токен в поле "Авторизация" и нажмите "Сохранить токен"</li>
                         <li>Отправляйте сообщения - они будут видны всем авторизованным пользователям</li>
                         <li>Попробуйте подключиться без авторизации - соединение будет отклонено</li>
                     </ol>
@@ -236,42 +234,35 @@ connection.start().then(() => {
             var tabTrigger = new bootstrap.Tab(triggerEl)
         })
 
-        const API_URL = '/api/Auth';
+        const TOKEN_STORAGE_KEY = 'chapter11_jwt_token';
         let connection = null;
         let currentToken = null;
         let currentUsername = '';
 
-        // Вход
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        // Сохранение токена
+        document.getElementById('tokenForm').addEventListener('submit', (e) => {
             e.preventDefault();
-            const data = {
-                username: document.getElementById('loginUsername').value,
-                password: document.getElementById('loginPassword').value
-            };
-
-            try {
-                const response = await fetch(`${API_URL}/login`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-
-                const result = await response.json();
-                if (response.ok) {
-                    currentToken = result.token;
-                    currentUsername = result.username;
-                    localStorage.setItem('jwt_token', currentToken);
-                    document.getElementById('currentUser').textContent = currentUsername;
-                    document.getElementById('connectBtn').disabled = false;
-                    document.getElementById('logoutBtn').disabled = false;
-                    document.getElementById('loginForm').querySelector('button').disabled = true;
-                    addMessage('Система', 'Авторизация успешна! Теперь можно подключиться к чату.', 'success');
-                } else {
-                    addMessage('Система', 'Ошибка: ' + (result.message || 'Неверные учетные данные'), 'danger');
-                }
-            } catch (error) {
-                addMessage('Система', 'Ошибка: ' + error.message, 'danger');
+            const token = document.getElementById('jwtTokenInput').value.trim();
+            if (!token) {
+                addMessage('Система', 'Вставьте JWT токен', 'warning');
+                return;
             }
+
+            const payload = parseJwtPayload(token);
+            if (!payload) {
+                addMessage('Система', 'Некорректный JWT токен', 'danger');
+                return;
+            }
+
+            currentToken = token;
+            currentUsername = payload.unique_name || payload.name || payload.sub || payload.email || 'Пользователь';
+            localStorage.setItem(TOKEN_STORAGE_KEY, currentToken);
+
+            document.getElementById('currentUser').textContent = currentUsername;
+            document.getElementById('connectBtn').disabled = false;
+            document.getElementById('logoutBtn').disabled = false;
+            document.getElementById('tokenForm').querySelector('button').textContent = 'Обновить токен';
+            addMessage('Система', 'Токен сохранен. Теперь можно подключиться к чату.', 'success');
         });
 
         // Выход
@@ -282,33 +273,40 @@ connection.start().then(() => {
             }
             currentToken = null;
             currentUsername = '';
-            localStorage.removeItem('jwt_token');
+            localStorage.removeItem(TOKEN_STORAGE_KEY);
             document.getElementById('currentUser').textContent = '-';
             document.getElementById('connectBtn').disabled = true;
             document.getElementById('disconnectBtn').disabled = true;
             document.getElementById('sendBtn').disabled = true;
             document.getElementById('messageInput').disabled = true;
             document.getElementById('logoutBtn').disabled = true;
-            document.getElementById('loginForm').querySelector('button').disabled = false;
-            document.getElementById('loginForm').reset();
+            document.getElementById('tokenForm').querySelector('button').textContent = 'Сохранить токен';
+            document.getElementById('tokenForm').reset();
             updateConnectionStatus(false);
             addMessage('Система', 'Выход выполнен', 'warning');
         });
 
         // Проверка сохраненного токена
-        const savedToken = localStorage.getItem('jwt_token');
+        const savedToken = localStorage.getItem(TOKEN_STORAGE_KEY);
         if (savedToken) {
-            currentToken = savedToken;
-            // Попытка получить информацию о пользователе из токена (упрощенно)
-            // В реальном приложении здесь был бы запрос к API для проверки токена
-            document.getElementById('connectBtn').disabled = false;
-            document.getElementById('logoutBtn').disabled = false;
+            const payload = parseJwtPayload(savedToken);
+            if (payload) {
+                currentToken = savedToken;
+                currentUsername = payload.unique_name || payload.name || payload.sub || payload.email || 'Пользователь';
+                document.getElementById('jwtTokenInput').value = savedToken;
+                document.getElementById('currentUser').textContent = currentUsername;
+                document.getElementById('connectBtn').disabled = false;
+                document.getElementById('logoutBtn').disabled = false;
+                document.getElementById('tokenForm').querySelector('button').textContent = 'Обновить токен';
+            } else {
+                localStorage.removeItem(TOKEN_STORAGE_KEY);
+            }
         }
 
         // Подключение к SignalR
         document.getElementById('connectBtn').addEventListener('click', () => {
             if (!currentToken) {
-                addMessage('Система', 'Сначала войдите в систему', 'warning');
+                addMessage('Система', 'Сначала сохраните JWT токен', 'warning');
                 return;
             }
 
@@ -409,6 +407,21 @@ connection.start().then(() => {
             } else {
                 statusBadge.textContent = 'Отключен';
                 statusBadge.className = 'badge bg-secondary';
+            }
+        }
+
+        function parseJwtPayload(token) {
+            const parts = token.split('.');
+            if (parts.length !== 3) {
+                return null;
+            }
+
+            try {
+                const payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+                const padded = payload.padEnd(Math.ceil(payload.length / 4) * 4, '=');
+                return JSON.parse(atob(padded));
+            } catch {
+                return null;
             }
         }
     </script>

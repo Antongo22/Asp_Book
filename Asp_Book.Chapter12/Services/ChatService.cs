@@ -36,10 +36,6 @@ public class ChatService : IChatService
         {
             query = query.Where(m => m.GroupId == groupId);
         }
-        else
-        {
-            query = query.Where(m => m.GroupId == null);
-        }
 
         return await query.OrderBy(m => m.CreatedAt).ToListAsync();
     }

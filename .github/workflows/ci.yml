@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore Asp_Book.slnx --ignore-failed-sources
+
+      - name: Build
+        run: dotnet build Asp_Book.slnx --no-restore
+
+      - name: Test
+        run: dotnet test Asp_Book.Chapter12.Tests/Asp_Book.Chapter12.Tests.csproj --no-build -v minimal

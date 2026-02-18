@@ -4,7 +4,7 @@
 
 ## Структура проекта
 
-Проект состоит из 13 отдельных приложений:
+Проект состоит из 13 отдельных приложений и 1 тестового проекта:
 
 - **Gateway** (порт 5000) - главная страница с навигацией по всем главам
 - **Chapter 01** (порт 5001) - Начало работы: Middleware, REST API, Swagger
@@ -19,6 +19,7 @@
 - **Chapter 10** (порт 5010) - SignalR
 - **Chapter 11** (порт 5011) - Авторизация с SignalR/WebSockets
 - **Chapter 12** (порт 5012) - Тестирование API и EF, In-Memory БД
+- **Chapter12.Tests** - отдельный проект с unit/integration тестами для главы 12
 
 ## Требования
 
@@ -54,12 +55,37 @@ dotnet run
 docker-compose up --build
 ```
 
+Если на машине ограничена память Docker Desktop, используйте безопасный запуск с ограничением параллелизма:
+
+```bash
+./scripts/compose-up.sh
+```
+
+Или прямой запуск через Compose с ограничением параллелизма:
+
+```bash
+docker compose --parallel 1 up --build --force-recreate
+```
+
 Все проекты будут доступны на своих портах (5000-5012).
 
 Для остановки:
 ```bash
 docker-compose down
 ```
+
+### Быстрая проверка качества
+
+Из корня репозитория:
+
+```bash
+./scripts/validate.sh
+```
+
+Скрипт выполняет:
+1. `dotnet restore Asp_Book.slnx`
+2. `dotnet build Asp_Book.slnx`
+3. `dotnet test Asp_Book.Chapter12.Tests/Asp_Book.Chapter12.Tests.csproj`
 
 ## Структура каждой главы
 
@@ -169,12 +195,12 @@ docker-compose down
 
 ### Восстановление зависимостей
 ```bash
-dotnet restore
+dotnet restore Asp_Book.slnx
 ```
 
 ### Сборка проекта
 ```bash
-dotnet build
+dotnet build Asp_Book.slnx
 ```
 
 ### Запуск проекта
@@ -190,8 +216,15 @@ dotnet ef database update
 
 ### Запуск тестов (для главы 12)
 ```bash
-dotnet test
+dotnet test Asp_Book.Chapter12.Tests/Asp_Book.Chapter12.Tests.csproj
 ```
+
+### CI
+
+В репозитории добавлен workflow `.github/workflows/ci.yml`:
+- Restore решения
+- Build решения
+- Запуск тестов `Chapter12.Tests`
 
 ## Рекомендации по изучению
 
@@ -208,6 +241,14 @@ dotnet test
 
 ### Ошибки при запуске Docker
 Убедитесь, что Docker запущен и порты 5000-5012 свободны.
+
+### Ошибка `cannot allocate memory` при `docker compose up --build`
+Причина: Docker Desktop не хватает RAM при параллельной сборке всех сервисов.
+
+Рекомендуется:
+1. Запускать через `./scripts/compose-up.sh` (ограничивает параллелизм сборки).
+2. Увеличить память Docker Desktop (Settings → Resources), желательно до 8 GB.
+3. Закрыть тяжелые приложения перед сборкой.
 
 ### Ошибки компиляции
 Выполните `dotnet restore` и `dotnet clean`, затем `dotnet build`.

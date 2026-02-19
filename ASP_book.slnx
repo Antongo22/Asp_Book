@@ -1,0 +1,18 @@
+<Solution>
+  <Project Path="Asp_Book.Chapter01/Asp_Book.Chapter01.csproj" />
+  <Project Path="Asp_Book.Chapter02/Asp_Book.Chapter02.csproj" />
+  <Project Path="Asp_Book.Chapter03/Asp_Book.Chapter03.csproj" />
+  <Project Path="Asp_Book.Chapter04/Asp_Book.Chapter04.csproj" />
+  <Project Path="Asp_Book.Chapter05/Asp_Book.Chapter05.csproj" />
+  <Project Path="Asp_Book.Chapter06/Asp_Book.Chapter06.csproj" />
+  <Project Path="Asp_Book.Chapter07/Asp_Book.Chapter07.csproj" />
+  <Project Path="Asp_Book.Chapter08/Asp_Book.Chapter08.csproj" />
+  <Project Path="Asp_Book.Chapter09/Asp_Book.Chapter09.csproj" />
+  <Project Path="Asp_Book.Chapter10/Asp_Book.Chapter10.csproj" />
+  <Project Path="Asp_Book.Chapter11/Asp_Book.Chapter11.csproj" />
+  <Project Path="Asp_Book.Chapter12.Tests/Asp_Book.Chapter12.Tests.csproj">
+    <Build Solution="Debug|*" Project="false" />
+  </Project>
+  <Project Path="Asp_Book.Chapter12/Asp_Book.Chapter12.csproj" />
+  <Project Path="Asp_Book.Gateway/Asp_Book.Gateway.csproj" />
+</Solution>

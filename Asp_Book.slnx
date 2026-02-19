@@ -10,7 +10,9 @@
   <Project Path="Asp_Book.Chapter09/Asp_Book.Chapter09.csproj" />
   <Project Path="Asp_Book.Chapter10/Asp_Book.Chapter10.csproj" />
   <Project Path="Asp_Book.Chapter11/Asp_Book.Chapter11.csproj" />
+  <Project Path="Asp_Book.Chapter12.Tests/Asp_Book.Chapter12.Tests.csproj">
+    <Build Solution="Debug|*" Project="false" />
+  </Project>
   <Project Path="Asp_Book.Chapter12/Asp_Book.Chapter12.csproj" />
-  <Project Path="Asp_Book.Chapter12.Tests/Asp_Book.Chapter12.Tests.csproj" />
   <Project Path="Asp_Book.Gateway/Asp_Book.Gateway.csproj" />
 </Solution>

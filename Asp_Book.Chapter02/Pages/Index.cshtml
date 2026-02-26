@@ -70,6 +70,106 @@
             </section>
 
             <section class="mb-5">
+                <h3>ILogger и типизированные логгеры</h3>
+                <p><strong>ILogger</strong> — это интерфейс для логирования в ASP.NET Core. Он автоматически доступен через DI.</p>
+                
+                <h4>Почему ILogger&lt;T&gt; принимает тип класса?</h4>
+                <p>В <code>ILogger&lt;T&gt;</code> передается тип класса, в котором используется логгер. Это называется <strong>типизированным логгером</strong>.</p>
+
+                <div class="code-block">
+                    <pre><code>// ✅ ПРАВИЛЬНО: Передаем тип класса, где используется логгер
+public class MyController : ControllerBase
+{
+    private readonly ILogger&lt;MyController&gt; _logger;  // MyController - тип класса
+    
+    public MyController(ILogger&lt;MyController&gt; logger)
+    {
+        _logger = logger;
+    }
+}
+
+public class MessageService : IMessageService
+{
+    private readonly ILogger&lt;MessageService&gt; _logger;  // MessageService - тип класса
+    
+    public MessageService(ILogger&lt;MessageService&gt; logger)
+    {
+        _logger = logger;
+    }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Зачем это нужно?</strong>
+                        <ul>
+                            <li><strong>Категоризация логов</strong> — логи помечаются именем класса, из которого они были вызваны</li>
+                            <li><strong>Фильтрация</strong> — можно настроить разные уровни логирования для разных классов</li>
+                            <li><strong>Отладка</strong> — сразу видно, из какого класса пришел лог</li>
+                            <li><strong>Производительность</strong> — система логирования оптимизирует работу с категориями</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>Пример вывода логов:</h4>
+                <div class="code-block">
+                    <pre><code>// В контроллере
+_logger.LogInformation("Обработка запроса");
+
+// В логах будет:
+// Asp_Book.Chapter02.Controllers.MyController: Обработка запроса
+//                    ↑
+//            Имя класса автоматически добавляется
+
+// В сервисе
+_logger.LogInformation("Создан пользователь");
+
+// В логах будет:
+// Asp_Book.Chapter02.Services.MessageService: Создан пользователь
+//                    ↑
+//            Имя класса автоматически добавляется</code></pre>
+                </div>
+
+                <h4>Настройка уровней логирования по категориям:</h4>
+                <div class="code-block">
+                    <pre><code>// В appsettings.json можно настроить разные уровни для разных классов
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning",
+      "Asp_Book.Chapter02.Controllers": "Debug",  // Для контроллеров - Debug
+      "Asp_Book.Chapter02.Services": "Information"  // Для сервисов - Information
+    }
+  }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Объяснение:</strong> Благодаря типизированным логгерам можно настроить разные уровни логирования для разных частей приложения. 
+                        Например, для контроллеров включить Debug, а для сервисов оставить Information.
+                    </div>
+                </div>
+
+                <h4>Что будет, если не указать тип?</h4>
+                <div class="alert alert-warning">
+                    <p><strong>Можно использовать ILogger без типа:</strong></p>
+                    <pre><code>private readonly ILogger _logger;
+
+public MyController(ILogger logger)
+{
+    _logger = logger;
+}</code></pre>
+                    <p><strong>НО:</strong> В логах не будет указан класс-источник, что затрудняет отладку и фильтрацию.</p>
+                </div>
+
+                <h4>Правило использования:</h4>
+                <div class="alert alert-success">
+                    <p><strong>Всегда используйте ILogger&lt;T&gt; где T — это класс, в котором вы находитесь:</strong></p>
+                    <ul>
+                        <li>В контроллере: <code>ILogger&lt;MyController&gt;</code></li>
+                        <li>В сервисе: <code>ILogger&lt;MyService&gt;</code></li>
+                        <li>В middleware: <code>ILogger&lt;MyMiddleware&gt;</code></li>
+                    </ul>
+                </div>
+            </section>
+
+            <section class="mb-5">
                 <h3>Демонстрация: Использование ILogger через DI</h3>
                 <p>ILogger автоматически доступен через DI в ASP.NET Core:</p>
 
@@ -94,12 +194,14 @@
                     <div class="code-explanation">
                         <strong>Объяснение:</strong> ASP.NET Core автоматически регистрирует ILogger в DI контейнере. 
                         Просто объявите его в конструкторе, и он будет внедрен автоматически.
+                        <strong>Важно:</strong> Указывайте тип класса (<code>ILogger&lt;MyController&gt;</code>), чтобы логи были категоризированы.
                     </div>
                 </div>
 
                 <div class="alert alert-info mt-3">
                     <strong>Попробуйте:</strong> Откройте <a href="/swagger">Swagger UI</a> и вызовите 
                     <code>GET /api/DependencyInjection/logger-demo</code> чтобы увидеть логирование в действии.
+                    Обратите внимание, что в логах будет указан класс-источник.
                 </div>
             </section>
 

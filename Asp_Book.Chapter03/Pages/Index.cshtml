@@ -37,6 +37,107 @@
             </section>
 
             <section class="mb-5">
+                <h3>JSONPlaceholder — тестовый API сервис</h3>
+                <p><strong>JSONPlaceholder</strong> — это бесплатный онлайн REST API для тестирования и прототипирования. Он предоставляет фейковые данные, которые можно использовать для разработки и обучения.</p>
+                
+                <h4>Зачем нужен JSONPlaceholder?</h4>
+                <ul>
+                    <li><strong>Тестирование</strong> — не нужно создавать свой API для тестов</li>
+                    <li><strong>Обучение</strong> — идеально для изучения работы с HTTP запросами</li>
+                    <li><strong>Прототипирование</strong> — быстрая проверка интеграций</li>
+                    <li><strong>Демонстрации</strong> — примеры кода с реальным API</li>
+                </ul>
+
+                <h4>Доступные ресурсы:</h4>
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Ресурс</th>
+                                <th>Количество</th>
+                                <th>Описание</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>/posts</code></td>
+                                <td>100 постов</td>
+                                <td>Блог-посты с заголовками и содержимым</td>
+                            </tr>
+                            <tr>
+                                <td><code>/comments</code></td>
+                                <td>500 комментариев</td>
+                                <td>Комментарии к постам</td>
+                            </tr>
+                            <tr>
+                                <td><code>/albums</code></td>
+                                <td>100 альбомов</td>
+                                <td>Музыкальные альбомы</td>
+                            </tr>
+                            <tr>
+                                <td><code>/photos</code></td>
+                                <td>5000 фотографий</td>
+                                <td>Фотографии с URL</td>
+                            </tr>
+                            <tr>
+                                <td><code>/todos</code></td>
+                                <td>200 задач</td>
+                                <td>Список задач (todo items)</td>
+                            </tr>
+                            <tr>
+                                <td><code>/users</code></td>
+                                <td>10 пользователей</td>
+                                <td>Информация о пользователях</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h4>Примеры запросов:</h4>
+                <div class="code-block">
+                    <pre><code>// Получить все посты
+GET https://jsonplaceholder.typicode.com/posts
+
+// Получить пост по ID
+GET https://jsonplaceholder.typicode.com/posts/1
+
+// Получить комментарии к посту
+GET https://jsonplaceholder.typicode.com/posts/1/comments
+
+// Создать новый пост
+POST https://jsonplaceholder.typicode.com/posts
+Body: {
+  "title": "Новый пост",
+  "body": "Содержимое поста",
+  "userId": 1
+}
+
+// Обновить пост
+PUT https://jsonplaceholder.typicode.com/posts/1
+Body: {
+  "id": 1,
+  "title": "Обновленный пост",
+  "body": "Новое содержимое",
+  "userId": 1
+}
+
+// Удалить пост
+DELETE https://jsonplaceholder.typicode.com/posts/1</code></pre>
+                    <div class="code-explanation">
+                        <strong>Важно:</strong> JSONPlaceholder поддерживает все HTTP методы (GET, POST, PUT, PATCH, DELETE). 
+                        При создании, обновлении или удалении данные не сохраняются навсегда — это только симуляция для тестирования.
+                        Подробнее: <a href="https://jsonplaceholder.typicode.com/" target="_blank">jsonplaceholder.typicode.com</a>
+                    </div>
+                </div>
+
+                <div class="alert alert-info">
+                    <strong>Попробуйте прямо сейчас:</strong> Откройте в браузере 
+                    <a href="https://jsonplaceholder.typicode.com/posts/1" target="_blank">https://jsonplaceholder.typicode.com/posts/1</a> 
+                    чтобы увидеть пример данных, которые возвращает API.
+                </div>
+            </section>
+
+            <section class="mb-5">
                 <h3>IHttpClientFactory</h3>
                 <p>IHttpClientFactory — это фабрика для создания экземпляров HttpClient. Она управляет жизненным циклом и предотвращает проблемы с сокетами.</p>
 
@@ -67,6 +168,86 @@ public class MyController : ControllerBase
                         <code>AddHttpClient()</code> регистрирует IHttpClientFactory в DI контейнере.
                         <code>CreateClient()</code> создает новый экземпляр HttpClient, который правильно управляется фабрикой.
                     </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Асинхронное программирование (async/await)</h3>
+                <p><strong>async/await</strong> — это механизм в C# для написания асинхронного кода, который не блокирует поток выполнения.</p>
+                
+                <h4>Зачем нужны асинхронные методы?</h4>
+                <ul>
+                    <li><strong>Производительность</strong> — пока выполняется I/O операция (запрос к БД, HTTP запрос), поток может обрабатывать другие запросы</li>
+                    <li><strong>Масштабируемость</strong> — сервер может обрабатывать больше запросов одновременно</li>
+                    <li><strong>Отзывчивость</strong> — приложение не "зависает" во время долгих операций</li>
+                </ul>
+
+                <div class="code-block mt-3">
+                    <pre><code>// ❌ ПЛОХО: Синхронный метод блокирует поток
+[HttpGet("{id}")]
+public IActionResult GetProduct(int id)
+{
+    var product = _context.Products.Find(id); // Блокирует поток!
+    return Ok(product);
+}
+
+// ✅ ХОРОШО: Асинхронный метод не блокирует поток
+[HttpGet("{id}")]
+public async Task&lt;IActionResult&gt; GetProductAsync(int id)
+{
+    var product = await _context.Products.FindAsync(id); // Не блокирует!
+    return Ok(product);
+}
+
+// Пример с HttpClient
+[HttpGet("posts/{id}")]
+public async Task&lt;IActionResult&gt; GetPostAsync(int id)
+{
+    var client = _httpClientFactory.CreateClient();
+    
+    // await освобождает поток во время ожидания ответа
+    var response = await client.GetAsync($"https://api.example.com/posts/{id}");
+    var content = await response.Content.ReadAsStringAsync();
+    
+    return Ok(content);
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Объяснение:</strong>
+                        <ul>
+                            <li><code>async</code> — ключевое слово, которое делает метод асинхронным</li>
+                            <li><code>await</code> — ожидает завершения асинхронной операции, не блокируя поток</li>
+                            <li><code>Task&lt;T&gt;</code> — тип возвращаемого значения для асинхронных методов</li>
+                            <li><code>Task</code> — для методов, которые ничего не возвращают</li>
+                            <li>Во время <code>await</code> поток освобождается и может обрабатывать другие запросы</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>Правила использования async/await:</h4>
+                <div class="alert alert-warning">
+                    <ul>
+                        <li><strong>Всегда используйте async/await</strong> для операций с БД (EF Core)</li>
+                        <li><strong>Всегда используйте async/await</strong> для HTTP запросов (HttpClient)</li>
+                        <li><strong>Не смешивайте</strong> синхронные и асинхронные операции (не используйте .Result или .Wait())</li>
+                        <li><strong>Используйте</strong> асинхронные версии методов (FindAsync, ToListAsync, GetAsync и т.д.)</li>
+                    </ul>
+                </div>
+
+                <h4>Примеры асинхронных операций:</h4>
+                <div class="code-block">
+                    <pre><code>// Entity Framework Core
+var products = await _context.Products.ToListAsync();
+var product = await _context.Products.FindAsync(id);
+await _context.SaveChangesAsync();
+
+// HttpClient
+var response = await client.GetAsync(url);
+var content = await response.Content.ReadAsStringAsync();
+await client.PostAsync(url, content);
+
+// Файловые операции
+var text = await File.ReadAllTextAsync("file.txt");
+await File.WriteAllTextAsync("file.txt", content);</code></pre>
                 </div>
             </section>
 

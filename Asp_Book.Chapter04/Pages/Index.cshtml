@@ -54,28 +54,232 @@
             </section>
 
             <section class="mb-5">
-                <h3>Кастомный Middleware</h3>
-                <p>Middleware позволяет добавить логику обработки запросов и ответов в конвейер ASP.NET Core.</p>
+                <h3>Создание собственного Middleware</h3>
+                <p><strong>Middleware</strong> — это компоненты, которые формируют конвейер обработки HTTP-запросов. Каждый middleware может обработать запрос до и после следующего middleware в цепочке.</p>
+                
+                <h4>Как работает Middleware:</h4>
+                <div class="alert alert-info">
+                    <p><strong>Конвейер обработки запросов:</strong></p>
+                    <pre><code>Запрос → Middleware 1 → Middleware 2 → Middleware 3 → Контроллер
+                                                              ↓
+Ответ  ← Middleware 1 ← Middleware 2 ← Middleware 3 ← Контроллер</code></pre>
+                    <p>Каждый middleware вызывает следующий через <code>await _next(context)</code>, создавая цепочку обработки.</p>
+                </div>
 
+                <h4>Структура Middleware класса:</h4>
                 <div class="code-block">
-                    <pre><code>public class RequestLoggingMiddleware
+                    <pre><code>using Microsoft.AspNetCore.Http;
+
+namespace Asp_Book.Chapter04.Middleware;
+
+public class RequestLoggingMiddleware
 {
+    // RequestDelegate - следующий middleware в цепочке
     private readonly RequestDelegate _next;
     private readonly ILogger&lt;RequestLoggingMiddleware&gt; _logger;
 
+    // Конструктор - получает следующий middleware через DI
+    public RequestLoggingMiddleware(RequestDelegate next, ILogger&lt;RequestLoggingMiddleware&gt; logger)
+    {
+        _next = next;
+        _logger = logger;
+    }
+
+    // Метод InvokeAsync - вызывается для каждого запроса
     public async Task InvokeAsync(HttpContext context)
     {
+        // Код ДО вызова следующего middleware (обработка запроса)
         var startTime = DateTime.UtcNow;
         _logger.LogInformation("Входящий запрос: {Method} {Path}", 
             context.Request.Method, context.Request.Path);
         
+        // Вызов следующего middleware в цепочке
         await _next(context);
         
+        // Код ПОСЛЕ вызова следующего middleware (обработка ответа)
         var duration = DateTime.UtcNow - startTime;
         _logger.LogInformation("Запрос завершен за {Duration}ms", 
             duration.TotalMilliseconds);
     }
 }</code></pre>
+                    <div class="code-explanation">
+                        <strong>Объяснение:</strong>
+                        <ul>
+                            <li><code>RequestDelegate _next</code> — ссылка на следующий middleware в цепочке</li>
+                            <li><code>InvokeAsync(HttpContext context)</code> — метод, который вызывается для каждого запроса</li>
+                            <li><code>await _next(context)</code> — вызов следующего middleware (обязательно!)</li>
+                            <li>Код до <code>_next</code> выполняется при входящем запросе</li>
+                            <li>Код после <code>_next</code> выполняется при исходящем ответе</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>Регистрация Middleware в Program.cs:</h4>
+                <div class="code-block">
+                    <pre><code>using Asp_Book.Chapter04.Middleware;
+
+var app = builder.Build();
+
+// Важно: порядок регистрации определяет порядок выполнения!
+// Middleware выполняются в порядке регистрации
+
+// 1. Глобальный обработчик ошибок (должен быть первым)
+app.UseMiddleware&lt;GlobalExceptionHandlerMiddleware&gt;();
+
+// 2. Логирование запросов
+app.UseMiddleware&lt;RequestLoggingMiddleware&gt;();
+
+// 3. Стандартные middleware
+app.UseHttpsRedirection();
+app.UseStaticFiles();
+app.UseRouting();
+app.UseAuthorization();
+
+// 4. Обработчики запросов
+app.MapControllers();
+app.MapRazorPages();
+
+app.Run();</code></pre>
+                    <div class="code-explanation">
+                        <strong>Важно:</strong>
+                        <ul>
+                            <li><code>UseMiddleware&lt;T&gt;()</code> — регистрирует middleware в конвейер</li>
+                            <li><strong>Порядок имеет значение!</strong> Middleware выполняются в порядке регистрации</li>
+                            <li>Обработчик ошибок должен быть первым, чтобы перехватывать все исключения</li>
+                            <li>Логирование обычно идет после обработчика ошибок</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>Альтернативные способы создания Middleware:</h4>
+                
+                <h5>1. Использование extension метода (рекомендуется):</h5>
+                <div class="code-block">
+                    <pre><code>// Создаем extension метод для удобства
+public static class RequestLoggingMiddlewareExtensions
+{
+    public static IApplicationBuilder UseRequestLogging(this IApplicationBuilder builder)
+    {
+        return builder.UseMiddleware&lt;RequestLoggingMiddleware&gt;();
+    }
+}
+
+// Использование в Program.cs
+app.UseRequestLogging();  // Вместо app.UseMiddleware&lt;RequestLoggingMiddleware&gt;()</code></pre>
+                </div>
+
+                <h5>2. Inline Middleware (для простых случаев):</h5>
+                <div class="code-block">
+                    <pre><code>// Создание middleware прямо в Program.cs
+app.Use(async (context, next) =>
+{
+    var startTime = DateTime.UtcNow;
+    Console.WriteLine($"Запрос: {context.Request.Method} {context.Request.Path}");
+    
+    await next();
+    
+    var duration = DateTime.UtcNow - startTime;
+    Console.WriteLine($"Запрос завершен за {duration.TotalMilliseconds}ms");
+});</code></pre>
+                    <div class="code-explanation">
+                        <strong>Когда использовать:</strong>
+                        <ul>
+                            <li>Inline middleware — для простой логики, которая не требует отдельного класса</li>
+                            <li>Класс middleware — для сложной логики, переиспользования, тестирования</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>Примеры использования Middleware:</h4>
+                
+                <h5>1. Middleware для добавления заголовков:</h5>
+                <div class="code-block">
+                    <pre><code>public class CustomHeadersMiddleware
+{
+    private readonly RequestDelegate _next;
+
+    public CustomHeadersMiddleware(RequestDelegate next)
+    {
+        _next = next;
+    }
+
+    public async Task InvokeAsync(HttpContext context)
+    {
+        // Добавляем заголовок к ответу
+        context.Response.Headers.Add("X-Custom-Header", "MyValue");
+        context.Response.Headers.Add("X-Powered-By", "ASP.NET Core");
+        
+        await _next(context);
+    }
+}</code></pre>
+                </div>
+
+                <h5>2. Middleware для проверки пути:</h5>
+                <div class="code-block">
+                    <pre><code>public class PathCheckMiddleware
+{
+    private readonly RequestDelegate _next;
+    private readonly ILogger&lt;PathCheckMiddleware&gt; _logger;
+
+    public PathCheckMiddleware(RequestDelegate next, ILogger&lt;PathCheckMiddleware&gt; logger)
+    {
+        _next = next;
+        _logger = logger;
+    }
+
+    public async Task InvokeAsync(HttpContext context)
+    {
+        // Проверяем путь и можем прервать цепочку
+        if (context.Request.Path.StartsWithSegments("/admin"))
+        {
+            _logger.LogWarning("Попытка доступа к админ-панели: {Path}", context.Request.Path);
+            // Можно вернуть ответ и не вызывать _next
+            context.Response.StatusCode = 403;
+            await context.Response.WriteAsync("Доступ запрещен");
+            return; // Прерываем цепочку
+        }
+        
+        // Если путь нормальный, продолжаем
+        await _next(context);
+    }
+}</code></pre>
+                </div>
+
+                <h5>3. Middleware с параметрами:</h5>
+                <div class="code-block">
+                    <pre><code>public class RateLimitingMiddleware
+{
+    private readonly RequestDelegate _next;
+    private readonly int _maxRequestsPerMinute;
+
+    public RateLimitingMiddleware(RequestDelegate next, int maxRequestsPerMinute = 60)
+    {
+        _next = next;
+        _maxRequestsPerMinute = maxRequestsPerMinute;
+    }
+
+    public async Task InvokeAsync(HttpContext context)
+    {
+        // Логика ограничения запросов
+        // ...
+        await _next(context);
+    }
+}
+
+// Регистрация с параметрами
+app.UseMiddleware&lt;RateLimitingMiddleware&gt;(100); // 100 запросов в минуту</code></pre>
+                </div>
+
+                <h4>Порядок выполнения Middleware:</h4>
+                <div class="alert alert-warning">
+                    <p><strong>Важно помнить:</strong></p>
+                    <ol>
+                        <li>Middleware выполняются в порядке регистрации при входящем запросе</li>
+                        <li>При исходящем ответе порядок обратный</li>
+                        <li>Если не вызвать <code>await _next(context)</code>, цепочка прерывается</li>
+                        <li>Обработчик ошибок должен быть первым</li>
+                        <li>Статические файлы обычно обрабатываются раньше маршрутизации</li>
+                    </ol>
                 </div>
             </section>
 

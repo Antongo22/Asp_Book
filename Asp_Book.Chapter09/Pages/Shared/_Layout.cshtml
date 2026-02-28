@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="utf-8" />
@@ -9,6 +9,114 @@
     <!-- Highlight.js для подсветки синтаксиса -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/vs2015.min.css" />
     <style>
+        /* Тёмная тема */
+        :root {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2d2d2d;
+            --bg-tertiary: #3d3d3d;
+            --text-primary: #e0e0e0;
+            --text-secondary: #b0b0b0;
+            --border-color: #404040;
+            --card-bg: #252525;
+            --alert-info-bg: #1e3a5f;
+            --alert-warning-bg: #5c4a1e;
+            --alert-success-bg: #1e4d2e;
+            --alert-danger-bg: #5c1e1e;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        .container, .container-fluid {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        h1, h2, h3, h4, h5, h6 {
+            color: var(--text-primary);
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border-color: var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .card-header {
+            background-color: var(--bg-secondary);
+            border-bottom-color: var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .alert-info {
+            background-color: var(--alert-info-bg);
+            border-color: #2e5a8f;
+            color: #b3d9ff;
+        }
+
+        .alert-warning {
+            background-color: var(--alert-warning-bg);
+            border-color: #8c6a2e;
+            color: #ffd966;
+        }
+
+        .alert-success {
+            background-color: var(--alert-success-bg);
+            border-color: #2e6d3e;
+            color: #90ee90;
+        }
+
+        .alert-danger {
+            background-color: var(--alert-danger-bg);
+            border-color: #8c2e2e;
+            color: #ff9999;
+        }
+
+        .nav-tabs {
+            border-bottom-color: var(--border-color);
+        }
+
+        .nav-tabs .nav-link {
+            color: var(--text-secondary);
+            background-color: var(--bg-secondary);
+            border-color: var(--border-color);
+        }
+
+        .nav-tabs .nav-link:hover {
+            background-color: var(--bg-tertiary);
+            border-color: var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .nav-tabs .nav-link.active {
+            background-color: var(--card-bg);
+            border-color: var(--border-color) var(--border-color) var(--card-bg);
+            color: var(--text-primary);
+        }
+
+        .tab-content {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        .table {
+            color: var(--text-primary);
+        }
+
+        .table-striped > tbody > tr:nth-of-type(odd) {
+            background-color: var(--bg-secondary);
+        }
+
+        .table-bordered {
+            border-color: var(--border-color);
+        }
+
+        .table-bordered td, .table-bordered th {
+            border-color: var(--border-color);
+        }
+
         pre {
             background-color: #1e1e1e;
             padding: 1rem;
@@ -22,8 +130,8 @@
             padding: 0;
         }
         code:not(pre code) {
-            color: #d63384;
-            background-color: #f8f9fa;
+            color: #ff6b9d;
+            background-color: #3d3d3d;
             padding: 0.2em 0.4em;
             border-radius: 0.25rem;
         }
@@ -31,13 +139,57 @@
             position: relative;
         }
         .code-explanation {
-            background-color: #e7f3ff;
+            background-color: #2e4a6f;
             padding: 0.5rem;
             margin-top: 0.5rem;
-            border-left: 3px solid #0d6efd;
+            border-left: 3px solid #4a9eff;
+            color: #cce5ff;
         }
         .hljs {
             background: #1e1e1e !important;
+        }
+
+        a {
+            color: #6ab7ff;
+        }
+
+        a:hover {
+            color: #8cc8ff;
+        }
+
+        .btn-primary {
+            background-color: #0d6efd;
+            border-color: #0d6efd;
+        }
+
+        .btn-primary:hover {
+            background-color: #0b5ed7;
+            border-color: #0a58ca;
+        }
+
+        .list-group-item {
+            background-color: var(--card-bg);
+            border-color: var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .alert-light {
+            background-color: var(--card-bg);
+            border-color: var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .alert-light h5, .alert-light strong {
+            color: var(--text-primary);
+        }
+
+        .alert-light code {
+            color: #ff6b9d;
+            background-color: #3d3d3d;
+        }
+
+        .alert-light ul {
+            color: var(--text-primary);
         }
     </style>
 </head>

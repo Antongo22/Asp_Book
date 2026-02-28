@@ -314,15 +314,23 @@ var response = await client.GetAsync("posts/1");</code></pre>
             <h2>Решение задачи</h2>
 
             <section class="mb-5">
-                <h3>1. Регистрация HttpClient в Program.cs</h3>
+                <h3>1. Регистрация именованного HttpClient в Program.cs</h3>
                 <div class="code-block">
-                    <pre><code>builder.Services.AddHttpClient&lt;IExternalApiService, ExternalApiService&gt;(client =>
+                    <pre><code>// Регистрация именованного HttpClient "UsersAPI"
+builder.Services.AddHttpClient("UsersAPI", client =>
 {
     client.BaseAddress = new Uri("https://jsonplaceholder.typicode.com/");
     client.Timeout = TimeSpan.FromSeconds(30);
+    client.DefaultRequestHeaders.Add("User-Agent", "Asp_Book.Chapter03");
 });
 
-builder.Services.AddScoped&lt;IExternalApiService, ExternalApiService&gt;();</code></pre>
+// Регистрация сервиса
+builder.Services.AddScoped&lt;IUsersApiService, UsersApiService&gt;();</code></pre>
+                    <div class="code-explanation">
+                        <strong>Объяснение:</strong> 
+                        <code>AddHttpClient("UsersAPI", ...)</code> создает именованный HttpClient с предварительной настройкой.
+                        Базовый адрес устанавливается один раз, поэтому в методах сервиса можно использовать относительные пути.
+                    </div>
                 </div>
             </section>
 
@@ -331,12 +339,17 @@ builder.Services.AddScoped&lt;IExternalApiService, ExternalApiService&gt;();</co
                 <div class="code-block">
                     <pre><code>namespace Asp_Book.Chapter03.Services;
 
-public interface IExternalApiService
+public interface IUsersApiService
 {
-    Task&lt;string&gt; GetPostAsync(int id);
-    Task&lt;string&gt; GetAllPostsAsync();
-    Task&lt;string&gt; CreatePostAsync(string title, string body, int userId);
+    Task&lt;string&gt; GetUserAsync(int id);
+    Task&lt;string&gt; GetUserPostsAsync(int userId);
+    Task&lt;string&gt; CreateCommentAsync(int postId, string name, string email, string body);
 }</code></pre>
+                    <div class="code-explanation">
+                        <strong>Объяснение:</strong> 
+                        Интерфейс определяет контракт сервиса. Все методы возвращают <code>Task&lt;string&gt;</code> 
+                        (асинхронные операции, возвращающие JSON строку).
+                    </div>
                 </div>
             </section>
 
@@ -346,85 +359,237 @@ public interface IExternalApiService
                     <pre><code>using System.Text;
 using System.Text.Json;
 
-public class ExternalApiService : IExternalApiService
+namespace Asp_Book.Chapter03.Services;
+
+public class UsersApiService : IUsersApiService
 {
     private readonly IHttpClientFactory _httpClientFactory;
-    private readonly ILogger&lt;ExternalApiService&gt; _logger;
+    private readonly ILogger&lt;UsersApiService&gt; _logger;
 
-    public ExternalApiService(IHttpClientFactory httpClientFactory, ILogger&lt;ExternalApiService&gt; logger)
+    public UsersApiService(IHttpClientFactory httpClientFactory, ILogger&lt;UsersApiService&gt; logger)
     {
         _httpClientFactory = httpClientFactory;
         _logger = logger;
     }
 
-    public async Task&lt;string&gt; GetPostAsync(int id)
+    /// &lt;summary&gt;
+    /// Получить пользователя по ID
+    /// &lt;/summary&gt;
+    public async Task&lt;string&gt; GetUserAsync(int id)
     {
-        var client = _httpClientFactory.CreateClient("ExternalAPI");
+        var client = _httpClientFactory.CreateClient("UsersAPI");
         
         try
         {
-            var response = await client.GetAsync($"posts/{id}");
+            _logger.LogInformation("Запрос пользователя с ID: {UserId}", id);
+            var response = await client.GetAsync($"users/{id}");
             response.EnsureSuccessStatusCode();
-            return await response.Content.ReadAsStringAsync();
+            
+            var content = await response.Content.ReadAsStringAsync();
+            _logger.LogInformation("Пользователь с ID {UserId} успешно получен", id);
+            return content;
         }
         catch (HttpRequestException ex)
         {
-            _logger.LogError(ex, "Ошибка при запросе к внешнему API");
+            _logger.LogError(ex, "Ошибка при запросе пользователя с ID: {UserId}", id);
             throw;
         }
     }
 
-    public async Task&lt;string&gt; CreatePostAsync(string title, string body, int userId)
+    /// &lt;summary&gt;
+    /// Получить посты пользователя по userId
+    /// &lt;/summary&gt;
+    public async Task&lt;string&gt; GetUserPostsAsync(int userId)
     {
-        var client = _httpClientFactory.CreateClient("ExternalAPI");
+        var client = _httpClientFactory.CreateClient("UsersAPI");
         
         try
         {
-            var post = new { title, body, userId };
-            var json = JsonSerializer.Serialize(post);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-            var response = await client.PostAsync("posts", content);
+            _logger.LogInformation("Запрос постов пользователя с ID: {UserId}", userId);
+            // Используем query параметр для фильтрации постов по userId
+            var response = await client.GetAsync($"posts?userId={userId}");
             response.EnsureSuccessStatusCode();
-            return await response.Content.ReadAsStringAsync();
+            
+            var content = await response.Content.ReadAsStringAsync();
+            _logger.LogInformation("Получены посты пользователя с ID {UserId}", userId);
+            return content;
         }
         catch (HttpRequestException ex)
         {
-            _logger.LogError(ex, "Ошибка при создании поста");
+            _logger.LogError(ex, "Ошибка при запросе постов пользователя с ID: {UserId}", userId);
+            throw;
+        }
+    }
+
+    /// &lt;summary&gt;
+    /// Создать комментарий к посту
+    /// &lt;/summary&gt;
+    public async Task&lt;string&gt; CreateCommentAsync(int postId, string name, string email, string body)
+    {
+        var client = _httpClientFactory.CreateClient("UsersAPI");
+        
+        try
+        {
+            // Создаем объект комментария
+            var comment = new
+            {
+                postId = postId,
+                name = name,
+                email = email,
+                body = body
+            };
+
+            // Сериализуем в JSON
+            var json = JsonSerializer.Serialize(comment);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            _logger.LogInformation("Создание комментария для поста с ID: {PostId}", postId);
+            var response = await client.PostAsync("comments", content);
+            response.EnsureSuccessStatusCode();
+            
+            var responseContent = await response.Content.ReadAsStringAsync();
+            _logger.LogInformation("Комментарий для поста {PostId} успешно создан", postId);
+            return responseContent;
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "Ошибка при создании комментария для поста с ID: {PostId}", postId);
             throw;
         }
     }
 }</code></pre>
+                    <div class="code-explanation">
+                        <strong>Объяснение:</strong>
+                        <ul>
+                            <li><strong>GetUserAsync</strong> — GET запрос к <code>/users/{id}</code> для получения пользователя</li>
+                            <li><strong>GetUserPostsAsync</strong> — GET запрос к <code>/posts?userId={userId}</code> с query параметром для фильтрации</li>
+                            <li><strong>CreateCommentAsync</strong> — POST запрос к <code>/comments</code> с телом запроса в формате JSON</li>
+                            <li>Все методы используют именованный HttpClient "UsersAPI"</li>
+                            <li>Обработка ошибок через try-catch с логированием</li>
+                            <li>Логирование всех операций для отладки</li>
+                        </ul>
+                    </div>
                 </div>
             </section>
 
             <section class="mb-5">
                 <h3>4. Использование в контроллере</h3>
                 <div class="code-block">
-                    <pre><code>[ApiController]
-[Route("api/[controller]")]
-public class HttpClientController : ControllerBase
-{
-    private readonly IExternalApiService _externalApiService;
+                    <pre><code>using Asp_Book.Chapter03.Services;
+using System.Text.Json;
+using Microsoft.AspNetCore.Mvc;
 
-    public HttpClientController(IExternalApiService externalApiService)
+namespace Asp_Book.Chapter03.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class UsersController : ControllerBase
+{
+    private readonly IUsersApiService _usersApiService;
+    private readonly ILogger&lt;UsersController&gt; _logger;
+
+    public UsersController(IUsersApiService usersApiService, ILogger&lt;UsersController&gt; logger)
     {
-        _externalApiService = externalApiService;
+        _usersApiService = usersApiService;
+        _logger = logger;
     }
 
-    [HttpGet("post/{id}")]
-    public async Task&lt;IActionResult&gt; GetPost(int id)
+    /// &lt;summary&gt;
+    /// Получить пользователя по ID
+    /// &lt;/summary&gt;
+    [HttpGet("user/{id}")]
+    public async Task&lt;IActionResult&gt; GetUser(int id)
     {
         try
         {
-            var result = await _externalApiService.GetPostAsync(id);
+            var result = await _usersApiService.GetUserAsync(id);
             return Ok(JsonSerializer.Deserialize&lt;object&gt;(result));
         }
-        catch (Exception ex)
+        catch (HttpRequestException ex)
         {
-            return StatusCode(500, new { error = ex.Message });
+            _logger.LogError(ex, "Ошибка при получении пользователя {UserId}", id);
+            return StatusCode(500, new { error = $"Ошибка при запросе к внешнему API: {ex.Message}" });
         }
     }
+
+    /// &lt;summary&gt;
+    /// Получить посты пользователя
+    /// &lt;/summary&gt;
+    [HttpGet("user/{userId}/posts")]
+    public async Task&lt;IActionResult&gt; GetUserPosts(int userId)
+    {
+        try
+        {
+            var result = await _usersApiService.GetUserPostsAsync(userId);
+            return Ok(JsonSerializer.Deserialize&lt;object&gt;(result));
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "Ошибка при получении постов пользователя {UserId}", userId);
+            return StatusCode(500, new { error = $"Ошибка при запросе к внешнему API: {ex.Message}" });
+        }
+    }
+
+    /// &lt;summary&gt;
+    /// Создать комментарий к посту
+    /// &lt;/summary&gt;
+    [HttpPost("post/{postId}/comment")]
+    public async Task&lt;IActionResult&gt; CreateComment(
+        int postId, 
+        [FromBody] CreateCommentRequest request)
+    {
+        try
+        {
+            var result = await _usersApiService.CreateCommentAsync(
+                postId, 
+                request.Name, 
+                request.Email, 
+                request.Body);
+            
+            return Ok(JsonSerializer.Deserialize&lt;object&gt;(result));
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "Ошибка при создании комментария для поста {PostId}", postId);
+            return StatusCode(500, new { error = $"Ошибка при запросе к внешнему API: {ex.Message}" });
+        }
+    }
+}
+
+// Модель запроса для создания комментария
+public class CreateCommentRequest
+{
+    public string Name { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string Body { get; set; } = string.Empty;
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Объяснение:</strong>
+                        <ul>
+                            <li>Контроллер использует сервис через DI</li>
+                            <li>Все методы асинхронные (<code>async Task&lt;IActionResult&gt;</code>)</li>
+                            <li>Обработка ошибок с возвратом статуса 500</li>
+                            <li>JSON десериализация для возврата структурированных данных</li>
+                            <li>Модель <code>CreateCommentRequest</code> для валидации входных данных</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>5. Примеры использования API</h3>
+                <div class="alert alert-success">
+                    <h5>Тестирование через Swagger:</h5>
+                    <ul>
+                        <li><strong>GET /api/Users/user/1</strong> — получить пользователя с ID 1</li>
+                        <li><strong>GET /api/Users/user/1/posts</strong> — получить все посты пользователя с ID 1</li>
+                        <li><strong>POST /api/Users/post/1/comment</strong> — создать комментарий к посту с ID 1</li>
+                    </ul>
+                    <p><strong>Пример тела запроса для создания комментария:</strong></p>
+                    <pre><code>{
+  "name": "Иван Иванов",
+  "email": "ivan@example.com",
+  "body": "Отличный пост!"
 }</code></pre>
                 </div>
             </section>

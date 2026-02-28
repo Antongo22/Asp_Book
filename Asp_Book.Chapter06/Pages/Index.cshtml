@@ -39,24 +39,211 @@
 
             <section class="mb-5">
                 <h3>DTO (Data Transfer Objects)</h3>
-                <p>DTO используются для передачи данных между слоями приложения без раскрытия внутренней структуры сущностей.</p>
+                <p><strong>DTO (Data Transfer Objects)</strong> — это объекты, предназначенные для передачи данных между слоями приложения без раскрытия внутренней структуры сущностей.</p>
+                
+                <h4>Зачем нужны DTO?</h4>
+                <ul>
+                    <li><strong>Безопасность</strong> — скрывают внутренние поля (пароли, служебные данные)</li>
+                    <li><strong>Гибкость</strong> — можно изменить внутреннюю структуру без изменения API</li>
+                    <li><strong>Производительность</strong> — передают только необходимые данные</li>
+                    <li><strong>Валидация</strong> — отдельные модели для запросов и ответов</li>
+                </ul>
 
                 <div class="code-block">
-                    <pre><code>// Модель (внутренняя структура)
+                    <pre><code>// Модель (внутренняя структура базы данных)
 public class Product
 {
     public int Id { get; set; }
     public string Name { get; set; }
+    public string Description { get; set; }
+    public decimal Price { get; set; }
+    public int Stock { get; set; }
     public DateTime CreatedAt { get; set; } // Внутреннее поле
+    public string InternalNotes { get; set; } // Служебное поле
 }
 
-// DTO (для API)
+// DTO для ответа API (Response)
 public class ProductDto
 {
     public int Id { get; set; }
     public string Name { get; set; }
-    // CreatedAt не включаем в DTO
+    public string Description { get; set; }
+    public decimal Price { get; set; }
+    public int Stock { get; set; }
+    // CreatedAt и InternalNotes не включаем - это внутренние данные
+}
+
+// DTO для создания (Request)
+public class CreateProductDto
+{
+    [Required]
+    [StringLength(100)]
+    public string Name { get; set; } = string.Empty;
+    
+    public string Description { get; set; } = string.Empty;
+    
+    [Range(0.01, 999999.99)]
+    public decimal Price { get; set; }
+    
+    [Range(0, int.MaxValue)]
+    public int Stock { get; set; }
+    // Id и CreatedAt не нужны - они генерируются автоматически
+}
+
+// DTO для обновления (Request)
+public class UpdateProductDto
+{
+    [StringLength(100)]
+    public string? Name { get; set; }
+    
+    public string? Description { get; set; }
+    
+    [Range(0.01, 999999.99)]
+    public decimal? Price { get; set; }
+    
+    [Range(0, int.MaxValue)]
+    public int? Stock { get; set; }
+    // Все поля опциональные для частичного обновления
 }</code></pre>
+                    <div class="code-explanation">
+                        <strong>Объяснение:</strong>
+                        <ul>
+                            <li><strong>Product</strong> — внутренняя модель с полной информацией</li>
+                            <li><strong>ProductDto</strong> — для ответов API, содержит только публичные данные</li>
+                            <li><strong>CreateProductDto</strong> — для создания, содержит только необходимые поля</li>
+                            <li><strong>UpdateProductDto</strong> — для обновления, все поля опциональные</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Возврат DTOs в контроллерах</h3>
+                <p>В контроллерах нужно преобразовывать модели в DTOs перед возвратом клиенту.</p>
+
+                <div class="code-block">
+                    <pre><code>[ApiController]
+[Route("api/[controller]")]
+public class ProductsController : ControllerBase
+{
+    private readonly ApplicationDbContext _context;
+
+    // GET: возвращаем список DTOs
+    [HttpGet]
+    public async Task&lt;ActionResult&lt;IEnumerable&lt;ProductDto&gt;&gt;&gt; GetProducts()
+    {
+        var products = await _context.Products
+            .Select(p => new ProductDto  // Преобразование в DTO
+            {
+                Id = p.Id,
+                Name = p.Name,
+                Description = p.Description,
+                Price = p.Price,
+                Stock = p.Stock
+            })
+            .ToListAsync();
+        
+        return Ok(products); // Возвращаем DTOs
+    }
+
+    // GET by ID: возвращаем один DTO
+    [HttpGet("{id}")]
+    public async Task&lt;ActionResult&lt;ProductDto&gt;&gt; GetProduct(int id)
+    {
+        var product = await _context.Products.FindAsync(id);
+        
+        if (product == null)
+            return NotFound();
+        
+        // Преобразуем модель в DTO
+        var productDto = new ProductDto
+        {
+            Id = product.Id,
+            Name = product.Name,
+            Description = product.Description,
+            Price = product.Price,
+            Stock = product.Stock
+        };
+        
+        return Ok(productDto); // Возвращаем DTO
+    }
+
+    // POST: принимаем CreateProductDto, возвращаем ProductDto
+    [HttpPost]
+    public async Task&lt;ActionResult&lt;ProductDto&gt;&gt; CreateProduct(CreateProductDto createDto)
+    {
+        // Создаем модель из DTO
+        var product = new Product
+        {
+            Name = createDto.Name,
+            Description = createDto.Description,
+            Price = createDto.Price,
+            Stock = createDto.Stock,
+            CreatedAt = DateTime.UtcNow
+        };
+        
+        _context.Products.Add(product);
+        await _context.SaveChangesAsync();
+        
+        // Преобразуем обратно в DTO для ответа
+        var productDto = new ProductDto
+        {
+            Id = product.Id,
+            Name = product.Name,
+            Description = product.Description,
+            Price = product.Price,
+            Stock = product.Stock
+        };
+        
+        return CreatedAtAction(nameof(GetProduct), new { id = product.Id }, productDto);
+    }
+
+    // PUT: принимаем UpdateProductDto
+    [HttpPut("{id}")]
+    public async Task&lt;IActionResult&gt; UpdateProduct(int id, UpdateProductDto updateDto)
+    {
+        var product = await _context.Products.FindAsync(id);
+        
+        if (product == null)
+            return NotFound();
+        
+        // Обновляем только переданные поля
+        if (updateDto.Name != null)
+            product.Name = updateDto.Name;
+        if (updateDto.Description != null)
+            product.Description = updateDto.Description;
+        if (updateDto.Price.HasValue)
+            product.Price = updateDto.Price.Value;
+        if (updateDto.Stock.HasValue)
+            product.Stock = updateDto.Stock.Value;
+        
+        await _context.SaveChangesAsync();
+        
+        return NoContent(); // 204 No Content
+    }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Объяснение:</strong>
+                        <ul>
+                            <li><code>ActionResult&lt;IEnumerable&lt;ProductDto&gt;&gt;</code> — возвращает список DTOs</li>
+                            <li><code>ActionResult&lt;ProductDto&gt;</code> — возвращает один DTO</li>
+                            <li><code>Select()</code> — преобразует модели в DTOs прямо в запросе (эффективно)</li>
+                            <li><code>CreatedAtAction()</code> — возвращает 201 Created с заголовком Location</li>
+                            <li><code>NoContent()</code> — возвращает 204 No Content для успешного обновления</li>
+                            <li>Всегда преобразуйте модели в DTOs перед возвратом клиенту</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>Преимущества использования DTOs:</h4>
+                <div class="alert alert-success">
+                    <ul>
+                        <li><strong>Безопасность</strong> — внутренние поля не попадают в API</li>
+                        <li><strong>Версионирование</strong> — можно изменять модели без изменения API</li>
+                        <li><strong>Валидация</strong> — разные правила для создания и обновления</li>
+                        <li><strong>Производительность</strong> — передаем только нужные данные</li>
+                        <li><strong>Документация</strong> — Swagger автоматически показывает структуру DTOs</li>
+                    </ul>
                 </div>
             </section>
 

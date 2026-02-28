@@ -6,15 +6,26 @@
     <title>@ViewData["Title"] - Глава 6: Entity Framework</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <!-- Highlight.js для подсветки синтаксиса -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/vs2015.min.css" />
     <style>
         pre {
-            background-color: #f8f9fa;
+            background-color: #1e1e1e;
             padding: 1rem;
             border-radius: 0.25rem;
-            border: 1px solid #dee2e6;
+            border: 1px solid #3e3e42;
+            overflow-x: auto;
         }
-        code {
+        pre code {
+            color: #d4d4d4;
+            background: transparent;
+            padding: 0;
+        }
+        code:not(pre code) {
             color: #d63384;
+            background-color: #f8f9fa;
+            padding: 0.2em 0.4em;
+            border-radius: 0.25rem;
         }
         .code-block {
             position: relative;
@@ -24,6 +35,9 @@
             padding: 0.5rem;
             margin-top: 0.5rem;
             border-left: 3px solid #0d6efd;
+        }
+        .hljs {
+            background: #1e1e1e !important;
         }
     </style>
 </head>
@@ -47,7 +61,56 @@
 
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Highlight.js для подсветки синтаксиса -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/csharp.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/javascript.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+    <script>
+        // Инициализация highlight.js для всех блоков кода
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('pre code').forEach((block) => {
+                // Если язык не указан, определяем по содержимому
+                if (!block.className || block.className.trim() === '') {
+                    const text = block.textContent || block.innerText || '';
+                    const html = block.innerHTML || '';
+                    
+                    // Проверяем на C# код
+                    if (text.includes('public class') || text.includes('namespace') || text.includes('using ') ||
+                        text.includes('private readonly') || text.includes('public async') || text.includes('Task') ||
+                        (html.includes('&lt;') && (text.includes('class') || text.includes('namespace')))) {
+                        block.className = 'language-csharp';
+                    }
+                    // Проверяем на JSON
+                    else if ((text.includes('{') && text.includes('"')) || text.includes('"title"') || text.includes('"name"')) {
+                        block.className = 'language-json';
+                    }
+                    // Проверяем на XML/HTML
+                    else if (html.includes('&lt;') && html.includes('&gt;') && 
+                            (html.includes('&lt;div') || html.includes('&lt;pre') || html.includes('&lt;code'))) {
+                        block.className = 'language-xml';
+                    }
+                    // Проверяем на JavaScript
+                    else if (text.includes('function') || text.includes('const ') || text.includes('let ') ||
+                            text.includes('document.') || text.includes('addEventListener')) {
+                        block.className = 'language-javascript';
+                    }
+                    // Проверяем на Bash/Shell команды
+                    else if (text.includes('dotnet ') || text.includes('npm ') || text.trim().startsWith('$')) {
+                        block.className = 'language-bash';
+                    }
+                    // По умолчанию C#
+                    else {
+                        block.className = 'language-csharp';
+                    }
+                }
+                hljs.highlightElement(block);
+            });
+        });
+    </script>
 
     @await RenderSectionAsync("Scripts", required: false)
 </body>

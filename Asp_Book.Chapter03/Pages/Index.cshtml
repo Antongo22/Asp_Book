@@ -252,6 +252,177 @@ await File.WriteAllTextAsync("file.txt", content);</code></pre>
             </section>
 
             <section class="mb-5">
+                <h3>Сериализация и десериализация JSON</h3>
+                <p>При работе с HTTP запросами часто нужно преобразовывать объекты C# в JSON строку (сериализация) и обратно (десериализация).</p>
+                
+                <h4>Сериализация (объект → JSON строка):</h4>
+                <p>Для отправки данных в теле POST/PUT запроса нужно преобразовать объект в JSON строку.</p>
+
+                <div class="code-block">
+                    <pre><code>using System.Text;
+using System.Text.Json;
+
+// Создаем объект для отправки
+var post = new
+{
+    title = "Новый пост",
+    body = "Содержимое поста",
+    userId = 1
+};
+
+// Сериализуем объект в JSON строку
+var json = JsonSerializer.Serialize(post);
+// Результат: {"title":"Новый пост","body":"Содержимое поста","userId":1}
+
+// Создаем StringContent для HTTP запроса
+var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+// Отправляем POST запрос
+var response = await client.PostAsync("posts", content);</code></pre>
+                    <div class="code-explanation">
+                        <strong>Объяснение:</strong>
+                        <ul>
+                            <li><code>JsonSerializer.Serialize()</code> — преобразует объект в JSON строку</li>
+                            <li><code>StringContent</code> — обертка для строки, которая будет отправлена в теле запроса</li>
+                            <li><code>Encoding.UTF8</code> — кодировка текста</li>
+                            <li><code>"application/json"</code> — тип контента (MIME type)</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>Десериализация (JSON строка → объект):</h4>
+                <p>При получении ответа от API нужно преобразовать JSON строку обратно в объект C#.</p>
+
+                <div class="code-block">
+                    <pre><code>using System.Text.Json;
+
+// Получаем ответ от API
+var response = await client.GetAsync("posts/1");
+var jsonString = await response.Content.ReadAsStringAsync();
+// jsonString содержит: {"userId":1,"id":1,"title":"...","body":"..."}
+
+// Десериализуем JSON строку в объект
+var post = JsonSerializer.Deserialize&lt;Post&gt;(jsonString);
+
+// Или в анонимный объект
+var post = JsonSerializer.Deserialize&lt;object&gt;(jsonString);
+
+// Или в Dictionary для динамического доступа
+var post = JsonSerializer.Deserialize&lt;Dictionary&lt;string, object&gt;&gt;(jsonString);</code></pre>
+                    <div class="code-explanation">
+                        <strong>Объяснение:</strong>
+                        <ul>
+                            <li><code>ReadAsStringAsync()</code> — читает содержимое ответа как строку</li>
+                            <li><code>JsonSerializer.Deserialize&lt;T&gt;()</code> — преобразует JSON строку в объект типа T</li>
+                            <li>Нужно указать тип объекта (<code>Post</code>) или использовать <code>object</code> для динамического доступа</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>Полный пример: создание поста через API</h4>
+                <div class="code-block">
+                    <pre><code>public async Task&lt;Post&gt; CreatePostAsync(string title, string body, int userId)
+{
+    var client = _httpClientFactory.CreateClient("ExternalAPI");
+    
+    // 1. Создаем объект для отправки
+    var postData = new
+    {
+        title = title,
+        body = body,
+        userId = userId
+    };
+    
+    // 2. Сериализуем в JSON строку
+    var json = JsonSerializer.Serialize(postData);
+    
+    // 3. Создаем StringContent для тела запроса
+    var content = new StringContent(json, Encoding.UTF8, "application/json");
+    
+    // 4. Отправляем POST запрос
+    var response = await client.PostAsync("posts", content);
+    response.EnsureSuccessStatusCode();
+    
+    // 5. Читаем ответ как строку
+    var responseJson = await response.Content.ReadAsStringAsync();
+    
+    // 6. Десериализуем ответ в объект
+    var createdPost = JsonSerializer.Deserialize&lt;Post&gt;(responseJson);
+    
+    return createdPost;
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Пошаговое объяснение:</strong>
+                        <ol>
+                            <li>Создаем объект с данными для отправки</li>
+                            <li>Сериализуем объект в JSON строку</li>
+                            <li>Создаем StringContent с указанием кодировки и типа контента</li>
+                            <li>Отправляем POST запрос с телом</li>
+                            <li>Читаем ответ от сервера как строку</li>
+                            <li>Десериализуем JSON строку обратно в объект C#</li>
+                        </ol>
+                    </div>
+                </div>
+
+                <h4>Работа с моделями данных:</h4>
+                <div class="code-block">
+                    <pre><code>// Модель для десериализации
+public class Post
+{
+    public int UserId { get; set; }
+    public int Id { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Body { get; set; } = string.Empty;
+}
+
+// Использование модели
+var response = await client.GetAsync("posts/1");
+var jsonString = await response.Content.ReadAsStringAsync();
+
+// Десериализация в типизированный объект
+var post = JsonSerializer.Deserialize&lt;Post&gt;(jsonString);
+
+// Теперь можно использовать типизированные свойства
+Console.WriteLine(post.Title);  // Доступ к свойству
+Console.WriteLine(post.Body);   // Типобезопасный доступ</code></pre>
+                    <div class="code-explanation">
+                        <strong>Преимущества использования моделей:</strong>
+                        <ul>
+                            <li><strong>Типобезопасность</strong> — компилятор проверяет типы</li>
+                            <li><strong>IntelliSense</strong> — автодополнение в IDE</li>
+                            <li><strong>Валидация</strong> — можно добавить Data Annotations</li>
+                            <li><strong>Читаемость</strong> — код становится понятнее</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>Настройка сериализации:</h4>
+                <div class="code-block">
+                    <pre><code>// Настройка опций сериализации
+var options = new JsonSerializerOptions
+{
+    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,  // camelCase вместо PascalCase
+    WriteIndented = true,                               // Форматированный JSON
+    PropertyNameCaseInsensitive = true                  // Нечувствительность к регистру
+};
+
+// Сериализация с опциями
+var json = JsonSerializer.Serialize(post, options);
+
+// Десериализация с опциями
+var post = JsonSerializer.Deserialize&lt;Post&gt;(jsonString, options);</code></pre>
+                    <div class="code-explanation">
+                        <strong>Опции сериализации:</strong>
+                        <ul>
+                            <li><code>CamelCase</code> — имена свойств в camelCase (JavaScript стиль)</li>
+                            <li><code>WriteIndented</code> — форматированный JSON с отступами (для отладки)</li>
+                            <li><code>PropertyNameCaseInsensitive</code> — игнорировать регистр при десериализации</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
                 <h3>Именованные HttpClient</h3>
                 <p>Можно создавать именованные HttpClient с предварительной настройкой:</p>
 

@@ -1,4 +1,4 @@
-﻿@page
+@page
 @model IndexModel
 @{
     ViewData["Title"] = "Глава 5: Razor Pages UI";
@@ -38,6 +38,296 @@
             </section>
 
             <section class="mb-5">
+                <h3>Создание проекта Razor Pages</h3>
+                <p>Давайте разберем, как создать новый проект Razor Pages и какие файлы за что отвечают.</p>
+                
+                <h4>1. Создание проекта через командную строку:</h4>
+                <div class="code-block mt-3">
+                    <pre><code># Создать новый проект Razor Pages
+dotnet new webapp -n MyRazorApp
+
+# Перейти в папку проекта
+cd MyRazorApp
+
+# Восстановить зависимости
+dotnet restore
+
+# Запустить проект
+dotnet run</code></pre>
+                    <div class="code-explanation">
+                        <strong>Объяснение команд:</strong>
+                        <ul>
+                            <li><code>dotnet new webapp</code> — создает шаблон проекта Razor Pages</li>
+                            <li><code>-n MyRazorApp</code> — имя проекта</li>
+                            <li><code>dotnet restore</code> — загружает все NuGet пакеты</li>
+                            <li><code>dotnet run</code> — компилирует и запускает проект</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>2. Структура проекта Razor Pages:</h4>
+                <p>После создания проекта вы получите следующую структуру:</p>
+                
+                <div class="code-block mt-3">
+                    <pre><code>MyRazorApp/
+├── Pages/                    # 📁 Razor Pages (главная папка)
+│   ├── Index.cshtml          # Главная страница (разметка)
+│   ├── Index.cshtml.cs       # Код главной страницы
+│   ├── Privacy.cshtml        # Страница Privacy
+│   ├── Privacy.cshtml.cs     # Код страницы Privacy
+│   └── Shared/               # Общие компоненты
+│       ├── _Layout.cshtml    # Общий макет (шаблон)
+│       ├── _ViewImports.cshtml  # Общие директивы
+│       └── _ViewStart.cshtml    # Настройки для всех страниц
+├── wwwroot/                  # 📁 Статические файлы
+│   ├── css/                  # CSS стили
+│   │   └── site.css
+│   ├── js/                   # JavaScript файлы
+│   │   └── site.js
+│   └── lib/                  # Библиотеки (Bootstrap, jQuery)
+├── Models/                    # 📁 Модели данных (опционально)
+├── Services/                 # 📁 Сервисы (опционально)
+├── Program.cs                # 📄 Точка входа приложения
+├── appsettings.json          # 📄 Конфигурация
+├── appsettings.Development.json  # Конфигурация для разработки
+└── MyRazorApp.csproj         # 📄 Файл проекта</code></pre>
+                    <div class="code-explanation">
+                        <strong>Важные папки:</strong>
+                        <ul>
+                            <li><strong>Pages/</strong> — здесь находятся все Razor Pages</li>
+                            <li><strong>wwwroot/</strong> — статические файлы (CSS, JS, изображения)</li>
+                            <li><strong>Program.cs</strong> — настройка и запуск приложения</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>3. Назначение файлов:</h4>
+                
+                <div class="alert alert-light">
+                    <h5><strong>📄 Index.cshtml</strong></h5>
+                    <p>Файл с разметкой страницы (HTML + Razor синтаксис):</p>
+                    <ul>
+                        <li>Содержит HTML разметку</li>
+                        <li>Может содержать C# код через синтаксис Razor (<code>@@</code>)</li>
+                        <li>Отображается пользователю в браузере</li>
+                    </ul>
+                </div>
+
+                <div class="alert alert-light">
+                    <h5><strong>📄 Index.cshtml.cs</strong></h5>
+                    <p>Файл с кодом страницы (PageModel):</p>
+                    <ul>
+                        <li>Содержит класс, наследующийся от <code>PageModel</code></li>
+                        <li>Обрабатывает HTTP запросы (GET, POST)</li>
+                        <li>Содержит бизнес-логику страницы</li>
+                        <li>Подготавливает данные для отображения</li>
+                    </ul>
+                </div>
+
+                <div class="alert alert-light">
+                    <h5><strong>📄 _Layout.cshtml</strong></h5>
+                    <p>Общий макет (шаблон) для всех страниц:</p>
+                    <ul>
+                        <li>Определяет общую структуру страницы (header, footer, навигация)</li>
+                        <li>Подключает CSS и JavaScript файлы</li>
+                        <li>Используется всеми страницами через <code>@@RenderBody()</code></li>
+                        <li>Находится в папке <code>Pages/Shared/</code></li>
+                    </ul>
+                </div>
+
+                <div class="alert alert-light">
+                    <h5><strong>📄 _ViewImports.cshtml</strong></h5>
+                    <p>Общие директивы для всех страниц:</p>
+                    <ul>
+                        <li>Содержит <code>using</code> директивы (импорты пространств имен)</li>
+                        <li>Автоматически применяется ко всем страницам</li>
+                        <li>Избавляет от необходимости писать <code>using</code> в каждой странице</li>
+                    </ul>
+                </div>
+
+                <div class="alert alert-light">
+                    <h5><strong>📄 _ViewStart.cshtml</strong></h5>
+                    <p>Настройки для всех страниц:</p>
+                    <ul>
+                        <li>Определяет, какой Layout использовать по умолчанию</li>
+                        <li>Выполняется перед каждой страницей</li>
+                        <li>Обычно содержит: <code>@@{ Layout = "_Layout"; }</code></li>
+                    </ul>
+                </div>
+
+                <div class="alert alert-light">
+                    <h5><strong>📄 Program.cs</strong></h5>
+                    <p>Точка входа и конфигурация приложения:</p>
+                    <ul>
+                        <li>Создает и настраивает веб-приложение</li>
+                        <li>Регистрирует сервисы</li>
+                        <li>Настраивает middleware</li>
+                        <li>Запускает веб-сервер</li>
+                    </ul>
+                </div>
+
+                <h4>4. Как работает Razor Pages:</h4>
+                <div class="code-block mt-3">
+                    <pre><code>// 1. Пользователь открывает страницу /Index
+// 2. ASP.NET Core находит файл Pages/Index.cshtml
+// 3. Вызывается метод OnGet() из Index.cshtml.cs
+// 4. Метод OnGet() подготавливает данные
+// 5. Выполняется Index.cshtml (разметка)
+// 6. HTML отправляется в браузер пользователя
+
+// Пример: Pages/Index.cshtml.cs
+public class IndexModel : PageModel
+{
+    public string Message { get; set; } = string.Empty;
+    
+    public void OnGet()  // Вызывается при GET запросе
+    {
+        Message = "Добро пожаловать!";
+    }
+}
+
+// Пример: Pages/Index.cshtml
+@@page
+@@model IndexModel
+
+&lt;h1&gt;@@Model.Message&lt;/h1&gt;
+&lt;p&gt;Текущее время: @@DateTime.Now&lt;/p&gt;</code></pre>
+                    <div class="code-explanation">
+                        <strong>Процесс обработки запроса:</strong>
+                        <ol>
+                            <li>Браузер отправляет GET запрос на <code>/Index</code></li>
+                            <li>ASP.NET Core находит <code>Pages/Index.cshtml</code></li>
+                            <li>Вызывается <code>OnGet()</code> из <code>Index.cshtml.cs</code></li>
+                            <li>Метод <code>OnGet()</code> подготавливает данные (например, устанавливает <code>Message</code>)</li>
+                            <li>Выполняется <code>Index.cshtml</code>, который использует данные из модели</li>
+                            <li>Готовый HTML отправляется в браузер</li>
+                        </ol>
+                    </div>
+                </div>
+
+                <h4>5. Создание новой страницы (пошагово):</h4>
+                
+                <div class="alert alert-info">
+                    <strong>Шаг 1:</strong> Создайте файл <code>Pages/Contact.cshtml</code>
+                </div>
+                
+                <div class="code-block mt-3">
+                    <pre><code>@@page
+@@model ContactModel
+@@{
+    ViewData["Title"] = "Контакты";
+}
+
+&lt;h1&gt;Свяжитесь с нами&lt;/h1&gt;
+&lt;p&gt;Email: contact@@example.com&lt;/p&gt;</code></pre>
+                </div>
+
+                <div class="alert alert-info">
+                    <strong>Шаг 2:</strong> Создайте файл <code>Pages/Contact.cshtml.cs</code>
+                </div>
+                
+                <div class="code-block mt-3">
+                    <pre><code>using Microsoft.AspNetCore.Mvc.RazorPages;
+
+namespace MyRazorApp.Pages;
+
+public class ContactModel : PageModel
+{
+    public void OnGet()
+    {
+        // Код, выполняемый при загрузке страницы
+    }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Важно:</strong>
+                        <ul>
+                            <li>Имя класса должно совпадать с именем файла: <code>Contact.cshtml</code> → <code>ContactModel</code></li>
+                            <li>Класс должен наследоваться от <code>PageModel</code></li>
+                            <li>Метод <code>OnGet()</code> вызывается при GET запросе</li>
+                            <li>Теперь страница доступна по адресу: <code>/Contact</code></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>6. Директива @@page:</h4>
+                <p>Директива <code>@@page</code> в начале файла <code>.cshtml</code> указывает, что это Razor Page:</p>
+                
+                <div class="code-block mt-3">
+                    <pre><code>@@page                    // Страница доступна по /Index
+@@page "/about"          // Страница доступна по /about
+@@page "/contact/us"     // Страница доступна по /contact/us
+@@page "{id:int}"        // Страница с параметром: /products/123</code></pre>
+                    <div class="code-explanation">
+                        <strong>Варианты использования:</strong>
+                        <ul>
+                            <li>Без параметров — страница доступна по имени файла</li>
+                            <li>С путем — можно указать кастомный URL</li>
+                            <li>С параметрами — можно принимать параметры из URL</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>7. Связь между .cshtml и .cshtml.cs:</h4>
+                <div class="code-block mt-3">
+                    <pre><code>// Contact.cshtml.cs
+public class ContactModel : PageModel
+{
+    public string Email { get; set; } = "contact@@example.com";
+    public string Phone { get; set; } = "+7 (999) 123-45-67";
+    
+    public void OnGet()
+    {
+        // Подготовка данных
+    }
+}
+
+// Contact.cshtml
+@@page
+@@model ContactModel
+
+&lt;h1&gt;Контакты&lt;/h1&gt;
+&lt;p&gt;Email: @@Model.Email&lt;/p&gt;      &lt;!-- Используем свойство из модели --&gt;
+&lt;p&gt;Телефон: @@Model.Phone&lt;/p&gt;     &lt;!-- Используем свойство из модели --&gt;</code></pre>
+                    <div class="code-explanation">
+                        <strong>Как это работает:</strong>
+                        <ul>
+                            <li><code>@@model ContactModel</code> — указывает тип модели</li>
+                            <li><code>@@Model</code> — доступ к экземпляру модели</li>
+                            <li>Свойства модели доступны через <code>@@Model.PropertyName</code></li>
+                            <li>Изменения в модели автоматически отражаются в разметке</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>8. Статические файлы (wwwroot):</h4>
+                <p>Все файлы в папке <code>wwwroot</code> доступны напрямую через браузер:</p>
+                
+                <div class="code-block mt-3">
+                    <pre><code>wwwroot/
+├── css/site.css          → доступен как /css/site.css
+├── js/site.js            → доступен как /js/site.js
+└── images/logo.png       → доступен как /images/logo.png
+
+// Использование в Razor Page:
+&lt;link rel="stylesheet" href="~/css/site.css" /&gt;
+&lt;script src="~/js/site.js"&gt;&lt;/script&gt;
+&lt;img src="~/images/logo.png" alt="Logo" /&gt;</code></pre>
+                    <div class="code-explanation">
+                        <strong>Символ ~:</strong>
+                        <ul>
+                            <li><code>~</code> — указывает на корень приложения</li>
+                            <li><code>~/css/site.css</code> — путь относительно wwwroot</li>
+                            <li>Статические файлы обслуживаются middleware <code>UseStaticFiles()</code></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="alert alert-success mt-3">
+                    <strong>Попробуйте:</strong> Создайте новую страницу <code>About.cshtml</code> и <code>About.cshtml.cs</code> в папке <code>Pages/</code>, добавьте туда информацию о проекте и откройте её в браузере по адресу <code>/About</code>.
+                </div>
+            </section>
+
+            <section class="mb-5">
                 <h3>Синтаксис Razor</h3>
                 <p>Razor позволяет смешивать C# код с HTML:</p>
 
@@ -73,11 +363,181 @@ else
                 <h3>Model Binding</h3>
                 <p>Model Binding автоматически связывает данные из HTTP запроса с параметрами методов или свойствами модели.</p>
 
+                <h4>0. Откуда берется ContactForm? (Важно понять сначала!)</h4>
+                <p><strong>ContactForm</strong> — это свойство, которое <strong>вы создаете сами</strong> в классе PageModel. Это не встроенная функция ASP.NET Core, а обычное свойство класса, которое вы определяете для хранения данных формы.</p>
+
+                <div class="alert alert-warning">
+                    <strong>Важно:</strong> Чтобы использовать Model Binding, нужно создать:
+                    <ol>
+                        <li><strong>Класс модели</strong> (например, <code>ContactFormModel</code>) — описывает структуру данных формы</li>
+                        <li><strong>Свойство в PageModel</strong> (например, <code>ContactForm</code>) — хранит данные формы</li>
+                    </ol>
+                </div>
+
+                <h5>Шаг 1: Создайте класс модели (ContactFormModel.cs)</h5>
+                <p>Сначала создайте класс, который описывает структуру данных вашей формы. Обычно его размещают в папке <code>Models/</code>:</p>
+                
                 <div class="code-block">
-                    <pre><code>public class ContactModel : PageModel
+                    <pre><code>// Models/ContactFormModel.cs
+using System.ComponentModel.DataAnnotations;
+
+namespace MyRazorApp.Models;
+
+public class ContactFormModel
 {
-    [BindProperty]
+    [Required(ErrorMessage = "Имя обязательно")]
+    [Display(Name = "Имя")]
+    public string Name { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Email обязателен")]
+    [EmailAddress(ErrorMessage = "Некорректный формат email")]
+    [Display(Name = "Email")]
+    public string Email { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Сообщение обязательно")]
+    [Display(Name = "Сообщение")]
+    public string Message { get; set; } = string.Empty;
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Объяснение:</strong>
+                        <ul>
+                            <li>Это обычный C# класс с свойствами</li>
+                            <li>Каждое свойство соответствует полю в форме</li>
+                            <li>Атрибуты валидации (<code>[Required]</code>, <code>[EmailAddress]</code>) определяют правила проверки</li>
+                            <li>Имя класса может быть любым — вы сами его придумываете (например, <code>ContactFormModel</code>, <code>UserRegistrationModel</code>, <code>ProductModel</code>)</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h5>Шаг 2: Создайте свойство в PageModel</h5>
+                <p>Теперь в вашем PageModel (файл <code>Contact.cshtml.cs</code>) создайте свойство типа <code>ContactFormModel</code>:</p>
+
+                <div class="code-block">
+                    <pre><code>// Pages/Contact.cshtml.cs
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.RazorPages;
+using MyRazorApp.Models;  // ← Импортируем наш класс модели
+
+namespace MyRazorApp.Pages;
+
+public class ContactModel : PageModel
+{
+    // ← ВОТ ОНО! Это свойство ВЫ создаете сами
+    // Имя свойства может быть любым: ContactForm, Form, Data, UserInput и т.д.
+    [BindProperty]  // ← Этот атрибут говорит ASP.NET Core: "Автоматически заполни это свойство данными из формы"
     public ContactFormModel ContactForm { get; set; } = new();
+    //     ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^
+    //     Тип модели        Имя свойства (вы придумываете сами!)
+
+    public string? SuccessMessage { get; set; }
+
+    public void OnGet()
+    {
+        // При GET запросе ContactForm будет пустым (new ContactFormModel())
+    }
+
+    public IActionResult OnPost()
+    {
+        // При POST запросе ContactForm УЖЕ заполнен данными из формы!
+        // ASP.NET Core автоматически создал объект ContactFormModel
+        // и заполнил его свойства (Name, Email, Message) данными из формы
+        
+        if (!ModelState.IsValid)
+        {
+            return Page();
+        }
+        
+        // Теперь можно использовать ContactForm:
+        SuccessMessage = $"Спасибо, {ContactForm.Name}! Ваше сообщение получено.";
+        //                              ^^^^^^^^^^^^^^^^
+        //                              Используем свойство Name из ContactForm
+        
+        ContactForm = new ContactFormModel(); // Очищаем форму
+        ModelState.Clear();
+        
+        return Page();
+    }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Ключевые моменты:</strong>
+                        <ul>
+                            <li><code>ContactForm</code> — это <strong>ваше свойство</strong>, вы сами его создаете и называете</li>
+                            <li>Имя свойства может быть любым: <code>ContactForm</code>, <code>Form</code>, <code>Data</code>, <code>UserInput</code> и т.д.</li>
+                            <li><code>[BindProperty]</code> — атрибут, который говорит ASP.NET Core автоматически заполнять это свойство данными из формы</li>
+                            <li><code>ContactFormModel</code> — это тип вашей модели (класс, который вы создали в шаге 1)</li>
+                            <li><code>= new()</code> — инициализация пустым объектом (чтобы избежать <code>null</code>)</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h5>Шаг 3: Используйте свойство в Razor Page</h5>
+                <p>В Razor Page (файл <code>Contact.cshtml</code>) используйте ваше свойство через <code>Model.ContactForm</code>:</p>
+
+                <div class="code-block">
+                    <pre><code>@@page
+@@model ContactModel  // ← Указываем тип PageModel
+
+&lt;form method="post"&gt;
+    &lt;div class="mb-3"&gt;
+        &lt;label asp-for="ContactForm.Name"&gt;&lt;/label&gt;
+        &lt;!--                    ^^^^^^^^^^^^
+                               Это ваше свойство из ContactModel!
+                               ASP.NET Core автоматически создаст:
+                               name="ContactForm.Name"
+                               id="ContactForm_Name" --&gt;
+        
+        &lt;input asp-for="ContactForm.Name" class="form-control" /&gt;
+        &lt;span asp-validation-for="ContactForm.Name"&gt;&lt;/span&gt;
+    &lt;/div&gt;
+
+    &lt;div class="mb-3"&gt;
+        &lt;label asp-for="ContactForm.Email"&gt;&lt;/label&gt;
+        &lt;input asp-for="ContactForm.Email" class="form-control" /&gt;
+        &lt;span asp-validation-for="ContactForm.Email"&gt;&lt;/span&gt;
+    &lt;/div&gt;
+
+    &lt;button type="submit"&gt;Отправить&lt;/button&gt;
+&lt;/form&gt;</code></pre>
+                    <div class="code-explanation">
+                        <strong>Как это работает:</strong>
+                        <ul>
+                            <li><code>asp-for="ContactForm.Name"</code> — обращается к свойству <code>Name</code> объекта <code>ContactForm</code></li>
+                            <li>ASP.NET Core автоматически генерирует <code>name="ContactForm.Name"</code> в HTML</li>
+                            <li>При отправке формы данные с именем <code>ContactForm.Name</code> автоматически попадут в свойство <code>ContactForm.Name</code> благодаря <code>[BindProperty]</code></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="alert alert-info">
+                    <h5><strong>Полная картина:</strong></h5>
+                    <ol>
+                        <li><strong>Вы создаете класс модели</strong> (<code>ContactFormModel</code>) — описывает структуру данных</li>
+                        <li><strong>Вы создаете свойство в PageModel</strong> (<code>ContactForm</code>) — хранит данные формы</li>
+                        <li><strong>Вы добавляете <code>[BindProperty]</code></strong> — включает автоматическую привязку</li>
+                        <li><strong>Вы используете свойство в Razor Page</strong> (<code>asp-for="ContactForm.Name"</code>) — создает форму</li>
+                        <li><strong>ASP.NET Core автоматически связывает</strong> данные из формы с вашим свойством</li>
+                    </ol>
+                </div>
+
+                <h4>1. Backend (PageModel) — полный пример:</h4>
+                <div class="code-block">
+                    <pre><code>// Pages/Contact.cshtml.cs
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.RazorPages;
+using MyRazorApp.Models;
+
+namespace MyRazorApp.Pages;
+
+public class ContactModel : PageModel
+{
+    // ← Это свойство ВЫ создаете сами!
+    // Имя "ContactForm" вы придумываете сами
+    [BindProperty]  // ← Этот атрибут включает автоматическую привязку
+    public ContactFormModel ContactForm { get; set; } = new();
+    //     ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^
+    //     Тип (ваш класс)   Имя свойства (ваше)
+
+    public string? SuccessMessage { get; set; }
 
     public void OnGet()
     {
@@ -88,23 +548,354 @@ else
     {
         // Обработка POST запроса
         // ContactForm автоматически заполняется данными из формы
+        // благодаря атрибуту [BindProperty]
         if (!ModelState.IsValid)
         {
             return Page();
         }
-        // Обработка данных...
+        
+        SuccessMessage = $"Спасибо, {ContactForm.Name}! Ваше сообщение получено.";
+        ContactForm = new ContactFormModel();
+        ModelState.Clear();
+        
         return Page();
     }
 }</code></pre>
                     <div class="code-explanation">
                         <strong>Объяснение:</strong>
                         <ul>
-                            <li><code>[BindProperty]</code> — атрибут для автоматического связывания</li>
+                            <li><code>ContactForm</code> — это <strong>ваше свойство</strong>, которое вы создаете в классе <code>ContactModel</code></li>
+                            <li><code>[BindProperty]</code> — атрибут для автоматического связывания данных из формы</li>
+                            <li><code>ContactFormModel</code> — это класс модели, который вы создали в папке <code>Models/</code></li>
                             <li><code>OnGet()</code> — вызывается при GET запросе</li>
                             <li><code>OnPost()</code> — вызывается при POST запросе</li>
                             <li><code>ModelState.IsValid</code> — проверка валидности модели</li>
                         </ul>
                     </div>
+                </div>
+
+                <h4>2. Frontend (HTML форма с привязкой):</h4>
+                <p>Вот как выглядит HTML форма, которая автоматически привязывается к модели:</p>
+                
+                <div class="code-block">
+                    <pre><code>@@page
+@@model ContactModel
+
+@@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    &lt;div class="alert alert-success"&gt;
+        @@Model.SuccessMessage
+    &lt;/div&gt;
+}
+
+&lt;form method="post"&gt;
+    &lt;div class="mb-3"&gt;
+        &lt;label asp-for="ContactForm.Name" class="form-label"&gt;&lt;/label&gt;
+        &lt;input asp-for="ContactForm.Name" class="form-control" /&gt;
+        &lt;span asp-validation-for="ContactForm.Name" class="text-danger"&gt;&lt;/span&gt;
+    &lt;/div&gt;
+
+    &lt;div class="mb-3"&gt;
+        &lt;label asp-for="ContactForm.Email" class="form-label"&gt;&lt;/label&gt;
+        &lt;input asp-for="ContactForm.Email" class="form-control" type="email" /&gt;
+        &lt;span asp-validation-for="ContactForm.Email" class="text-danger"&gt;&lt;/span&gt;
+    &lt;/div&gt;
+
+    &lt;div class="mb-3"&gt;
+        &lt;label asp-for="ContactForm.Message" class="form-label"&gt;&lt;/label&gt;
+        &lt;textarea asp-for="ContactForm.Message" class="form-control" rows="5"&gt;&lt;/textarea&gt;
+        &lt;span asp-validation-for="ContactForm.Message" class="text-danger"&gt;&lt;/span&gt;
+    &lt;/div&gt;
+
+    &lt;button type="submit" class="btn btn-primary"&gt;Отправить&lt;/button&gt;
+&lt;/form&gt;
+
+@@section Scripts {
+    @@{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Ключевые элементы привязки:</strong>
+                        <ul>
+                            <li><code>asp-for="ContactForm.Name"</code> — привязка к свойству модели (генерирует <code>name</code> и <code>id</code>)</li>
+                            <li><code>asp-validation-for</code> — отображение ошибок валидации</li>
+                            <li><code>method="post"</code> — форма отправляет POST запрос, вызывая <code>OnPost()</code></li>
+                            <li><code>_ValidationScriptsPartial</code> — подключает клиентскую валидацию</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>3. Как работает привязка:</h4>
+                <div class="alert alert-info">
+                    <strong>Процесс Model Binding:</strong>
+                    <ol>
+                        <li>Пользователь заполняет форму и нажимает "Отправить"</li>
+                        <li>Браузер отправляет POST запрос с данными формы</li>
+                        <li>ASP.NET Core автоматически находит свойства с <code>[BindProperty]</code></li>
+                        <li>Данные из формы (name, email, message) автоматически присваиваются свойствам модели</li>
+                        <li>Вызывается метод <code>OnPost()</code> с уже заполненной моделью</li>
+                        <li>Проверяется валидность через <code>ModelState.IsValid</code></li>
+                    </ol>
+                </div>
+
+                <h4>4. Пример с несколькими кнопками (обработка разных действий):</h4>
+                <p>Можно обрабатывать разные действия через именованные обработчики:</p>
+                
+                <div class="code-block">
+                    <pre><code>// Backend: Contact.cshtml.cs
+public class ContactModel : PageModel
+{
+    [BindProperty]
+    public ContactFormModel ContactForm { get; set; } = new();
+
+    public string? ActionMessage { get; set; }
+
+    public void OnGet()
+    {
+    }
+
+    // Обработка кнопки "Сохранить"
+    public IActionResult OnPostSave()
+    {
+        ActionMessage = "Данные сохранены!";
+        return Page();
+    }
+
+    // Обработка кнопки "Отправить"
+    public IActionResult OnPostSend()
+    {
+        ActionMessage = "Сообщение отправлено!";
+        return Page();
+    }
+
+    // Обработка кнопки "Очистить"
+    public IActionResult OnPostClear()
+    {
+        ContactForm = new ContactFormModel();
+        ActionMessage = "Форма очищена!";
+        return Page();
+    }
+}</code></pre>
+                </div>
+
+                <div class="code-block">
+                    <pre><code>@@* Frontend: Contact.cshtml *@@
+&lt;form method="post"&gt;
+    &lt;div class="mb-3"&gt;
+        &lt;label asp-for="ContactForm.Name"&gt;&lt;/label&gt;
+        &lt;input asp-for="ContactForm.Name" class="form-control" /&gt;
+    &lt;/div&gt;
+
+    &lt;div class="mb-3"&gt;
+        &lt;label asp-for="ContactForm.Email"&gt;&lt;/label&gt;
+        &lt;input asp-for="ContactForm.Email" class="form-control" /&gt;
+    &lt;/div&gt;
+
+    @@* Разные кнопки вызывают разные методы *@@
+    &lt;button type="submit" asp-page-handler="Save" class="btn btn-success"&gt;
+        Сохранить
+    &lt;/button&gt;
+    
+    &lt;button type="submit" asp-page-handler="Send" class="btn btn-primary"&gt;
+        Отправить
+    &lt;/button&gt;
+    
+    &lt;button type="submit" asp-page-handler="Clear" class="btn btn-secondary"&gt;
+        Очистить
+    &lt;/button&gt;
+&lt;/form&gt;
+
+@@if (!string.IsNullOrEmpty(Model.ActionMessage))
+{
+    &lt;div class="alert alert-info mt-3"&gt;
+        @@Model.ActionMessage
+    &lt;/div&gt;
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Именованные обработчики:</strong>
+                        <ul>
+                            <li><code>asp-page-handler="Save"</code> → вызывает <code>OnPostSave()</code></li>
+                            <li><code>asp-page-handler="Send"</code> → вызывает <code>OnPostSend()</code></li>
+                            <li><code>asp-page-handler="Clear"</code> → вызывает <code>OnPostClear()</code></li>
+                            <li>Формат метода: <code>OnPost[HandlerName]()</code></li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Пример: Простой кликер (счетчик)</h3>
+                <p>Давайте создадим простой счетчик, который увеличивается при нажатии на кнопку:</p>
+
+                <h4>1. Backend (Counter.cshtml.cs):</h4>
+                <div class="code-block">
+                    <pre><code>using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.RazorPages;
+
+namespace MyRazorApp.Pages;
+
+public class CounterModel : PageModel
+{
+    [BindProperty]
+    public int Count { get; set; } = 0;
+
+    public void OnGet()
+    {
+        // Инициализация при загрузке страницы
+    }
+
+    // Обработка кнопки "Увеличить"
+    public IActionResult OnPostIncrement()
+    {
+        Count++;
+        return Page();
+    }
+
+    // Обработка кнопки "Уменьшить"
+    public IActionResult OnPostDecrement()
+    {
+        Count--;
+        return Page();
+    }
+
+    // Обработка кнопки "Сбросить"
+    public IActionResult OnPostReset()
+    {
+        Count = 0;
+        return Page();
+    }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Объяснение:</strong>
+                        <ul>
+                            <li><code>[BindProperty]</code> — сохраняет значение Count между запросами</li>
+                            <li><code>OnPostIncrement()</code> — увеличивает счетчик на 1</li>
+                            <li><code>OnPostDecrement()</code> — уменьшает счетчик на 1</li>
+                            <li><code>OnPostReset()</code> — сбрасывает счетчик в 0</li>
+                            <li><code>return Page()</code> — перезагружает страницу с новым значением</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>2. Frontend (Counter.cshtml):</h4>
+                <div class="code-block">
+                    <pre><code>@@page
+@@model CounterModel
+
+&lt;div class="container mt-5"&gt;
+    &lt;h1&gt;Счетчик&lt;/h1&gt;
+    
+    &lt;div class="card" style="max-width: 400px;"&gt;
+        &lt;div class="card-body text-center"&gt;
+            &lt;h2 class="display-4 mb-4"&gt;@@Model.Count&lt;/h2&gt;
+            
+            &lt;form method="post" class="d-flex gap-2 justify-content-center"&gt;
+                &lt;button type="submit" asp-page-handler="Decrement" 
+                        class="btn btn-danger btn-lg"&gt;
+                    -1
+                &lt;/button&gt;
+                
+                &lt;button type="submit" asp-page-handler="Reset" 
+                        class="btn btn-secondary btn-lg"&gt;
+                    Сбросить
+                &lt;/button&gt;
+                
+                &lt;button type="submit" asp-page-handler="Increment" 
+                        class="btn btn-success btn-lg"&gt;
+                    +1
+                &lt;/button&gt;
+            &lt;/form&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+&lt;/div&gt;</code></pre>
+                    <div class="code-explanation">
+                        <strong>Как это работает:</strong>
+                        <ul>
+                            <li>При нажатии кнопки отправляется POST запрос</li>
+                            <li>Вызывается соответствующий метод (<code>OnPostIncrement</code>, <code>OnPostDecrement</code> или <code>OnPostReset</code>)</li>
+                            <li>Значение <code>Count</code> обновляется</li>
+                            <li>Страница перезагружается с новым значением</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>3. Улучшенная версия с сохранением в сессии:</h4>
+                <div class="code-block">
+                    <pre><code>// Counter.cshtml.cs с использованием сессии
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.RazorPages;
+
+public class CounterModel : PageModel
+{
+    private const string CountKey = "Counter";
+
+    public int Count { get; set; }
+
+    public void OnGet()
+    {
+        // Получаем значение из сессии или используем 0
+        Count = HttpContext.Session.GetInt32(CountKey) ?? 0;
+    }
+
+    public IActionResult OnPostIncrement()
+    {
+        Count = (HttpContext.Session.GetInt32(CountKey) ?? 0) + 1;
+        HttpContext.Session.SetInt32(CountKey, Count);
+        return Page();
+    }
+
+    public IActionResult OnPostDecrement()
+    {
+        Count = (HttpContext.Session.GetInt32(CountKey) ?? 0) - 1;
+        HttpContext.Session.SetInt32(CountKey, Count);
+        return Page();
+    }
+
+    public IActionResult OnPostReset()
+    {
+        Count = 0;
+        HttpContext.Session.SetInt32(CountKey, Count);
+        return Page();
+    }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Преимущества сессии:</strong>
+                        <ul>
+                            <li>Значение сохраняется между запросами</li>
+                            <li>Работает даже при обновлении страницы</li>
+                            <li>Уникально для каждого пользователя</li>
+                            <li>Требует настройки сессии в <code>Program.cs</code></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>4. Настройка сессии в Program.cs:</h4>
+                <div class="code-block">
+                    <pre><code>// Program.cs
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddControllers();
+builder.Services.AddRazorPages();
+
+// Добавление поддержки сессий
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromMinutes(30);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+});
+
+var app = builder.Build();
+
+// Использование сессий (должно быть до UseRouting)
+app.UseSession();
+app.UseRouting();
+app.MapRazorPages();
+
+app.Run();</code></pre>
+                </div>
+
+                <div class="alert alert-success mt-3">
+                    <strong>Попробуйте:</strong> Создайте страницу <code>Counter.cshtml</code> и <code>Counter.cshtml.cs</code>, скопируйте код выше и протестируйте кликер. Вы увидите, как данные обновляются при нажатии на кнопки.
                 </div>
             </section>
 
@@ -126,6 +917,261 @@ else
     [Phone]
     public string? Phone { get; set; }
 }</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>@@section Scripts и _ValidationScriptsPartial — что это и зачем нужно?</h3>
+                <p>В примерах кода вы часто видите такой блок в конце Razor Page:</p>
+
+                <div class="code-block">
+                    <pre><code>@@section Scripts {
+    @@{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}</code></pre>
+                </div>
+
+                <p>Давайте разберем, что это такое и зачем это нужно.</p>
+
+                <h4>1. Что такое @@section Scripts?</h4>
+                <p><code>@@section Scripts</code> — это специальная секция Razor, которая позволяет добавить JavaScript код или подключить скрипты в определенное место HTML страницы (обычно перед закрывающим тегом <code>&lt;/body&gt;</code>).</p>
+
+                <div class="code-block">
+                    <pre><code>// В _Layout.cshtml есть место для секции Scripts:
+&lt;body&gt;
+    &lt;!-- Содержимое страницы --&gt;
+    
+    @@RenderSection("Scripts", required: false)
+    &lt;!-- ↑ Здесь будет вставлен код из @@section Scripts --&gt;
+&lt;/body&gt;</code></pre>
+                    <div class="code-explanation">
+                        <strong>Как это работает:</strong>
+                        <ul>
+                            <li>В <code>_Layout.cshtml</code> есть вызов <code>@@RenderSection("Scripts", required: false)</code></li>
+                            <li>Когда вы пишете <code>@@section Scripts { ... }</code> в Razor Page, код из этой секции вставляется в место вызова <code>@@RenderSection</code></li>
+                            <li><code>required: false</code> означает, что секция необязательна — если её нет, страница всё равно будет работать</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>2. Зачем нужен @@section Scripts?</h4>
+                <p>Секция <code>Scripts</code> используется для:</p>
+                <ul>
+                    <li><strong>Подключения JavaScript библиотек</strong> (например, jQuery Validation)</li>
+                    <li><strong>Добавления JavaScript кода</strong>, специфичного для конкретной страницы</li>
+                    <li><strong>Обеспечения правильного порядка загрузки</strong> — скрипты загружаются после загрузки HTML</li>
+                </ul>
+
+                <div class="code-block">
+                    <pre><code>@@section Scripts {
+    &lt;!-- Подключение библиотеки --&gt;
+    &lt;script src="~/lib/jquery/jquery.min.js"&gt;&lt;/script&gt;
+    
+    &lt;!-- Ваш собственный JavaScript код --&gt;
+    &lt;script&gt;
+        $(document).ready(function() {
+            console.log("Страница загружена!");
+        });
+    &lt;/script&gt;
+}</code></pre>
+                </div>
+
+                <h4>3. Что такое _ValidationScriptsPartial?</h4>
+                <p><code>_ValidationScriptsPartial</code> — это частичное представление (Partial View), которое содержит подключение библиотек для <strong>клиентской валидации</strong>.</p>
+
+                <div class="alert alert-info">
+                    <strong>Важно:</strong> Клиентская валидация — это проверка данных <strong>в браузере</strong> (до отправки на сервер), что делает форму более отзывчивой и удобной для пользователя.
+                </div>
+
+                <h5>Содержимое файла _ValidationScriptsPartial.cshtml:</h5>
+                <p>Обычно этот файл находится в <code>Pages/Shared/_ValidationScriptsPartial.cshtml</code>:</p>
+
+                <div class="code-block">
+                    <pre><code>// Pages/Shared/_ValidationScriptsPartial.cshtml
+&lt;script src="~/lib/jquery-validation/dist/jquery.validate.min.js"&gt;&lt;/script&gt;
+&lt;script src="~/lib/jquery-validation-unobtrusive/dist/jquery.validate.unobtrusive.min.js"&gt;&lt;/script&gt;</code></pre>
+                    <div class="code-explanation">
+                        <strong>Что подключается:</strong>
+                        <ul>
+                            <li><code>jquery.validate.min.js</code> — библиотека jQuery Validation для проверки форм</li>
+                            <li><code>jquery.validate.unobtrusive.min.js</code> — расширение для работы с атрибутами валидации ASP.NET Core (автоматически читает <code>[Required]</code>, <code>[EmailAddress]</code> и т.д.)</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>4. Как это работает вместе?</h4>
+                <p>Когда вы пишете в Razor Page:</p>
+
+                <div class="code-block">
+                    <pre><code>@@section Scripts {
+    @@{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}</code></pre>
+                </div>
+
+                <p>Происходит следующее:</p>
+
+                <div class="alert alert-info">
+                    <strong>Процесс:</strong>
+                    <ol>
+                        <li>Razor обрабатывает <code>@@section Scripts</code></li>
+                        <li>Выполняется <code>Html.RenderPartialAsync("_ValidationScriptsPartial")</code></li>
+                        <li>ASP.NET Core находит файл <code>Pages/Shared/_ValidationScriptsPartial.cshtml</code></li>
+                        <li>Содержимое этого файла (теги <code>&lt;script&gt;</code>) вставляется в секцию Scripts</li>
+                        <li>Вся секция Scripts вставляется в <code>_Layout.cshtml</code> в место <code>@@RenderSection("Scripts")</code></li>
+                        <li>В итоге в HTML страницы добавляются скрипты валидации</li>
+                    </ol>
+                </div>
+
+                <h4>5. Что получается в итоговом HTML?</h4>
+                <p>После обработки Razor, в HTML страницы (перед <code>&lt;/body&gt;</code>) будет:</p>
+
+                <div class="code-block">
+                    <pre><code>&lt;body&gt;
+    &lt;!-- Содержимое страницы --&gt;
+    
+    &lt;!-- Секция Scripts вставлена здесь --&gt;
+    &lt;script src="/lib/jquery-validation/dist/jquery.validate.min.js"&gt;&lt;/script&gt;
+    &lt;script src="/lib/jquery-validation-unobtrusive/dist/jquery.validate.unobtrusive.min.js"&gt;&lt;/script&gt;
+&lt;/body&gt;</code></pre>
+                </div>
+
+                <h4>6. Зачем нужна клиентская валидация?</h4>
+                <p>Без клиентской валидации форма будет работать, но:</p>
+
+                <div class="alert alert-warning">
+                    <strong>Без клиентской валидации:</strong>
+                    <ul>
+                        <li>Пользователь заполняет форму и нажимает "Отправить"</li>
+                        <li>Форма отправляется на сервер</li>
+                        <li>Сервер проверяет данные (валидация на сервере)</li>
+                        <li>Если есть ошибки, сервер возвращает страницу с ошибками</li>
+                        <li>Пользователь видит ошибки только после отправки формы</li>
+                        <li><strong>Минус:</strong> Нужно ждать ответа сервера, даже если данные явно неверные</li>
+                    </ul>
+                </div>
+
+                <div class="alert alert-success">
+                    <strong>С клиентской валидацией:</strong>
+                    <ul>
+                        <li>Пользователь заполняет форму</li>
+                        <li>При попытке отправить форму, JavaScript проверяет данные <strong>сразу в браузере</strong></li>
+                        <li>Если есть ошибки, они показываются <strong>мгновенно</strong>, без отправки на сервер</li>
+                        <li>Форма отправляется только если все данные валидны</li>
+                        <li><strong>Плюс:</strong> Быстрая обратная связь, нет лишних запросов к серверу</li>
+                    </ul>
+                </div>
+
+                <h4>7. Пример работы клиентской валидации:</h4>
+                <p>Когда пользователь пытается отправить форму с пустым полем Email:</p>
+
+                <div class="code-block">
+                    <pre><code>// Пользователь нажимает "Отправить"
+// JavaScript (jQuery Validation) проверяет форму:
+
+// 1. Находит поле с атрибутом data-val-required (генерируется из [Required])
+&lt;input asp-for="ContactForm.Email" 
+       data-val="true" 
+       data-val-required="Email обязателен" 
+       data-val-email="Некорректный формат email" /&gt;
+
+// 2. Проверяет, заполнено ли поле
+if (emailField.value === "") {
+    // 3. Показывает ошибку БЕЗ отправки на сервер
+    showError("Email обязателен");
+    return false; // Предотвращает отправку формы
+}
+
+// 4. Если все проверки пройдены, форма отправляется на сервер
+</code></pre>
+                    <div class="code-explanation">
+                        <strong>Важно:</strong>
+                        <ul>
+                            <li>Атрибуты <code>data-val-*</code> автоматически генерируются из атрибутов валидации C# (<code>[Required]</code>, <code>[EmailAddress]</code> и т.д.)</li>
+                            <li>jQuery Validation читает эти атрибуты и выполняет проверку</li>
+                            <li>Ошибки отображаются в <code>&lt;span asp-validation-for&gt;</code></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>8. Можно ли обойтись без @@section Scripts?</h4>
+                <p><strong>Технически да</strong>, но это не рекомендуется:</p>
+
+                <div class="code-block">
+                    <pre><code>// ❌ ПЛОХО: Подключение скриптов прямо в Razor Page
+&lt;form method="post"&gt;
+    &lt;!-- форма --&gt;
+&lt;/form&gt;
+
+&lt;script src="~/lib/jquery-validation/dist/jquery.validate.min.js"&gt;&lt;/script&gt;
+&lt;script src="~/lib/jquery-validation-unobtrusive/dist/jquery.validate.unobtrusive.min.js"&gt;&lt;/script&gt;
+&lt;!-- Проблема: скрипты могут загрузиться до загрузки HTML --&gt;</code></pre>
+                </div>
+
+                <div class="code-block">
+                    <pre><code>// ✅ ХОРОШО: Использование @@section Scripts
+&lt;form method="post"&gt;
+    &lt;!-- форма --&gt;
+&lt;/form&gt;
+
+@@section Scripts {
+    @@{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}
+&lt;!-- Преимущество: скрипты загружаются в правильном месте (перед &lt;/body&gt;) --&gt;</code></pre>
+                </div>
+
+                <h4>9. Полный пример использования:</h4>
+                <div class="code-block">
+                    <pre><code>@@page
+@@model ContactModel
+
+&lt;h1&gt;Контакты&lt;/h1&gt;
+
+&lt;form method="post"&gt;
+    &lt;div class="mb-3"&gt;
+        &lt;label asp-for="ContactForm.Name"&gt;&lt;/label&gt;
+        &lt;input asp-for="ContactForm.Name" class="form-control" /&gt;
+        &lt;span asp-validation-for="ContactForm.Name" class="text-danger"&gt;&lt;/span&gt;
+    &lt;/div&gt;
+
+    &lt;div class="mb-3"&gt;
+        &lt;label asp-for="ContactForm.Email"&gt;&lt;/label&gt;
+        &lt;input asp-for="ContactForm.Email" class="form-control" /&gt;
+        &lt;span asp-validation-for="ContactForm.Email" class="text-danger"&gt;&lt;/span&gt;
+    &lt;/div&gt;
+
+    &lt;button type="submit"&gt;Отправить&lt;/button&gt;
+&lt;/form&gt;
+
+@@section Scripts {
+    @@{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    &lt;!-- ↑ Подключает jQuery Validation для клиентской валидации --&gt;
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Что происходит:</strong>
+                        <ol>
+                            <li>Форма создается с полями <code>Name</code> и <code>Email</code></li>
+                            <li>Атрибуты валидации (<code>[Required]</code>, <code>[EmailAddress]</code>) автоматически преобразуются в HTML атрибуты <code>data-val-*</code></li>
+                            <li>Секция <code>@@section Scripts</code> подключает библиотеки валидации</li>
+                            <li>При попытке отправить форму, JavaScript проверяет данные в браузере</li>
+                            <li>Если есть ошибки, они показываются сразу, без отправки на сервер</li>
+                            <li>Если все валидно, форма отправляется на сервер для серверной валидации</li>
+                        </ol>
+                    </div>
+                </div>
+
+                <h4>10. Резюме:</h4>
+                <div class="alert alert-success">
+                    <strong>Кратко:</strong>
+                    <ul>
+                        <li><code>@@section Scripts</code> — секция для подключения JavaScript в конце страницы</li>
+                        <li><code>_ValidationScriptsPartial</code> — частичное представление, которое подключает библиотеки jQuery Validation</li>
+                        <li><strong>Зачем:</strong> Включает клиентскую валидацию — проверку данных в браузере до отправки на сервер</li>
+                        <li><strong>Результат:</strong> Пользователь видит ошибки мгновенно, без ожидания ответа сервера</li>
+                        <li><strong>Важно:</strong> Клиентская валидация не заменяет серверную — обе должны работать вместе для безопасности</li>
+                    </ul>
+                </div>
+
+                <div class="alert alert-warning">
+                    <strong>Безопасность:</strong> Клиентская валидация — это только для удобства пользователя. <strong>Всегда</strong> проверяйте данные на сервере, так как злоумышленник может отключить JavaScript или отправить запрос напрямую, минуя форму.
                 </div>
             </section>
 

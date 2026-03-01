@@ -265,6 +265,252 @@ public class WeatherForecastController : ControllerBase
             </section>
 
             <section class="mb-5">
+                <h3>Структура HTTP запроса</h3>
+                <p>Каждый HTTP запрос состоит из нескольких частей, которые передают информацию между клиентом и сервером. Давайте разберем основные компоненты:</p>
+                
+                <h4>1. HTTP Метод (Method)</h4>
+                <p>Определяет действие, которое нужно выполнить с ресурсом:</p>
+                <ul>
+                    <li><strong>GET</strong> — получить данные (чтение)</li>
+                    <li><strong>POST</strong> — создать новый ресурс</li>
+                    <li><strong>PUT</strong> — обновить существующий ресурс (полная замена)</li>
+                    <li><strong>PATCH</strong> — частичное обновление ресурса</li>
+                    <li><strong>DELETE</strong> — удалить ресурс</li>
+                </ul>
+
+                <h4>2. URL (Uniform Resource Locator)</h4>
+                <p>Адрес ресурса, с которым нужно работать:</p>
+                <div class="code-block mt-3">
+                    <pre><code>https://api.example.com/api/products/123
+│     │              │   │        │   │
+│     │              │   │        │   └─ ID ресурса (123)
+│     │              │   │        └─ Контроллер (products)
+│     │              │   └─ Префикс API (api)
+│     │              └─ Домен сервера
+│     └─ Протокол (HTTPS)
+└─ Схема</code></pre>
+                    <div class="code-explanation">
+                        <strong>Компоненты URL:</strong>
+                        <ul>
+                            <li><strong>Протокол</strong> — HTTP или HTTPS (безопасное соединение)</li>
+                            <li><strong>Домен</strong> — адрес сервера</li>
+                            <li><strong>Путь</strong> — путь к ресурсу (например, /api/products)</li>
+                            <li><strong>Параметры</strong> — идентификаторы или фильтры (например, /123)</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>3. Заголовки (Headers)</h4>
+                <p>Заголовки содержат метаданные о запросе — дополнительную информацию для сервера:</p>
+                
+                <div class="alert alert-light">
+                    <h5><strong>Основные заголовки:</strong></h5>
+                    <ul>
+                        <li><strong>Content-Type</strong> — тип содержимого (например, <code>application/json</code>, <code>text/html</code>)</li>
+                        <li><strong>Authorization</strong> — токен доступа для аутентификации (например, <code>Bearer token123</code>)</li>
+                        <li><strong>Accept</strong> — какие типы данных клиент может принять (например, <code>application/json</code>)</li>
+                        <li><strong>User-Agent</strong> — информация о клиенте (браузер, приложение)</li>
+                        <li><strong>Content-Length</strong> — размер тела запроса в байтах</li>
+                    </ul>
+                </div>
+
+                <div class="code-block mt-3">
+                    <pre><code>// Пример HTTP запроса с заголовками
+GET /api/products/123 HTTP/1.1
+Host: api.example.com
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+User-Agent: Mozilla/5.0</code></pre>
+                    <div class="code-explanation">
+                        <strong>Объяснение:</strong>
+                        <ul>
+                            <li>Первая строка — метод, путь и версия HTTP</li>
+                            <li>Остальные строки — заголовки в формате "Имя: Значение"</li>
+                            <li>Каждый заголовок на новой строке</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>4. Тело запроса (Body)</h4>
+                <p>Тело запроса содержит данные, которые отправляются на сервер. Используется в POST, PUT, PATCH запросах:</p>
+                
+                <div class="code-block mt-3">
+                    <pre><code>// Пример POST запроса с телом
+POST /api/products HTTP/1.1
+Host: api.example.com
+Content-Type: application/json
+Content-Length: 85
+
+{
+  "name": "Ноутбук",
+  "price": 50000,
+  "description": "Игровой ноутбук"
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Важно:</strong>
+                        <ul>
+                            <li>Тело запроса отделяется пустой строкой от заголовков</li>
+                            <li>Обычно используется формат JSON</li>
+                            <li>Content-Type должен соответствовать формату данных</li>
+                            <li>GET запросы обычно не имеют тела</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>5. Параметры запроса (Query Parameters)</h4>
+                <p>Параметры передаются в URL после знака <code>?</code> и используются для фильтрации, сортировки, пагинации:</p>
+                
+                <div class="code-block mt-3">
+                    <pre><code>// Пример GET запроса с параметрами
+GET /api/products?category=electronics&minPrice=1000&page=1&pageSize=10 HTTP/1.1
+Host: api.example.com
+
+// Параметры:
+// - category=electronics (фильтр по категории)
+// - minPrice=1000 (минимальная цена)
+// - page=1 (номер страницы)
+// - pageSize=10 (размер страницы)</code></pre>
+                    <div class="code-explanation">
+                        <strong>Формат параметров:</strong>
+                        <ul>
+                            <li>Параметры разделяются символом <code>&</code></li>
+                            <li>Формат: <code>ключ=значение</code></li>
+                            <li>Используются для GET запросов (фильтрация, поиск)</li>
+                            <li>В ASP.NET Core доступны через <code>[FromQuery]</code></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>6. Параметры пути (Route Parameters)</h4>
+                <p>Параметры, встроенные в URL путь:</p>
+                
+                <div class="code-block mt-3">
+                    <pre><code>// Пример с параметром пути
+GET /api/products/123 HTTP/1.1
+Host: api.example.com
+
+// 123 — это параметр пути (ID продукта)
+// В контроллере: [HttpGet("{id}")]</code></pre>
+                    <div class="code-explanation">
+                        <strong>Использование:</strong>
+                        <ul>
+                            <li>Параметры пути встроены в URL</li>
+                            <li>Используются для идентификации конкретного ресурса</li>
+                            <li>В ASP.NET Core доступны через параметры метода</li>
+                            <li>Пример: <code>public IActionResult Get(int id)</code></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>Полный пример HTTP запроса:</h4>
+                <div class="code-block mt-3">
+                    <pre><code>POST /api/products HTTP/1.1
+Host: api.example.com
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Accept: application/json
+User-Agent: MyApp/1.0
+Content-Length: 85
+
+{
+  "name": "Ноутбук",
+  "price": 50000,
+  "description": "Игровой ноутбук"
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Разбор запроса:</strong>
+                        <ol>
+                            <li><strong>Строка запроса:</strong> POST /api/products HTTP/1.1 — метод, путь, версия</li>
+                            <li><strong>Заголовки:</strong> Host, Content-Type, Authorization и т.д.</li>
+                            <li><strong>Пустая строка:</strong> разделяет заголовки и тело</li>
+                            <li><strong>Тело запроса:</strong> JSON данные для создания продукта</li>
+                        </ol>
+                    </div>
+                </div>
+
+                <h4>Работа с компонентами запроса в ASP.NET Core:</h4>
+                <div class="code-block mt-3">
+                    <pre><code>using Microsoft.AspNetCore.Mvc;
+
+[ApiController]
+[Route("api/[controller]")]
+public class ProductsController : ControllerBase
+{
+    // Параметры пути
+    [HttpGet("{id}")]
+    public IActionResult GetProduct(int id)  // id из URL: /api/products/123
+    {
+        // ...
+    }
+
+    // Параметры запроса
+    [HttpGet]
+    public IActionResult GetProducts([FromQuery] string category, [FromQuery] int? minPrice)
+    {
+        // category и minPrice из URL: /api/products?category=electronics&minPrice=1000
+        // ...
+    }
+
+    // Тело запроса
+    [HttpPost]
+    public IActionResult CreateProduct([FromBody] CreateProductRequest request)
+    {
+        // request из тела HTTP запроса (JSON)
+        // ...
+    }
+
+    // Заголовки
+    [HttpGet("secure")]
+    public IActionResult GetSecureData()
+    {
+        // Получить заголовок Authorization
+        var authHeader = Request.Headers["Authorization"].ToString();
+        // ...
+    }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Атрибуты для получения данных:</strong>
+                        <ul>
+                            <li><code>[FromBody]</code> — данные из тела запроса (JSON)</li>
+                            <li><code>[FromQuery]</code> — параметры из URL (?key=value)</li>
+                            <li><code>[FromRoute]</code> — параметры из пути URL (/api/products/{id})</li>
+                            <li><code>[FromHeader]</code> — значения из заголовков HTTP</li>
+                            <li><code>Request.Headers</code> — доступ к заголовкам через HttpContext</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>HTTP Ответ (Response):</h4>
+                <p>Сервер отвечает на запрос, отправляя HTTP ответ:</p>
+                
+                <div class="code-block mt-3">
+                    <pre><code>HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 156
+
+{
+  "id": 123,
+  "name": "Ноутбук",
+  "price": 50000,
+  "description": "Игровой ноутбук"
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Компоненты ответа:</strong>
+                        <ul>
+                            <li><strong>Статус код:</strong> 200 OK (успешно), 404 Not Found, 500 Internal Server Error и т.д.</li>
+                            <li><strong>Заголовки:</strong> Content-Type, Content-Length и другие</li>
+                            <li><strong>Тело ответа:</strong> данные в формате JSON, XML, HTML и т.д.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="alert alert-info mt-3">
+                    <strong>Попробуйте:</strong> Откройте <a href="/swagger">Swagger UI</a> и посмотрите, как формируются HTTP запросы при вызове API эндпоинтов. Вы увидите все компоненты: метод, URL, заголовки и тело запроса.
+                </div>
+            </section>
+
+            <section class="mb-5">
                 <h3>IActionResult и типы возвращаемых значений</h3>
                 <p><strong>IActionResult</strong> — это интерфейс, который представляет результат выполнения действия контроллера. Он позволяет возвращать различные типы HTTP-ответов.</p>
                 

@@ -1179,17 +1179,23 @@ if (emailField.value === "") {
                 <h3>Демонстрация: Контактная форма</h3>
                 <p>Посмотрите на пример работающей формы с валидацией прямо здесь:</p>
 
-                @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+                @{
+                    var successMsg = Model.SuccessMessage ?? ViewData["SuccessMessage"]?.ToString();
+                }
+                
+                @if (!string.IsNullOrWhiteSpace(successMsg))
                 {
-                    <div class="alert alert-success alert-dismissible fade show" role="alert">
-                        @Model.SuccessMessage
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    <div class="alert alert-success alert-dismissible fade show mt-3 mb-3" role="alert" id="successMessage" style="display: block !important; opacity: 1 !important; visibility: visible !important; background-color: #28a745 !important; color: #fff !important; border: 2px solid #1e7e34 !important;">
+                        <strong style="font-size: 1.2em;">✓ Успешно!</strong> 
+                        <span style="font-size: 1.1em;">@successMsg</span>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button>
+                        
                     </div>
                 }
 
                 <div class="card mt-3">
                     <div class="card-body">
-                        <form method="post" class="mt-3">
+                        <form method="post" class="mt-3" id="demoForm">
                             <div class="mb-3">
                                 <label asp-for="DemoForm.Name" class="form-label"></label>
                                 <input asp-for="DemoForm.Name" class="form-control" />
@@ -1248,97 +1254,249 @@ if (emailField.value === "") {
         </div>
 
         <div class="tab-pane fade" id="answers" role="tabpanel">
-            <h2>Решение задачи</h2>
+            <h2>Решение задачи: Форма регистрации пользователя</h2>
 
             <section class="mb-5">
-                <h3>1. Модель с валидацией</h3>
+                <h3>1. Модель регистрации (RegistrationModel.cs)</h3>
                 <div class="code-block">
                     <pre><code>using System.ComponentModel.DataAnnotations;
 
-public class ContactFormModel
+namespace MyRazorApp.Models;
+
+public class RegistrationModel
 {
-    [Required(ErrorMessage = "Имя обязательно")]
-    [StringLength(50, MinimumLength = 2)]
-    [Display(Name = "Имя")]
-    public string Name { get; set; } = string.Empty;
+    [Required(ErrorMessage = "Имя пользователя обязательно")]
+    [StringLength(20, MinimumLength = 3, ErrorMessage = "Имя пользователя должно быть от 3 до 20 символов")]
+    [Display(Name = "Имя пользователя")]
+    public string Username { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "Email обязателен")]
     [EmailAddress(ErrorMessage = "Некорректный формат email")]
     [Display(Name = "Email")]
     public string Email { get; set; } = string.Empty;
 
-    [Required(ErrorMessage = "Сообщение обязательно")]
-    [StringLength(500, MinimumLength = 10)]
-    [Display(Name = "Сообщение")]
-    public string Message { get; set; } = string.Empty;
+    [Required(ErrorMessage = "Пароль обязателен")]
+    [StringLength(100, MinimumLength = 8, ErrorMessage = "Пароль должен содержать минимум 8 символов")]
+    [DataType(DataType.Password)]
+    [Display(Name = "Пароль")]
+    public string Password { get; set; } = string.Empty;
 
-    [Phone(ErrorMessage = "Некорректный формат телефона")]
-    [Display(Name = "Телефон")]
-    public string? Phone { get; set; }
+    [Required(ErrorMessage = "Подтверждение пароля обязательно")]
+    [DataType(DataType.Password)]
+    [Compare("Password", ErrorMessage = "Пароли не совпадают")]
+    [Display(Name = "Подтверждение пароля")]
+    public string ConfirmPassword { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Возраст обязателен")]
+    [Range(18, 120, ErrorMessage = "Возраст должен быть от 18 до 120 лет")]
+    [Display(Name = "Возраст")]
+    public int Age { get; set; }
 }</code></pre>
+                    <div class="code-explanation">
+                        <strong>Объяснение атрибутов валидации:</strong>
+                        <ul>
+                            <li><code>[Required]</code> — поле обязательно для заполнения</li>
+                            <li><code>[StringLength(20, MinimumLength = 3)]</code> — длина строки от 3 до 20 символов</li>
+                            <li><code>[EmailAddress]</code> — проверка формата email</li>
+                            <li><code>[DataType(DataType.Password)]</code> — скрывает ввод пароля (точки вместо символов)</li>
+                            <li><code>[Compare("Password")]</code> — сравнивает с полем Password</li>
+                            <li><code>[Range(18, 120)]</code> — числовой диапазон от 18 до 120</li>
+                        </ul>
+                    </div>
                 </div>
             </section>
 
             <section class="mb-5">
-                <h3>2. Razor Page (Contact.cshtml)</h3>
+                <h3>2. Razor Page (Register.cshtml)</h3>
                 <div class="code-block">
                     <pre><code>@@page
-@@model ContactModel
+@@model RegisterModel
+@@{
+    ViewData["Title"] = "Регистрация";
+}
+
+&lt;h1&gt;Регистрация пользователя&lt;/h1&gt;
+
+@@* Отображение сообщения об успехе *@@
+@@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    &lt;div class="alert alert-success alert-dismissible fade show mt-3 mb-3" role="alert"&gt;
+        &lt;strong&gt;✓ Успешно!&lt;/strong&gt; @@Model.SuccessMessage
+        &lt;button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"&gt;&lt;/button&gt;
+    &lt;/div&gt;
+}
 
 &lt;form method="post"&gt;
     &lt;div class="mb-3"&gt;
-        &lt;label asp-for="ContactForm.Name" class="form-label"&gt;&lt;/label&gt;
-        &lt;input asp-for="ContactForm.Name" class="form-control" /&gt;
-        &lt;span asp-validation-for="ContactForm.Name" class="text-danger"&gt;&lt;/span&gt;
+        &lt;label asp-for="RegistrationForm.Username" class="form-label"&gt;&lt;/label&gt;
+        &lt;input asp-for="RegistrationForm.Username" class="form-control" /&gt;
+        &lt;span asp-validation-for="RegistrationForm.Username" class="text-danger"&gt;&lt;/span&gt;
     &lt;/div&gt;
 
     &lt;div class="mb-3"&gt;
-        &lt;label asp-for="ContactForm.Email" class="form-label"&gt;&lt;/label&gt;
-        &lt;input asp-for="ContactForm.Email" class="form-control" type="email" /&gt;
-        &lt;span asp-validation-for="ContactForm.Email" class="text-danger"&gt;&lt;/span&gt;
+        &lt;label asp-for="RegistrationForm.Email" class="form-label"&gt;&lt;/label&gt;
+        &lt;input asp-for="RegistrationForm.Email" class="form-control" type="email" /&gt;
+        &lt;span asp-validation-for="RegistrationForm.Email" class="text-danger"&gt;&lt;/span&gt;
     &lt;/div&gt;
 
-    &lt;button type="submit" class="btn btn-primary"&gt;Отправить&lt;/button&gt;
+    &lt;div class="mb-3"&gt;
+        &lt;label asp-for="RegistrationForm.Password" class="form-label"&gt;&lt;/label&gt;
+        &lt;input asp-for="RegistrationForm.Password" class="form-control" type="password" /&gt;
+        &lt;span asp-validation-for="RegistrationForm.Password" class="text-danger"&gt;&lt;/span&gt;
+    &lt;/div&gt;
+
+    &lt;div class="mb-3"&gt;
+        &lt;label asp-for="RegistrationForm.ConfirmPassword" class="form-label"&gt;&lt;/label&gt;
+        &lt;input asp-for="RegistrationForm.ConfirmPassword" class="form-control" type="password" /&gt;
+        &lt;span asp-validation-for="RegistrationForm.ConfirmPassword" class="text-danger"&gt;&lt;/span&gt;
+    &lt;/div&gt;
+
+    &lt;div class="mb-3"&gt;
+        &lt;label asp-for="RegistrationForm.Age" class="form-label"&gt;&lt;/label&gt;
+        &lt;input asp-for="RegistrationForm.Age" class="form-control" type="number" min="18" max="120" /&gt;
+        &lt;span asp-validation-for="RegistrationForm.Age" class="text-danger"&gt;&lt;/span&gt;
+    &lt;/div&gt;
+
+    &lt;button type="submit" class="btn btn-primary"&gt;Зарегистрироваться&lt;/button&gt;
 &lt;/form&gt;
 
-&lt;!-- В конце файла Contact.cshtml --&gt;
-&#64;section Scripts {
-    &#64;{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+@@section Scripts {
+    @@{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
 }</code></pre>
+                    <div class="code-explanation">
+                        <strong>Важные моменты:</strong>
+                        <ul>
+                            <li><code>type="password"</code> — скрывает ввод пароля</li>
+                            <li><code>type="number"</code> — для поля возраста</li>
+                            <li><code>min="18" max="120"</code> — HTML5 валидация возраста</li>
+                            <li><code>asp-validation-for</code> — отображает ошибки валидации</li>
+                        </ul>
+                    </div>
                 </div>
             </section>
 
             <section class="mb-5">
-                <h3>3. PageModel (Contact.cshtml.cs)</h3>
+                <h3>3. PageModel (Register.cshtml.cs)</h3>
                 <div class="code-block">
                     <pre><code>using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using MyRazorApp.Models;
 
-public class ContactModel : PageModel
+namespace MyRazorApp.Pages;
+
+public class RegisterModel : PageModel
 {
     [BindProperty]
-    public ContactFormModel ContactForm { get; set; } = new();
+    public RegistrationModel RegistrationForm { get; set; } = new();
 
     public string? SuccessMessage { get; set; }
 
     public void OnGet()
     {
+        // Инициализация при загрузке страницы
     }
 
     public IActionResult OnPost()
     {
+        // Валидация происходит автоматически при привязке данных
         if (!ModelState.IsValid)
         {
+            // Если есть ошибки валидации, возвращаем страницу с ошибками
             return Page();
         }
 
-        SuccessMessage = $"Спасибо, {ContactForm.Name}! Ваше сообщение получено.";
-        ContactForm = new ContactFormModel();
+        // Здесь обычно сохраняем пользователя в базу данных
+        // Например: await _userService.CreateUserAsync(RegistrationForm);
+        
+        // Устанавливаем сообщение об успехе
+        SuccessMessage = $"Пользователь {RegistrationForm.Username} успешно зарегистрирован!";
+        
+        // Очищаем форму после успешной регистрации
+        RegistrationForm = new RegistrationModel();
         ModelState.Clear();
         
         return Page();
     }
 }</code></pre>
+                    <div class="code-explanation">
+                        <strong>Как это работает:</strong>
+                        <ol>
+                            <li>Пользователь заполняет форму и нажимает "Зарегистрироваться"</li>
+                            <li>Данные автоматически привязываются к <code>RegistrationForm</code> благодаря <code>[BindProperty]</code></li>
+                            <li>Валидация выполняется автоматически на основе атрибутов модели</li>
+                            <li>Если есть ошибки, они отображаются под полями</li>
+                            <li>Если все валидно, устанавливается <code>SuccessMessage</code> и форма очищается</li>
+                        </ol>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>4. Демонстрация: Работающая форма регистрации</h3>
+                <p>Попробуйте заполнить форму регистрации ниже, чтобы увидеть, как работает валидация и отображение сообщения об успехе:</p>
+
+                @{
+                    var successMsgAnswers = Model.SuccessMessage ?? ViewData["SuccessMessage"]?.ToString();
+                }
+                
+                @if (!string.IsNullOrWhiteSpace(successMsgAnswers))
+                {
+                    <div class="alert alert-success alert-dismissible fade show mt-3 mb-3" role="alert" id="successMessageAnswers" style="display: block !important; opacity: 1 !important; visibility: visible !important; background-color: #28a745 !important; color: #fff !important; border: 2px solid #1e7e34 !important;">
+                        <strong style="font-size: 1.2em;">✓ Успешно!</strong> 
+                        <span style="font-size: 1.1em;">@successMsgAnswers</span>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                }
+
+                <div class="card mt-3">
+                    <div class="card-body">
+                        <form method="post" asp-page-handler="Register" class="mt-3" id="registrationForm">
+                            <div class="mb-3">
+                                <label asp-for="RegistrationForm.Username" class="form-label"></label>
+                                <input asp-for="RegistrationForm.Username" class="form-control" />
+                                <span asp-validation-for="RegistrationForm.Username" class="text-danger"></span>
+                            </div>
+
+                            <div class="mb-3">
+                                <label asp-for="RegistrationForm.Email" class="form-label"></label>
+                                <input asp-for="RegistrationForm.Email" class="form-control" type="email" />
+                                <span asp-validation-for="RegistrationForm.Email" class="text-danger"></span>
+                            </div>
+
+                            <div class="mb-3">
+                                <label asp-for="RegistrationForm.Password" class="form-label"></label>
+                                <input asp-for="RegistrationForm.Password" class="form-control" type="password" />
+                                <span asp-validation-for="RegistrationForm.Password" class="text-danger"></span>
+                            </div>
+
+                            <div class="mb-3">
+                                <label asp-for="RegistrationForm.ConfirmPassword" class="form-label"></label>
+                                <input asp-for="RegistrationForm.ConfirmPassword" class="form-control" type="password" />
+                                <span asp-validation-for="RegistrationForm.ConfirmPassword" class="text-danger"></span>
+                            </div>
+
+                            <div class="mb-3">
+                                <label asp-for="RegistrationForm.Age" class="form-label"></label>
+                                <input asp-for="RegistrationForm.Age" class="form-control" type="number" min="18" max="120" />
+                                <span asp-validation-for="RegistrationForm.Age" class="text-danger"></span>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary">Зарегистрироваться</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="alert alert-info mt-3">
+                    <strong>Попробуйте:</strong> 
+                    <ul>
+                        <li>Отправьте форму с пустыми полями, чтобы увидеть валидацию</li>
+                        <li>Попробуйте ввести имя пользователя менее 3 символов</li>
+                        <li>Попробуйте ввести невалидный email</li>
+                        <li>Попробуйте ввести пароль менее 8 символов</li>
+                        <li>Попробуйте ввести разные пароли в полях "Пароль" и "Подтверждение пароля"</li>
+                        <li>Попробуйте ввести возраст менее 18 или более 120</li>
+                        <li>Заполните все поля корректно и отправьте форму — вы увидите сообщение об успехе</li>
+                    </ul>
                 </div>
             </section>
         </div>

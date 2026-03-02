@@ -452,6 +452,296 @@ builder.Services.AddDbContext&lt;ApplicationDbContext&gt;(options =>
             </section>
 
             <section class="mb-5">
+                <h3>LINQ запросы в EF Core</h3>
+                <p><strong>LINQ (Language Integrated Query)</strong> — это встроенный в C# язык запросов, который позволяет писать запросы к базе данных прямо на C#. EF Core автоматически преобразует LINQ в SQL запросы.</p>
+
+                <h4>1. Получение всех записей</h4>
+                <div class="code-block">
+                    <pre><code>// Получить все продукты
+var products = await _context.Products.ToListAsync();
+
+// SQL эквивалент:
+// SELECT * FROM Products</code></pre>
+                </div>
+
+                <h4>2. Фильтрация — Where</h4>
+                <div class="code-block">
+                    <pre><code>// Получить продукты дороже 100
+var expensiveProducts = await _context.Products
+    .Where(p => p.Price > 100)
+    .ToListAsync();
+
+// SQL: SELECT * FROM Products WHERE Price > 100
+
+// Несколько условий
+var filtered = await _context.Products
+    .Where(p => p.Price > 50 &amp;&amp; p.Stock > 0)
+    .ToListAsync();
+
+// SQL: SELECT * FROM Products WHERE Price > 50 AND Stock > 0</code></pre>
+                </div>
+
+                <h4>3. Поиск одной записи</h4>
+                <div class="code-block">
+                    <pre><code>// По первичному ключу (самый быстрый способ)
+var product = await _context.Products.FindAsync(id);
+
+// Первый элемент по условию (или null)
+var cheapest = await _context.Products
+    .FirstOrDefaultAsync(p => p.Name == "Laptop");
+
+// Единственный элемент по условию (ошибка если больше одного)
+var unique = await _context.Products
+    .SingleOrDefaultAsync(p => p.Id == 5);</code></pre>
+                    <div class="code-explanation">
+                        <strong>Разница:</strong>
+                        <ul>
+                            <li><code>FindAsync(id)</code> — ищет по первичному ключу, сначала проверяет кеш</li>
+                            <li><code>FirstOrDefaultAsync</code> — возвращает первый подходящий или <code>null</code></li>
+                            <li><code>SingleOrDefaultAsync</code> — ожидает ровно один результат или ни одного, иначе ошибка</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>4. Сортировка — OrderBy / OrderByDescending</h4>
+                <div class="code-block">
+                    <pre><code>// Сортировка по цене (по возрастанию)
+var sortedByPrice = await _context.Products
+    .OrderBy(p => p.Price)
+    .ToListAsync();
+
+// SQL: SELECT * FROM Products ORDER BY Price ASC
+
+// Сортировка по цене (по убыванию)
+var sortedDesc = await _context.Products
+    .OrderByDescending(p => p.Price)
+    .ToListAsync();
+
+// SQL: SELECT * FROM Products ORDER BY Price DESC
+
+// Сортировка по нескольким полям
+var multiSort = await _context.Products
+    .OrderBy(p => p.Name)
+    .ThenByDescending(p => p.Price)
+    .ToListAsync();</code></pre>
+                </div>
+
+                <h4>5. Выбор полей — Select</h4>
+                <div class="code-block">
+                    <pre><code>// Получить только имена и цены (анонимный тип)
+var namesAndPrices = await _context.Products
+    .Select(p => new { p.Name, p.Price })
+    .ToListAsync();
+
+// SQL: SELECT Name, Price FROM Products
+
+// Преобразование в DTO
+var productDtos = await _context.Products
+    .Select(p => new ProductDto
+    {
+        Id = p.Id,
+        Name = p.Name,
+        Price = p.Price
+    })
+    .ToListAsync();</code></pre>
+                    <div class="code-explanation">
+                        <strong>Зачем использовать Select:</strong>
+                        <ul>
+                            <li>Загружает только нужные столбцы — меньше данных из БД</li>
+                            <li>Позволяет сразу преобразовать модель в DTO</li>
+                            <li>Увеличивает производительность</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>6. Пагинация — Skip / Take</h4>
+                <div class="code-block">
+                    <pre><code>int page = 2;
+int pageSize = 10;
+
+// Получить вторую страницу (записи 11-20)
+var pagedProducts = await _context.Products
+    .OrderBy(p => p.Id)
+    .Skip((page - 1) * pageSize)  // Пропустить первые 10
+    .Take(pageSize)                // Взять следующие 10
+    .ToListAsync();
+
+// SQL: SELECT * FROM Products ORDER BY Id LIMIT 10 OFFSET 10</code></pre>
+                    <div class="code-explanation">
+                        <strong>Важно:</strong> Всегда используйте <code>OrderBy</code> перед <code>Skip/Take</code>, иначе порядок записей не гарантирован.
+                    </div>
+                </div>
+
+                <h4>7. Агрегатные функции</h4>
+                <div class="code-block">
+                    <pre><code>// Количество записей
+int count = await _context.Products.CountAsync();
+
+// Количество по условию
+int expensiveCount = await _context.Products
+    .CountAsync(p => p.Price > 100);
+
+// Есть ли хотя бы одна запись
+bool hasProducts = await _context.Products.AnyAsync();
+
+// Есть ли записи по условию
+bool hasExpensive = await _context.Products
+    .AnyAsync(p => p.Price > 1000);
+
+// Сумма
+decimal totalPrice = await _context.Products
+    .SumAsync(p => p.Price);
+
+// Среднее значение
+decimal avgPrice = await _context.Products
+    .AverageAsync(p => p.Price);
+
+// Максимум и минимум
+decimal maxPrice = await _context.Products.MaxAsync(p => p.Price);
+decimal minPrice = await _context.Products.MinAsync(p => p.Price);</code></pre>
+                </div>
+
+                <h4>8. Комбинирование запросов</h4>
+                <p>LINQ запросы можно комбинировать — каждый метод возвращает новый запрос:</p>
+                <div class="code-block">
+                    <pre><code>// Получить топ-5 самых дорогих продуктов на складе
+var top5 = await _context.Products
+    .Where(p => p.Stock > 0)            // Фильтр: только в наличии
+    .OrderByDescending(p => p.Price)    // Сортировка: от дорогих к дешёвым
+    .Take(5)                             // Взять только 5
+    .Select(p => new ProductDto          // Преобразовать в DTO
+    {
+        Id = p.Id,
+        Name = p.Name,
+        Price = p.Price
+    })
+    .ToListAsync();                      // Выполнить запрос
+
+// SQL:
+// SELECT TOP(5) Id, Name, Price
+// FROM Products
+// WHERE Stock > 0
+// ORDER BY Price DESC</code></pre>
+                    <div class="code-explanation">
+                        <strong>Важно:</strong> Запрос к БД выполняется только при вызове <code>ToListAsync()</code>, <code>FirstOrDefaultAsync()</code>, <code>CountAsync()</code> и т.д. До этого момента EF Core только формирует SQL запрос.
+                    </div>
+                </div>
+
+                <h4>9. Добавление, обновление, удаление</h4>
+                <div class="code-block">
+                    <pre><code>// === ДОБАВЛЕНИЕ ===
+var newProduct = new Product
+{
+    Name = "Новый продукт",
+    Price = 99.99m,
+    Stock = 10
+};
+_context.Products.Add(newProduct);
+await _context.SaveChangesAsync();  // INSERT INTO Products ...
+
+// === ОБНОВЛЕНИЕ ===
+var product = await _context.Products.FindAsync(id);
+if (product != null)
+{
+    product.Price = 149.99m;        // Изменяем свойство
+    product.Stock = 5;
+    await _context.SaveChangesAsync();  // UPDATE Products SET ... WHERE Id = ...
+}
+
+// === УДАЛЕНИЕ ===
+var toDelete = await _context.Products.FindAsync(id);
+if (toDelete != null)
+{
+    _context.Products.Remove(toDelete);
+    await _context.SaveChangesAsync();  // DELETE FROM Products WHERE Id = ...
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Важно:</strong>
+                        <ul>
+                            <li><code>SaveChangesAsync()</code> — сохраняет <strong>все</strong> накопленные изменения в БД за один раз</li>
+                            <li>EF Core отслеживает изменения в объектах автоматически</li>
+                            <li>Можно сделать несколько изменений и вызвать <code>SaveChangesAsync()</code> один раз — всё сохранится в одной транзакции</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>10. Сводная таблица LINQ методов</h4>
+                <div class="table-responsive">
+                    <table class="table table-striped table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Метод</th>
+                                <th>SQL эквивалент</th>
+                                <th>Описание</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>Where()</code></td>
+                                <td>WHERE</td>
+                                <td>Фильтрация записей</td>
+                            </tr>
+                            <tr>
+                                <td><code>Select()</code></td>
+                                <td>SELECT столбцы</td>
+                                <td>Выбор определённых полей</td>
+                            </tr>
+                            <tr>
+                                <td><code>OrderBy()</code></td>
+                                <td>ORDER BY ASC</td>
+                                <td>Сортировка по возрастанию</td>
+                            </tr>
+                            <tr>
+                                <td><code>OrderByDescending()</code></td>
+                                <td>ORDER BY DESC</td>
+                                <td>Сортировка по убыванию</td>
+                            </tr>
+                            <tr>
+                                <td><code>Skip() / Take()</code></td>
+                                <td>OFFSET / LIMIT</td>
+                                <td>Пагинация</td>
+                            </tr>
+                            <tr>
+                                <td><code>FirstOrDefaultAsync()</code></td>
+                                <td>SELECT TOP 1</td>
+                                <td>Первая запись или null</td>
+                            </tr>
+                            <tr>
+                                <td><code>CountAsync()</code></td>
+                                <td>COUNT(*)</td>
+                                <td>Количество записей</td>
+                            </tr>
+                            <tr>
+                                <td><code>AnyAsync()</code></td>
+                                <td>EXISTS</td>
+                                <td>Есть ли записи</td>
+                            </tr>
+                            <tr>
+                                <td><code>SumAsync()</code></td>
+                                <td>SUM()</td>
+                                <td>Сумма значений</td>
+                            </tr>
+                            <tr>
+                                <td><code>AverageAsync()</code></td>
+                                <td>AVG()</td>
+                                <td>Среднее значение</td>
+                            </tr>
+                            <tr>
+                                <td><code>MaxAsync() / MinAsync()</code></td>
+                                <td>MAX() / MIN()</td>
+                                <td>Максимум / Минимум</td>
+                            </tr>
+                            <tr>
+                                <td><code>Include()</code></td>
+                                <td>JOIN</td>
+                                <td>Загрузка связанных данных</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="mb-5">
                 <h3>DTO (Data Transfer Objects)</h3>
                 <p><strong>DTO (Data Transfer Objects)</strong> — это объекты, предназначенные для передачи данных между слоями приложения без раскрытия внутренней структуры сущностей.</p>
                 
@@ -541,6 +831,12 @@ public class UpdateProductDto
 public class ProductsController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
+
+    // Конструктор — DI автоматически передаёт ApplicationDbContext
+    public ProductsController(ApplicationDbContext context)
+    {
+        _context = context;
+    }
 
     // GET: возвращаем список DTOs
     [HttpGet]
@@ -817,7 +1113,55 @@ public class ApplicationDbContext : DbContext
             </section>
 
             <section class="mb-5">
-                <h3>3. Установка инструментов EF Core (если еще не установлены)</h3>
+                <h3>3. Регистрация в Program.cs</h3>
+                <p>Обновите файл <code>Program.cs</code> — зарегистрируйте <code>ApplicationDbContext</code> и добавьте контроллеры:</p>
+                <div class="code-block">
+                    <pre><code>using Microsoft.EntityFrameworkCore;
+using Asp_Book.Chapter06.Data;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Регистрация сервисов
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+// Регистрация ApplicationDbContext с SQLite
+builder.Services.AddDbContext&lt;ApplicationDbContext&gt;(options =>
+    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection") 
+        ?? "Data Source=orders.db"));
+
+var app = builder.Build();
+
+// Автоматическое создание БД при первом запуске
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService&lt;ApplicationDbContext&gt;();
+    dbContext.Database.EnsureCreated();
+}
+
+// Swagger
+app.UseSwagger();
+app.UseSwaggerUI();
+
+app.MapControllers();
+app.Run();</code></pre>
+                    <div class="code-explanation">
+                        <strong>Что здесь происходит:</strong>
+                        <ul>
+                            <li><code>AddDbContext&lt;ApplicationDbContext&gt;</code> — регистрирует контекст БД в системе DI (Dependency Injection)</li>
+                            <li><code>options.UseSqlite(...)</code> — указывает, что используем SQLite с файлом <code>orders.db</code></li>
+                            <li><code>GetConnectionString("DefaultConnection")</code> — пытается взять строку подключения из <code>appsettings.json</code></li>
+                            <li><code>?? "Data Source=orders.db"</code> — если строки нет в конфигурации, использует значение по умолчанию</li>
+                            <li><code>Database.EnsureCreated()</code> — создаёт БД и таблицы, если их ещё нет</li>
+                            <li><code>MapControllers()</code> — подключает маршруты контроллеров</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>4. Установка инструментов EF Core (если еще не установлены)</h3>
                 <p>Для работы с миграциями нужно установить инструменты EF Core:</p>
                 <div class="code-block">
                     <pre><code>dotnet tool install --global dotnet-ef</code></pre>
@@ -828,7 +1172,7 @@ public class ApplicationDbContext : DbContext
             </section>
 
             <section class="mb-5">
-                <h3>4. Создание миграции</h3>
+                <h3>5. Создание миграции</h3>
                 <p>Выполните команду для создания миграции:</p>
                 <div class="code-block">
                     <pre><code>dotnet ef migrations add AddOrderTable</code></pre>
@@ -885,7 +1229,7 @@ public partial class AddOrderTable : Migration
             </section>
 
             <section class="mb-5">
-                <h3>5. Применение миграции к базе данных</h3>
+                <h3>6. Применение миграции к базе данных</h3>
                 <p>Выполните команду для применения миграции:</p>
                 <div class="code-block">
                     <pre><code>dotnet ef database update</code></pre>
@@ -925,7 +1269,7 @@ app.Run();</code></pre>
             </section>
 
             <section class="mb-5">
-                <h3>6. Проверка результата</h3>
+                <h3>7. Проверка результата</h3>
                 <p>После применения миграции таблица <code>Orders</code> будет создана в базе данных со следующей структурой:</p>
                 <div class="table-responsive">
                     <table class="table table-striped table-bordered">
@@ -974,13 +1318,69 @@ app.Run();</code></pre>
             </section>
 
             <section class="mb-5">
-                <h3>7. Полный пример использования</h3>
-                <p>Теперь вы можете использовать модель Order в контроллере:</p>
+                <h3>8. DTO для модели Order</h3>
+                <p>Создайте папку <code>DTOs/</code> и файл <code>OrderDto.cs</code>:</p>
+                <div class="code-block">
+                    <pre><code>using System.ComponentModel.DataAnnotations;
+
+namespace Asp_Book.Chapter06.DTOs;
+
+// DTO для ответа — то, что возвращаем клиенту
+public class OrderDto
+{
+    public int Id { get; set; }
+    public string CustomerName { get; set; } = string.Empty;
+    public decimal TotalAmount { get; set; }
+    public DateTime OrderDate { get; set; }
+    public string Status { get; set; } = string.Empty;
+}
+
+// DTO для создания заказа — то, что принимаем от клиента
+public class CreateOrderDto
+{
+    [Required(ErrorMessage = "Имя клиента обязательно")]
+    [StringLength(100, MinimumLength = 2)]
+    public string CustomerName { get; set; } = string.Empty;
+
+    [Range(0.01, double.MaxValue, ErrorMessage = "Сумма должна быть больше 0")]
+    public decimal TotalAmount { get; set; }
+
+    public string Status { get; set; } = "Pending";
+    // Id и OrderDate не нужны — Id генерируется БД, дату ставим автоматически
+}
+
+// DTO для обновления заказа
+public class UpdateOrderDto
+{
+    [StringLength(100, MinimumLength = 2)]
+    public string? CustomerName { get; set; }
+
+    [Range(0.01, double.MaxValue)]
+    public decimal? TotalAmount { get; set; }
+
+    public string? Status { get; set; }
+    // Все поля опциональные — обновляем только то, что передали
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Зачем нужны разные DTO:</strong>
+                        <ul>
+                            <li><code>OrderDto</code> — для ответов API (все поля, включая Id и дату)</li>
+                            <li><code>CreateOrderDto</code> — для создания (без Id и даты, они генерируются автоматически)</li>
+                            <li><code>UpdateOrderDto</code> — для обновления (все поля опциональные — обновляем только переданные)</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>9. Полный CRUD контроллер с DTO</h3>
+                <p>Создайте файл <code>Controllers/OrdersController.cs</code>:</p>
                 <div class="code-block">
                     <pre><code>using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Asp_Book.Chapter06.Data;
 using Asp_Book.Chapter06.Models;
+using Asp_Book.Chapter06.DTOs;
 
 [ApiController]
 [Route("api/[controller]")]
@@ -993,29 +1393,177 @@ public class OrdersController : ControllerBase
         _context = context;
     }
 
-    // GET: api/orders
+    // ==================== READ ====================
+
+    // GET: api/orders — получить все заказы
     [HttpGet]
-    public async Task&lt;ActionResult&lt;IEnumerable&lt;Order&gt;&gt;&gt; GetOrders()
+    public async Task&lt;ActionResult&lt;IEnumerable&lt;OrderDto&gt;&gt;&gt; GetOrders()
     {
-        return await _context.Orders.ToListAsync();
+        var orders = await _context.Orders
+            .Select(o => new OrderDto
+            {
+                Id = o.Id,
+                CustomerName = o.CustomerName,
+                TotalAmount = o.TotalAmount,
+                OrderDate = o.OrderDate,
+                Status = o.Status
+            })
+            .ToListAsync();
+
+        return Ok(orders);
     }
 
-    // POST: api/orders
-    [HttpPost]
-    public async Task&lt;ActionResult&lt;Order&gt;&gt; CreateOrder(Order order)
+    // GET: api/orders/5 — получить заказ по ID
+    [HttpGet("{id}")]
+    public async Task&lt;ActionResult&lt;OrderDto&gt;&gt; GetOrder(int id)
     {
-        order.OrderDate = DateTime.UtcNow;  // Устанавливаем дату автоматически
+        var order = await _context.Orders.FindAsync(id);
+
+        if (order == null)
+            return NotFound(new { message = $"Заказ с ID {id} не найден" });
+
+        var orderDto = new OrderDto
+        {
+            Id = order.Id,
+            CustomerName = order.CustomerName,
+            TotalAmount = order.TotalAmount,
+            OrderDate = order.OrderDate,
+            Status = order.Status
+        };
+
+        return Ok(orderDto);
+    }
+
+    // ==================== CREATE ====================
+
+    // POST: api/orders — создать заказ
+    [HttpPost]
+    public async Task&lt;ActionResult&lt;OrderDto&gt;&gt; CreateOrder(CreateOrderDto dto)
+    {
+        // Преобразуем DTO в модель
+        var order = new Order
+        {
+            CustomerName = dto.CustomerName,
+            TotalAmount = dto.TotalAmount,
+            OrderDate = DateTime.UtcNow,    // Дату ставим автоматически
+            Status = dto.Status
+        };
+
         _context.Orders.Add(order);
         await _context.SaveChangesAsync();
 
-        return CreatedAtAction(nameof(GetOrders), new { id = order.Id }, order);
+        // Преобразуем модель обратно в DTO для ответа
+        var orderDto = new OrderDto
+        {
+            Id = order.Id,
+            CustomerName = order.CustomerName,
+            TotalAmount = order.TotalAmount,
+            OrderDate = order.OrderDate,
+            Status = order.Status
+        };
+
+        return CreatedAtAction(nameof(GetOrder), new { id = order.Id }, orderDto);
+    }
+
+    // ==================== UPDATE ====================
+
+    // PUT: api/orders/5 — обновить заказ
+    [HttpPut("{id}")]
+    public async Task&lt;IActionResult&gt; UpdateOrder(int id, UpdateOrderDto dto)
+    {
+        var order = await _context.Orders.FindAsync(id);
+
+        if (order == null)
+            return NotFound(new { message = $"Заказ с ID {id} не найден" });
+
+        // Обновляем только те поля, которые переданы (не null)
+        if (dto.CustomerName != null)
+            order.CustomerName = dto.CustomerName;
+
+        if (dto.TotalAmount.HasValue)
+            order.TotalAmount = dto.TotalAmount.Value;
+
+        if (dto.Status != null)
+            order.Status = dto.Status;
+
+        await _context.SaveChangesAsync();
+
+        return NoContent();  // 204 — успешно обновлено
+    }
+
+    // ==================== DELETE ====================
+
+    // DELETE: api/orders/5 — удалить заказ
+    [HttpDelete("{id}")]
+    public async Task&lt;IActionResult&gt; DeleteOrder(int id)
+    {
+        var order = await _context.Orders.FindAsync(id);
+
+        if (order == null)
+            return NotFound(new { message = $"Заказ с ID {id} не найден" });
+
+        _context.Orders.Remove(order);
+        await _context.SaveChangesAsync();
+
+        return NoContent();  // 204 — успешно удалено
     }
 }</code></pre>
+                    <div class="code-explanation">
+                        <strong>Что делает каждый метод:</strong>
+                        <table class="table table-striped table-bordered mt-2">
+                            <thead>
+                                <tr>
+                                    <th>HTTP метод</th>
+                                    <th>Маршрут</th>
+                                    <th>Действие</th>
+                                    <th>DTO</th>
+                                    <th>Код ответа</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>GET</code></td>
+                                    <td><code>/api/orders</code></td>
+                                    <td>Список всех заказов</td>
+                                    <td>→ <code>OrderDto[]</code></td>
+                                    <td>200 OK</td>
+                                </tr>
+                                <tr>
+                                    <td><code>GET</code></td>
+                                    <td><code>/api/orders/{id}</code></td>
+                                    <td>Заказ по ID</td>
+                                    <td>→ <code>OrderDto</code></td>
+                                    <td>200 OK / 404</td>
+                                </tr>
+                                <tr>
+                                    <td><code>POST</code></td>
+                                    <td><code>/api/orders</code></td>
+                                    <td>Создать заказ</td>
+                                    <td><code>CreateOrderDto</code> → <code>OrderDto</code></td>
+                                    <td>201 Created</td>
+                                </tr>
+                                <tr>
+                                    <td><code>PUT</code></td>
+                                    <td><code>/api/orders/{id}</code></td>
+                                    <td>Обновить заказ</td>
+                                    <td><code>UpdateOrderDto</code> →</td>
+                                    <td>204 No Content / 404</td>
+                                </tr>
+                                <tr>
+                                    <td><code>DELETE</code></td>
+                                    <td><code>/api/orders/{id}</code></td>
+                                    <td>Удалить заказ</td>
+                                    <td>—</td>
+                                    <td>204 No Content / 404</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </section>
 
             <section class="mb-5">
-                <h3>8. Полезные команды для работы с миграциями</h3>
+                <h3>10. Полезные команды для работы с миграциями</h3>
                 <div class="code-block">
                     <pre><code>// Создать новую миграцию
 dotnet ef migrations add MigrationName

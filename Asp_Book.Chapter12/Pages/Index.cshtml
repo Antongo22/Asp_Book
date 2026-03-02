@@ -28,30 +28,558 @@
                 <h3>Зачем нужно тестирование?</h3>
                 <p>Тестирование — важная часть разработки, которая помогает:</p>
                 <ul>
-                    <li><strong>Находить ошибки</strong> до продакшена</li>
-                    <li><strong>Обеспечивать качество</strong> кода</li>
-                    <li><strong>Упрощать рефакторинг</strong> — тесты показывают, что ничего не сломалось</li>
-                    <li><strong>Документировать</strong> поведение кода</li>
+                    <li><strong>Находить ошибки</strong> до продакшена — дешевле исправить баг на этапе разработки</li>
+                    <li><strong>Обеспечивать качество</strong> кода — тесты как гарантия корректной работы</li>
+                    <li><strong>Упрощать рефакторинг</strong> — тесты показывают, что ничего не сломалось после изменений</li>
+                    <li><strong>Документировать</strong> поведение — тест показывает, как должен работать код</li>
+                    <li><strong>Ускорять разработку</strong> — быстрая проверка вместо ручного тестирования</li>
                 </ul>
             </section>
 
             <section class="mb-5">
                 <h3>Типы тестов</h3>
-                <ul>
-                    <li><strong>Unit тесты</strong> — тестирование отдельных компонентов</li>
-                    <li><strong>Integration тесты</strong> — тестирование взаимодействия компонентов</li>
-                    <li><strong>API тесты</strong> — тестирование HTTP endpoints</li>
-                </ul>
+                <div class="table-responsive">
+                    <table class="table table-striped table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Тип</th>
+                                <th>Что тестирует</th>
+                                <th>Скорость</th>
+                                <th>Пример</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Unit тесты</strong></td>
+                                <td>Отдельный метод/класс в изоляции</td>
+                                <td>⚡ Очень быстро</td>
+                                <td>Тест метода <code>CalculateTotal()</code></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Integration тесты</strong></td>
+                                <td>Взаимодействие компонентов</td>
+                                <td>🔄 Средне</td>
+                                <td>Сервис + БД + контроллер вместе</td>
+                            </tr>
+                            <tr>
+                                <td><strong>API тесты</strong></td>
+                                <td>HTTP endpoints целиком</td>
+                                <td>🐌 Медленно</td>
+                                <td>Запрос <code>POST /api/messages</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="alert alert-info mt-3">
+                    <strong>Пирамида тестирования:</strong> Больше всего должно быть unit тестов (быстрые, простые), меньше — integration, ещё меньше — API/E2E тестов. В этой главе мы сфокусируемся на <strong>unit</strong> и <strong>integration</strong> тестах.
+                </div>
             </section>
 
             <section class="mb-5">
-                <h3>In-Memory Database для тестирования</h3>
-                <p>Для тестирования EF Core используется In-Memory Database — база данных в памяти, которая не требует реальной БД.</p>
+                <h3>Фреймворк xUnit</h3>
+                <p><strong>xUnit</strong> — самый популярный фреймворк для тестирования в .NET. Он используется по умолчанию в шаблонах проектов Microsoft.</p>
+
+                <h4>Создание тестового проекта</h4>
+                <div class="code-block">
+                    <pre><code># 1. Создаём тестовый проект
+dotnet new xunit -n MyApp.Tests
+
+# 2. Добавляем ссылку на основной проект
+cd MyApp.Tests
+dotnet add reference ../MyApp/MyApp.csproj
+
+# 3. Добавляем In-Memory Database для тестов с EF Core
+dotnet add package Microsoft.EntityFrameworkCore.InMemory</code></pre>
+                </div>
+
+                <h4>Структура тестового проекта (.csproj)</h4>
+                <div class="code-block">
+                    <pre><code>&lt;Project Sdk="Microsoft.NET.Sdk"&gt;
+  &lt;PropertyGroup&gt;
+    &lt;TargetFramework&gt;net10.0&lt;/TargetFramework&gt;
+    &lt;IsPackable&gt;false&lt;/IsPackable&gt;
+  &lt;/PropertyGroup&gt;
+
+  &lt;ItemGroup&gt;
+    &lt;!-- xUnit фреймворк --&gt;
+    &lt;PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" /&gt;
+    &lt;PackageReference Include="xunit" Version="2.6.2" /&gt;
+    &lt;PackageReference Include="xunit.runner.visualstudio" Version="2.5.4" /&gt;
+    
+    &lt;!-- In-Memory Database для тестов с EF Core --&gt;
+    &lt;PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.3" /&gt;
+  &lt;/ItemGroup&gt;
+
+  &lt;ItemGroup&gt;
+    &lt;!-- Ссылка на основной проект --&gt;
+    &lt;ProjectReference Include="..\MyApp\MyApp.csproj" /&gt;
+  &lt;/ItemGroup&gt;
+&lt;/Project&gt;</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Атрибуты xUnit: [Fact] и [Theory]</h3>
+                <p>xUnit использует атрибуты для пометки методов как тестовых.</p>
+
+                <h4>[Fact] — тест без параметров</h4>
+                <div class="code-block">
+                    <pre><code>using Xunit;
+
+public class CalculatorTests
+{
+    [Fact]  // Это тест — xUnit запустит его автоматически
+    public void Add_TwoNumbers_ReturnsSum()
+    {
+        // Arrange — подготовка
+        var calculator = new Calculator();
+
+        // Act — выполнение
+        var result = calculator.Add(2, 3);
+
+        // Assert — проверка
+        Assert.Equal(5, result);
+    }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>[Fact]</strong> — тест, который выполняется один раз, без входных параметров. Используется для тестирования конкретного сценария.
+                    </div>
+                </div>
+
+                <h4>[Theory] — параметризованный тест</h4>
+                <div class="code-block">
+                    <pre><code>[Theory]  // Тест с несколькими наборами данных
+[InlineData(2, 3, 5)]
+[InlineData(0, 0, 0)]
+[InlineData(-1, 1, 0)]
+[InlineData(100, 200, 300)]
+public void Add_VariousNumbers_ReturnsCorrectSum(int a, int b, int expected)
+{
+    var calculator = new Calculator();
+    var result = calculator.Add(a, b);
+    Assert.Equal(expected, result);
+}
+// Запустится 4 теста — по одному для каждого [InlineData]</code></pre>
+                    <div class="code-explanation">
+                        <strong>[Theory]</strong> — тест, который запускается <strong>несколько раз</strong> с разными данными. Каждый <code>[InlineData]</code> — отдельный запуск.
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Паттерн AAA (Arrange-Act-Assert)</h3>
+                <p>Каждый тест должен следовать паттерну <strong>AAA</strong>:</p>
+
+                <div class="code-block">
+                    <pre><code>[Fact]
+public async Task SendMessage_ValidData_ReturnsMessage()
+{
+    // ======== ARRANGE (Подготовка) ========
+    // Создаём всё необходимое для теста
+    var context = GetInMemoryDbContext();
+    var service = new ChatService(context);
+
+    // ======== ACT (Действие) ========
+    // Выполняем тестируемый метод
+    var result = await service.SendMessageAsync("Привет", "User1");
+
+    // ======== ASSERT (Проверка) ========
+    // Проверяем результат
+    Assert.NotNull(result);
+    Assert.Equal("Привет", result.Text);
+    Assert.Equal("User1", result.Sender);
+    Assert.True(result.Id > 0);
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Три этапа:</strong>
+                        <ol>
+                            <li><strong>Arrange</strong> — создаём объекты, подготавливаем данные</li>
+                            <li><strong>Act</strong> — вызываем тестируемый метод</li>
+                            <li><strong>Assert</strong> — проверяем, что результат соответствует ожиданиям</li>
+                        </ol>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Основные методы Assert</h3>
+                <p>Класс <code>Assert</code> предоставляет множество методов для проверки.</p>
+
+                <div class="table-responsive">
+                    <table class="table table-striped table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Метод</th>
+                                <th>Что проверяет</th>
+                                <th>Пример</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>Assert.Equal(expected, actual)</code></td>
+                                <td>Значения равны</td>
+                                <td><code>Assert.Equal(5, result)</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>Assert.NotEqual(a, b)</code></td>
+                                <td>Значения не равны</td>
+                                <td><code>Assert.NotEqual(0, id)</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>Assert.True(condition)</code></td>
+                                <td>Условие истинно</td>
+                                <td><code>Assert.True(result.Id > 0)</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>Assert.False(condition)</code></td>
+                                <td>Условие ложно</td>
+                                <td><code>Assert.False(string.IsNullOrEmpty(name))</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>Assert.Null(obj)</code></td>
+                                <td>Объект null</td>
+                                <td><code>Assert.Null(deletedItem)</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>Assert.NotNull(obj)</code></td>
+                                <td>Объект не null</td>
+                                <td><code>Assert.NotNull(result)</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>Assert.Empty(collection)</code></td>
+                                <td>Коллекция пуста</td>
+                                <td><code>Assert.Empty(messages)</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>Assert.Single(collection)</code></td>
+                                <td>Ровно один элемент</td>
+                                <td><code>Assert.Single(results)</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>Assert.Contains(item, col)</code></td>
+                                <td>Содержит элемент</td>
+                                <td><code>Assert.Contains("Привет", msgs)</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>Assert.IsType&lt;T&gt;(obj)</code></td>
+                                <td>Объект типа T</td>
+                                <td><code>Assert.IsType&lt;OkObjectResult&gt;(result)</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>Assert.ThrowsAsync&lt;T&gt;()</code></td>
+                                <td>Метод бросает исключение</td>
+                                <td><code>await Assert.ThrowsAsync&lt;ArgumentException&gt;(...)</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>In-Memory Database для тестирования EF Core</h3>
+                <p>Для тестирования сервисов с Entity Framework Core используется <strong>In-Memory база данных</strong> — она работает в памяти и не требует настройки реальной БД.</p>
+
+                <h4>NuGet пакет:</h4>
+                <div class="code-block">
+                    <pre><code>dotnet add package Microsoft.EntityFrameworkCore.InMemory</code></pre>
+                </div>
+
+                <h4>Создание In-Memory контекста:</h4>
+                <div class="code-block">
+                    <pre><code>using Microsoft.EntityFrameworkCore;
+
+private ChatDbContext GetInMemoryDbContext()
+{
+    var options = new DbContextOptionsBuilder&lt;ChatDbContext&gt;()
+        .UseInMemoryDatabase(
+            databaseName: Guid.NewGuid().ToString()  // Уникальное имя!
+        )
+        .Options;
+
+    return new ChatDbContext(options);
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Важно: <code>Guid.NewGuid()</code></strong> — каждый тест получает <strong>чистую</strong> базу данных. Если использовать одинаковое имя — данные будут общими между тестами и это может привести к непредсказуемому поведению.
+                    </div>
+                </div>
+
+                <h4>Почему In-Memory Database?</h4>
+                <div class="table-responsive">
+                    <table class="table table-striped table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Параметр</th>
+                                <th>Реальная БД (SQLite, PostgreSQL)</th>
+                                <th>In-Memory Database</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Скорость</td>
+                                <td>Медленная (I/O)</td>
+                                <td>Мгновенная (оперативная память)</td>
+                            </tr>
+                            <tr>
+                                <td>Настройка</td>
+                                <td>Нужен сервер/файл</td>
+                                <td>Только NuGet пакет</td>
+                            </tr>
+                            <tr>
+                                <td>Изоляция</td>
+                                <td>Нужно очищать данные</td>
+                                <td>Уникальное имя = чистая БД</td>
+                            </tr>
+                            <tr>
+                                <td>CI/CD</td>
+                                <td>Нужна БД на сервере</td>
+                                <td>Работает везде</td>
+                            </tr>
+                            <tr>
+                                <td>Поведение</td>
+                                <td>Полностью реальное</td>
+                                <td>Приблизительное (без транзакций)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Тестирование сервисов с EF Core</h3>
+                <p>Сервис — основная бизнес-логика. Тестируем: правильно ли сервис сохраняет, получает и обрабатывает данные.</p>
+
+                <div class="code-block">
+                    <pre><code>public class ChatServiceTests
+{
+    private ChatDbContext GetInMemoryDbContext()
+    {
+        var options = new DbContextOptionsBuilder&lt;ChatDbContext&gt;()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+        return new ChatDbContext(options);
+    }
+
+    [Fact]
+    public async Task SendMessageAsync_ShouldSaveMessage()
+    {
+        // Arrange
+        var context = GetInMemoryDbContext();
+        var service = new ChatService(context);
+
+        // Act
+        var message = await service.SendMessageAsync("Привет", "User1");
+
+        // Assert
+        Assert.NotNull(message);
+        Assert.Equal("Привет", message.Text);
+        Assert.Equal("User1", message.Sender);
+        Assert.True(message.Id > 0);  // ID должен быть назначен
+
+        // Дополнительно: проверяем что данные реально в БД
+        var savedMessage = await context.Messages.FindAsync(message.Id);
+        Assert.NotNull(savedMessage);
+        Assert.Equal("Привет", savedMessage.Text);
+    }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Что тестируем:</strong>
+                        <ul>
+                            <li>Метод <strong>не упал</strong> (Assert.NotNull)</li>
+                            <li>Данные <strong>записались правильно</strong> (Assert.Equal)</li>
+                            <li>Запись <strong>реально сохранилась в БД</strong> (FindAsync)</li>
+                            <li>ID <strong>был назначен</strong> (Assert.True(Id > 0))</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Тестирование контроллеров</h3>
+                <p>Контроллер получает сервис через DI. В тестах мы создаём сервис с In-Memory БД и передаём его в контроллер напрямую.</p>
+
+                <div class="code-block">
+                    <pre><code>using Microsoft.AspNetCore.Mvc;
+
+public class ChatControllerTests
+{
+    private ChatDbContext GetInMemoryDbContext()
+    {
+        var options = new DbContextOptionsBuilder&lt;ChatDbContext&gt;()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+        return new ChatDbContext(options);
+    }
+
+    [Fact]
+    public async Task SendMessage_ValidData_ReturnsOk()
+    {
+        // Arrange — создаём цепочку зависимостей
+        var context = GetInMemoryDbContext();
+        var service = new ChatService(context);
+        var controller = new ChatController(service);
+
+        var request = new SendMessageRequest
+        {
+            Text = "Привет",
+            Sender = "User1"
+        };
+
+        // Act — вызываем метод контроллера
+        var result = await controller.SendMessage(request);
+
+        // Assert — проверяем HTTP ответ
+        var okResult = Assert.IsType&lt;OkObjectResult&gt;(result);  // Ответ 200 OK
+        var message = Assert.IsType&lt;Message&gt;(okResult.Value);   // Тело — Message
+        Assert.Equal("Привет", message.Text);
+        Assert.Equal("User1", message.Sender);
+    }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Проверка типа ответа:</strong>
+                        <table class="table table-striped table-bordered mt-2">
+                            <thead>
+                                <tr>
+                                    <th>Метод контроллера</th>
+                                    <th>Тип результата</th>
+                                    <th>Assert</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>Ok(data)</code></td>
+                                    <td><code>OkObjectResult</code></td>
+                                    <td><code>Assert.IsType&lt;OkObjectResult&gt;(result)</code></td>
+                                </tr>
+                                <tr>
+                                    <td><code>NotFound()</code></td>
+                                    <td><code>NotFoundResult</code></td>
+                                    <td><code>Assert.IsType&lt;NotFoundResult&gt;(result)</code></td>
+                                </tr>
+                                <tr>
+                                    <td><code>BadRequest(data)</code></td>
+                                    <td><code>BadRequestObjectResult</code></td>
+                                    <td><code>Assert.IsType&lt;BadRequestObjectResult&gt;(result)</code></td>
+                                </tr>
+                                <tr>
+                                    <td><code>Created(...)</code></td>
+                                    <td><code>CreatedResult</code></td>
+                                    <td><code>Assert.IsType&lt;CreatedResult&gt;(result)</code></td>
+                                </tr>
+                                <tr>
+                                    <td><code>NoContent()</code></td>
+                                    <td><code>NoContentResult</code></td>
+                                    <td><code>Assert.IsType&lt;NoContentResult&gt;(result)</code></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Тестирование коллекций</h3>
+                <p>Часто нужно проверять список результатов — количество, содержимое, порядок.</p>
+
+                <div class="code-block">
+                    <pre><code>[Fact]
+public async Task GetMessages_MultipleMessages_ReturnsAll()
+{
+    // Arrange
+    var context = GetInMemoryDbContext();
+    var service = new ChatService(context);
+    
+    // Добавляем несколько сообщений
+    await service.SendMessageAsync("Сообщение 1", "User1");
+    await service.SendMessageAsync("Сообщение 2", "User2");
+    await service.SendMessageAsync("Сообщение 3", "User1");
+
+    // Act
+    var messages = await service.GetMessagesAsync();
+
+    // Assert
+    Assert.Equal(3, messages.Count);               // Ровно 3 сообщения
+    Assert.Equal("Сообщение 1", messages[0].Text); // Первое сообщение
+    Assert.Equal("User2", messages[1].Sender);      // Автор второго
+    Assert.All(messages, m => Assert.False(         // У всех есть текст
+        string.IsNullOrEmpty(m.Text)));
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Тестирование фильтрации (группы)</h3>
+                <p>Проверяем, что фильтрация по группе работает корректно.</p>
+
+                <div class="code-block">
+                    <pre><code>[Fact]
+public async Task GetMessages_WithGroupFilter_ReturnsOnlyGroupMessages()
+{
+    // Arrange
+    var context = GetInMemoryDbContext();
+    var service = new ChatService(context);
+
+    // Создаём группу
+    var group = await service.CreateGroupAsync("Общий чат");
+    
+    // Добавляем сообщения: одно в группу, одно без группы
+    await service.SendMessageAsync("В группе", "User1", group.Id);
+    await service.SendMessageAsync("Без группы", "User2", null);
+
+    // Act — получаем только сообщения группы
+    var groupMessages = await service.GetMessagesAsync(group.Id);
+    var allMessages = await service.GetMessagesAsync(null);
+
+    // Assert
+    Assert.Single(groupMessages);            // В группе — 1 сообщение
+    Assert.Equal(2, allMessages.Count);      // Всего — 2 сообщения
+    Assert.Equal("В группе", groupMessages[0].Text);
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Запуск тестов</h3>
+                <div class="code-block">
+                    <pre><code># Из терминала:
+dotnet test
+
+# С подробным выводом:
+dotnet test --verbosity normal
+
+# Только определённый класс:
+dotnet test --filter "FullyQualifiedName~ChatServiceTests"
+
+# Только один тест:
+dotnet test --filter "SendMessageAsync_ShouldSaveMessage"</code></pre>
+                </div>
+
+                <div class="alert alert-info mt-3">
+                    <strong>В Visual Studio:</strong> Откройте <strong>Test Explorer</strong> (Test → Test Explorer), нажмите <strong>Run All Tests</strong>. Зелёная галочка ✅ — тест прошёл, красный крестик ❌ — тест упал.
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Лучшие практики тестирования</h3>
                 <ul>
-                    <li>Быстрая работа</li>
-                    <li>Не требует настройки БД</li>
-                    <li>Изолированность тестов</li>
+                    <li><strong>Один тест = один сценарий.</strong> Не тестируйте 5 вещей в одном тесте</li>
+                    <li><strong>Понятные имена:</strong> <code>MethodName_Scenario_ExpectedResult</code> (например <code>SendMessage_ValidData_ReturnsOk</code>)</li>
+                    <li><strong>Изолированность:</strong> Тесты не должны зависеть друг от друга (уникальная БД для каждого)</li>
+                    <li><strong>AAA паттерн:</strong> Всегда разделяйте Arrange, Act, Assert</li>
+                    <li><strong>Тестируйте граничные случаи:</strong> пустые строки, null, большие числа, дубликаты</li>
                 </ul>
+
+                <div class="code-block mt-3">
+                    <pre><code>// Пример именования тестов:
+// Метод_Сценарий_ОжидаемыйРезультат
+
+[Fact] public async Task SendMessage_ValidData_ReturnsSavedMessage() { ... }
+[Fact] public async Task SendMessage_EmptyText_ThrowsException() { ... }
+[Fact] public async Task GetMessages_EmptyDb_ReturnsEmptyList() { ... }
+[Fact] public async Task GetMessages_WithGroupId_ReturnsFilteredMessages() { ... }
+[Fact] public async Task CreateGroup_ValidName_ReturnsGroup() { ... }
+[Fact] public async Task CreateGroup_DuplicateName_StillCreates() { ... }</code></pre>
+                </div>
             </section>
 
             <section class="mb-5">
@@ -124,159 +652,668 @@
             </section>
 
             <section class="mb-5">
-                <h3>Задача: Написать чат с тестами</h3>
+                <h3>Задание для закрепления</h3>
                 <div class="alert alert-warning">
                     <h5>Ваша задача:</h5>
-                    <p>Изучите реализацию чата с тестами:</p>
+                    <p>Напишите тесты для чат-приложения. Нужно реализовать:</p>
                     <ul>
-                        <li>Как создать In-Memory базу данных для тестов?</li>
-                        <li>Как тестировать контроллеры?</li>
-                        <li>Как тестировать сервисы с EF Core?</li>
+                        <li><strong>Тест сервиса</strong> <code>SendMessageAsync</code> — сообщение сохраняется в БД, все поля заполнены</li>
+                        <li><strong>Тест сервиса</strong> <code>GetMessagesAsync</code> — возвращает все сообщения в правильном порядке</li>
+                        <li><strong>Тест сервиса</strong> <code>GetMessagesAsync(groupId)</code> — фильтрация по группе работает корректно</li>
+                        <li><strong>Тест сервиса</strong> <code>CreateGroupAsync</code> — группа создаётся и получает ID</li>
+                        <li><strong>Тест контроллера</strong> <code>SendMessage</code> — возвращает <code>OkObjectResult</code> с правильными данными</li>
+                        <li><strong>Тест контроллера</strong> <code>GetMessages</code> — возвращает <code>OkObjectResult</code> со списком сообщений</li>
                     </ul>
+                    <p><strong>Используйте:</strong> In-Memory Database с уникальным именем (<code>Guid.NewGuid()</code>) и паттерн AAA.</p>
                 </div>
             </section>
         </div>
 
         <div class="tab-pane fade" id="answers" role="tabpanel">
-            <h2>Решение: Тестирование чата</h2>
+            <h2>Полное решение: Тестирование чата</h2>
+            <p>Ниже — все файлы основного проекта и тестов.</p>
 
             <section class="mb-5">
-                <h3>1. Настройка In-Memory Database</h3>
+                <h3>1. Models/Message.cs</h3>
                 <div class="code-block">
-                    <pre><code>private ChatDbContext GetInMemoryDbContext()
-{
-    var options = new DbContextOptionsBuilder&lt;ChatDbContext&gt;()
-        .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
-        .Options;
+                    <pre><code>namespace Asp_Book.Chapter12.Models;
 
-    return new ChatDbContext(options);
+public class Message
+{
+    public int Id { get; set; }
+    public string Text { get; set; } = string.Empty;
+    public string Sender { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public int? GroupId { get; set; }
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>2. Models/ChatGroup.cs</h3>
+                <div class="code-block">
+                    <pre><code>namespace Asp_Book.Chapter12.Models;
+
+public class ChatGroup
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public List&lt;Message&gt; Messages { get; set; } = new();
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>3. Data/ChatDbContext.cs</h3>
+                <div class="code-block">
+                    <pre><code>using Asp_Book.Chapter12.Models;
+using Microsoft.EntityFrameworkCore;
+
+namespace Asp_Book.Chapter12.Data;
+
+public class ChatDbContext : DbContext
+{
+    public ChatDbContext(DbContextOptions&lt;ChatDbContext&gt; options)
+        : base(options)
+    {
+    }
+
+    public DbSet&lt;Message&gt; Messages { get; set; }
+    public DbSet&lt;ChatGroup&gt; ChatGroups { get; set; }
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>4. Services/IChatService.cs</h3>
+                <div class="code-block">
+                    <pre><code>using Asp_Book.Chapter12.Models;
+
+namespace Asp_Book.Chapter12.Services;
+
+public interface IChatService
+{
+    Task&lt;Message&gt; SendMessageAsync(string text, string sender, int? groupId = null);
+    Task&lt;List&lt;Message&gt;&gt; GetMessagesAsync(int? groupId = null);
+    Task&lt;ChatGroup&gt; CreateGroupAsync(string name);
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>5. Services/ChatService.cs</h3>
+                <div class="code-block">
+                    <pre><code>using Asp_Book.Chapter12.Data;
+using Asp_Book.Chapter12.Models;
+using Microsoft.EntityFrameworkCore;
+
+namespace Asp_Book.Chapter12.Services;
+
+public class ChatService : IChatService
+{
+    private readonly ChatDbContext _context;
+
+    public ChatService(ChatDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task&lt;Message&gt; SendMessageAsync(string text, string sender, int? groupId = null)
+    {
+        var message = new Message
+        {
+            Text = text,
+            Sender = sender,
+            GroupId = groupId,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _context.Messages.Add(message);
+        await _context.SaveChangesAsync();
+        return message;
+    }
+
+    public async Task&lt;List&lt;Message&gt;&gt; GetMessagesAsync(int? groupId = null)
+    {
+        var query = _context.Messages.AsQueryable();
+
+        if (groupId.HasValue)
+        {
+            query = query.Where(m => m.GroupId == groupId);
+        }
+
+        return await query.OrderBy(m => m.CreatedAt).ToListAsync();
+    }
+
+    public async Task&lt;ChatGroup&gt; CreateGroupAsync(string name)
+    {
+        var group = new ChatGroup { Name = name };
+        _context.ChatGroups.Add(group);
+        await _context.SaveChangesAsync();
+        return group;
+    }
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>6. Controllers/ChatController.cs</h3>
+                <div class="code-block">
+                    <pre><code>using Asp_Book.Chapter12.Models;
+using Asp_Book.Chapter12.Services;
+using Microsoft.AspNetCore.Mvc;
+
+namespace Asp_Book.Chapter12.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class ChatController : ControllerBase
+{
+    private readonly IChatService _chatService;
+
+    public ChatController(IChatService chatService)
+    {
+        _chatService = chatService;
+    }
+
+    [HttpPost("messages")]
+    public async Task&lt;IActionResult&gt; SendMessage([FromBody] SendMessageRequest request)
+    {
+        var message = await _chatService.SendMessageAsync(
+            request.Text,
+            request.Sender,
+            request.GroupId);
+        return Ok(message);
+    }
+
+    [HttpGet("messages")]
+    public async Task&lt;IActionResult&gt; GetMessages([FromQuery] int? groupId = null)
+    {
+        var messages = await _chatService.GetMessagesAsync(groupId);
+        return Ok(messages);
+    }
+
+    [HttpPost("groups")]
+    public async Task&lt;IActionResult&gt; CreateGroup([FromBody] CreateGroupRequest request)
+    {
+        var group = await _chatService.CreateGroupAsync(request.Name);
+        return Ok(group);
+    }
+}
+
+public class SendMessageRequest
+{
+    public string Text { get; set; } = string.Empty;
+    public string Sender { get; set; } = string.Empty;
+    public int? GroupId { get; set; }
+}
+
+public class CreateGroupRequest
+{
+    public string Name { get; set; } = string.Empty;
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>7. Program.cs (полный файл)</h3>
+                <div class="code-block">
+                    <pre><code>using Asp_Book.Chapter12.Data;
+using Asp_Book.Chapter12.Services;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi.Models;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddControllers();
+builder.Services.AddRazorPages().AddRazorRuntimeCompilation();
+
+// In-Memory Database для демонстрации
+builder.Services.AddDbContext&lt;ChatDbContext&gt;(options =>
+    options.UseInMemoryDatabase("ChatDb"));
+
+// Регистрация сервиса
+builder.Services.AddScoped&lt;IChatService, ChatService&gt;();
+
+// Swagger
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Глава 12: Тестирование",
+        Version = "v1",
+        Description = "Тестирование API и EF Core с In-Memory Database"
+    });
+});
+
+var app = builder.Build();
+
+app.UseSwagger();
+app.UseSwaggerUI();
+app.UseStaticFiles();
+app.UseRouting();
+app.UseAuthorization();
+
+app.MapRazorPages();
+app.MapControllers();
+
+app.Run();</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>8. Тесты: ChatServiceTests.cs</h3>
+                <p>Полный набор тестов для сервиса <code>ChatService</code>:</p>
+                <div class="code-block">
+                    <pre><code>using Asp_Book.Chapter12.Data;
+using Asp_Book.Chapter12.Services;
+using Microsoft.EntityFrameworkCore;
+using Xunit;
+
+namespace Asp_Book.Chapter12.Tests;
+
+public class ChatServiceTests
+{
+    // Создание In-Memory базы данных для каждого теста
+    private ChatDbContext GetInMemoryDbContext()
+    {
+        var options = new DbContextOptionsBuilder&lt;ChatDbContext&gt;()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+
+        return new ChatDbContext(options);
+    }
+
+    // ========== Тесты SendMessageAsync ==========
+
+    [Fact]
+    public async Task SendMessageAsync_ValidData_ReturnsSavedMessage()
+    {
+        // Arrange
+        var context = GetInMemoryDbContext();
+        var service = new ChatService(context);
+
+        // Act
+        var message = await service.SendMessageAsync("Привет", "User1");
+
+        // Assert — проверяем возвращённый объект
+        Assert.NotNull(message);
+        Assert.Equal("Привет", message.Text);
+        Assert.Equal("User1", message.Sender);
+        Assert.True(message.Id > 0);               // ID назначен
+        Assert.Null(message.GroupId);               // Без группы
+        Assert.True(message.CreatedAt &lt;= DateTime.UtcNow);  // Дата не в будущем
+    }
+
+    [Fact]
+    public async Task SendMessageAsync_WithGroup_SavesGroupId()
+    {
+        // Arrange
+        var context = GetInMemoryDbContext();
+        var service = new ChatService(context);
+        var group = await service.CreateGroupAsync("Тестовая группа");
+
+        // Act
+        var message = await service.SendMessageAsync("В группе", "User1", group.Id);
+
+        // Assert
+        Assert.Equal(group.Id, message.GroupId);
+    }
+
+    [Fact]
+    public async Task SendMessageAsync_MessagePersistsInDatabase()
+    {
+        // Arrange
+        var context = GetInMemoryDbContext();
+        var service = new ChatService(context);
+
+        // Act
+        var message = await service.SendMessageAsync("Тест БД", "User1");
+
+        // Assert — проверяем, что сообщение реально в базе
+        var savedMessage = await context.Messages.FindAsync(message.Id);
+        Assert.NotNull(savedMessage);
+        Assert.Equal("Тест БД", savedMessage!.Text);
+        Assert.Equal("User1", savedMessage.Sender);
+    }
+
+    // ========== Тесты GetMessagesAsync ==========
+
+    [Fact]
+    public async Task GetMessagesAsync_EmptyDb_ReturnsEmptyList()
+    {
+        // Arrange
+        var context = GetInMemoryDbContext();
+        var service = new ChatService(context);
+
+        // Act
+        var messages = await service.GetMessagesAsync();
+
+        // Assert
+        Assert.NotNull(messages);
+        Assert.Empty(messages);  // Пустая БД — пустой список
+    }
+
+    [Fact]
+    public async Task GetMessagesAsync_MultipleMessages_ReturnsAll()
+    {
+        // Arrange
+        var context = GetInMemoryDbContext();
+        var service = new ChatService(context);
+
+        await service.SendMessageAsync("Сообщение 1", "User1");
+        await service.SendMessageAsync("Сообщение 2", "User2");
+        await service.SendMessageAsync("Сообщение 3", "User1");
+
+        // Act
+        var messages = await service.GetMessagesAsync();
+
+        // Assert
+        Assert.Equal(3, messages.Count);
+        Assert.Equal("Сообщение 1", messages[0].Text);
+        Assert.Equal("Сообщение 2", messages[1].Text);
+        Assert.Equal("Сообщение 3", messages[2].Text);
+    }
+
+    [Fact]
+    public async Task GetMessagesAsync_WithGroupFilter_ReturnsOnlyGroupMessages()
+    {
+        // Arrange
+        var context = GetInMemoryDbContext();
+        var service = new ChatService(context);
+
+        var group = await service.CreateGroupAsync("Группа 1");
+        await service.SendMessageAsync("В группе", "User1", group.Id);
+        await service.SendMessageAsync("Без группы", "User2", null);
+        await service.SendMessageAsync("Тоже в группе", "User3", group.Id);
+
+        // Act
+        var groupMessages = await service.GetMessagesAsync(group.Id);
+        var allMessages = await service.GetMessagesAsync(null);
+
+        // Assert
+        Assert.Equal(2, groupMessages.Count);   // Только 2 из группы
+        Assert.Equal(3, allMessages.Count);      // Всего 3
+        Assert.All(groupMessages, m => Assert.Equal(group.Id, m.GroupId));
+    }
+
+    // ========== Тесты CreateGroupAsync ==========
+
+    [Fact]
+    public async Task CreateGroupAsync_ValidName_ReturnsGroupWithId()
+    {
+        // Arrange
+        var context = GetInMemoryDbContext();
+        var service = new ChatService(context);
+
+        // Act
+        var group = await service.CreateGroupAsync("Мой чат");
+
+        // Assert
+        Assert.NotNull(group);
+        Assert.Equal("Мой чат", group.Name);
+        Assert.True(group.Id > 0);
+
+        // Проверяем что группа в БД
+        var savedGroup = await context.ChatGroups.FindAsync(group.Id);
+        Assert.NotNull(savedGroup);
+    }
+
+    [Fact]
+    public async Task CreateGroupAsync_MultipleCalls_CreatesMultipleGroups()
+    {
+        // Arrange
+        var context = GetInMemoryDbContext();
+        var service = new ChatService(context);
+
+        // Act
+        var group1 = await service.CreateGroupAsync("Группа 1");
+        var group2 = await service.CreateGroupAsync("Группа 2");
+
+        // Assert
+        Assert.NotEqual(group1.Id, group2.Id);  // Разные ID
+        Assert.Equal(2, await context.ChatGroups.CountAsync());
+    }
 }</code></pre>
                     <div class="code-explanation">
-                        <strong>Объяснение:</strong> 
+                        <strong>Всего 8 тестов для сервиса:</strong>
                         <ul>
-                            <li><code>UseInMemoryDatabase</code> — создает БД в памяти</li>
-                            <li><code>Guid.NewGuid()</code> — уникальное имя для изоляции тестов</li>
-                            <li>Каждый тест получает чистую БД</li>
+                            <li>3 теста на <code>SendMessageAsync</code> — валидные данные, с группой, проверка БД</li>
+                            <li>3 теста на <code>GetMessagesAsync</code> — пустая БД, несколько сообщений, фильтр по группе</li>
+                            <li>2 теста на <code>CreateGroupAsync</code> — создание одной и нескольких групп</li>
                         </ul>
                     </div>
                 </div>
             </section>
 
             <section class="mb-5">
-                <h3>2. Тест контроллера</h3>
+                <h3>9. Тесты: ChatControllerTests.cs</h3>
+                <p>Тесты для контроллера — проверяем HTTP-ответы:</p>
                 <div class="code-block">
-                    <pre><code>using Xunit;
+                    <pre><code>using Asp_Book.Chapter12.Controllers;
+using Asp_Book.Chapter12.Data;
+using Asp_Book.Chapter12.Models;
+using Asp_Book.Chapter12.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Xunit;
 
-[Fact]
-public async Task SendMessage_ShouldReturnOk()
+namespace Asp_Book.Chapter12.Tests;
+
+public class ChatControllerTests
 {
-    // Arrange - подготовка
-    var context = GetInMemoryDbContext();
-    var service = new ChatService(context);
-    var controller = new ChatController(service);
-
-    var request = new SendMessageRequest
+    private ChatDbContext GetInMemoryDbContext()
     {
-        Text = "Привет",
-        Sender = "User1"
-    };
+        var options = new DbContextOptionsBuilder&lt;ChatDbContext&gt;()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+        return new ChatDbContext(options);
+    }
 
-    // Act - выполнение
-    var result = await controller.SendMessage(request);
+    // Создаём контроллер с реальным сервисом и In-Memory БД
+    private ChatController CreateController(ChatDbContext context)
+    {
+        var service = new ChatService(context);
+        return new ChatController(service);
+    }
 
-    // Assert - проверка
-    var okResult = Assert.IsType&lt;OkObjectResult&gt;(result);
-    var message = Assert.IsType&lt;Message&gt;(okResult.Value);
-    Assert.Equal("Привет", message.Text);
-    Assert.Equal("User1", message.Sender);
+    [Fact]
+    public async Task SendMessage_ValidData_ReturnsOkWithMessage()
+    {
+        // Arrange
+        var context = GetInMemoryDbContext();
+        var controller = CreateController(context);
+
+        var request = new SendMessageRequest
+        {
+            Text = "Привет из теста",
+            Sender = "TestUser"
+        };
+
+        // Act
+        var result = await controller.SendMessage(request);
+
+        // Assert
+        var okResult = Assert.IsType&lt;OkObjectResult&gt;(result);  // HTTP 200
+        var message = Assert.IsType&lt;Message&gt;(okResult.Value);   // Тело = Message
+        Assert.Equal("Привет из теста", message.Text);
+        Assert.Equal("TestUser", message.Sender);
+        Assert.True(message.Id > 0);
+    }
+
+    [Fact]
+    public async Task GetMessages_EmptyDb_ReturnsOkWithEmptyList()
+    {
+        // Arrange
+        var context = GetInMemoryDbContext();
+        var controller = CreateController(context);
+
+        // Act
+        var result = await controller.GetMessages();
+
+        // Assert
+        var okResult = Assert.IsType&lt;OkObjectResult&gt;(result);
+        var messages = Assert.IsType&lt;List&lt;Message&gt;&gt;(okResult.Value);
+        Assert.Empty(messages);
+    }
+
+    [Fact]
+    public async Task GetMessages_WithMessages_ReturnsOkWithList()
+    {
+        // Arrange
+        var context = GetInMemoryDbContext();
+        var service = new ChatService(context);
+        var controller = new ChatController(service);
+
+        // Подготавливаем данные через сервис
+        await service.SendMessageAsync("Msg 1", "User1");
+        await service.SendMessageAsync("Msg 2", "User2");
+
+        // Act
+        var result = await controller.GetMessages();
+
+        // Assert
+        var okResult = Assert.IsType&lt;OkObjectResult&gt;(result);
+        var messages = Assert.IsType&lt;List&lt;Message&gt;&gt;(okResult.Value);
+        Assert.Equal(2, messages.Count);
+    }
+
+    [Fact]
+    public async Task CreateGroup_ValidName_ReturnsOkWithGroup()
+    {
+        // Arrange
+        var context = GetInMemoryDbContext();
+        var controller = CreateController(context);
+
+        var request = new CreateGroupRequest { Name = "Тестовая группа" };
+
+        // Act
+        var result = await controller.CreateGroup(request);
+
+        // Assert
+        var okResult = Assert.IsType&lt;OkObjectResult&gt;(result);
+        var group = Assert.IsType&lt;ChatGroup&gt;(okResult.Value);
+        Assert.Equal("Тестовая группа", group.Name);
+        Assert.True(group.Id > 0);
+    }
+
+    [Fact]
+    public async Task GetMessages_WithGroupFilter_ReturnsFilteredMessages()
+    {
+        // Arrange
+        var context = GetInMemoryDbContext();
+        var service = new ChatService(context);
+        var controller = new ChatController(service);
+
+        var group = await service.CreateGroupAsync("Фильтр");
+        await service.SendMessageAsync("В группе", "User1", group.Id);
+        await service.SendMessageAsync("Без группы", "User2");
+
+        // Act
+        var result = await controller.GetMessages(group.Id);
+
+        // Assert
+        var okResult = Assert.IsType&lt;OkObjectResult&gt;(result);
+        var messages = Assert.IsType&lt;List&lt;Message&gt;&gt;(okResult.Value);
+        Assert.Single(messages);
+        Assert.Equal("В группе", messages[0].Text);
+    }
 }</code></pre>
+                    <div class="code-explanation">
+                        <strong>Всего 5 тестов для контроллера:</strong>
+                        <ul>
+                            <li><code>SendMessage</code> — возвращает 200 OK с Message</li>
+                            <li><code>GetMessages</code> (пустая БД) — возвращает 200 OK с пустым списком</li>
+                            <li><code>GetMessages</code> (с данными) — возвращает 200 OK со списком</li>
+                            <li><code>CreateGroup</code> — возвращает 200 OK с ChatGroup</li>
+                            <li><code>GetMessages</code> (с фильтром) — возвращает только сообщения группы</li>
+                        </ul>
+                    </div>
                 </div>
             </section>
 
             <section class="mb-5">
-                <h3>3. Тест сервиса с EF Core</h3>
+                <h3>10. Тестовый проект: .csproj</h3>
                 <div class="code-block">
-                    <pre><code>[Fact]
-public async Task SendMessageAsync_ShouldSaveMessage()
-{
-    // Arrange
-    var context = GetInMemoryDbContext();
-    var service = new ChatService(context);
+                    <pre><code>&lt;Project Sdk="Microsoft.NET.Sdk"&gt;
+  &lt;PropertyGroup&gt;
+    &lt;TargetFramework&gt;net10.0&lt;/TargetFramework&gt;
+    &lt;ImplicitUsings&gt;enable&lt;/ImplicitUsings&gt;
+    &lt;Nullable&gt;enable&lt;/Nullable&gt;
+    &lt;IsPackable&gt;false&lt;/IsPackable&gt;
+  &lt;/PropertyGroup&gt;
 
-    // Act
-    var message = await service.SendMessageAsync("Тест", "User1");
+  &lt;ItemGroup&gt;
+    &lt;PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" /&gt;
+    &lt;PackageReference Include="xunit" Version="2.6.2" /&gt;
+    &lt;PackageReference Include="xunit.runner.visualstudio" Version="2.5.4" /&gt;
+    &lt;PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.3" /&gt;
+  &lt;/ItemGroup&gt;
 
-    // Assert
-    Assert.NotNull(message);
-    Assert.Equal("Тест", message.Text);
-    Assert.Equal("User1", message.Sender);
-    Assert.True(message.Id > 0);
-    
-    // Проверка что сообщение сохранено в БД
-    var savedMessage = await context.Messages.FindAsync(message.Id);
-    Assert.NotNull(savedMessage);
-}</code></pre>
+  &lt;ItemGroup&gt;
+    &lt;ProjectReference Include="..\Asp_Book.Chapter12\Asp_Book.Chapter12.csproj" /&gt;
+  &lt;/ItemGroup&gt;
+&lt;/Project&gt;</code></pre>
                 </div>
             </section>
 
             <section class="mb-5">
-                <h3>4. Тест с несколькими сообщениями</h3>
+                <h3>11. Структура проекта</h3>
                 <div class="code-block">
-                    <pre><code>[Fact]
-public async Task GetMessagesAsync_ShouldReturnMessages()
-{
-    // Arrange
-    var context = GetInMemoryDbContext();
-    var service = new ChatService(context);
+                    <pre><code># Основной проект
+Asp_Book.Chapter12/
+├── Controllers/
+│   └── ChatController.cs           — API: send, messages, groups
+├── Data/
+│   └── ChatDbContext.cs            — DbContext (Messages, ChatGroups)
+├── Models/
+│   ├── Message.cs                  — модель сообщения
+│   └── ChatGroup.cs                — модель группы
+├── Services/
+│   ├── IChatService.cs             — интерфейс сервиса
+│   └── ChatService.cs              — реализация (CRUD с EF Core)
+├── Program.cs                      — InMemoryDb + DI + Swagger
+└── appsettings.json
 
-    await service.SendMessageAsync("Сообщение 1", "User1");
-    await service.SendMessageAsync("Сообщение 2", "User2");
-
-    // Act
-    var messages = await service.GetMessagesAsync();
-
-    // Assert
-    Assert.Equal(2, messages.Count);
-    Assert.Equal("Сообщение 1", messages[0].Text);
-    Assert.Equal("Сообщение 2", messages[1].Text);
-}</code></pre>
+# Тестовый проект
+Asp_Book.Chapter12.Tests/
+├── ChatServiceTests.cs             — 8 unit тестов сервиса
+├── ChatControllerTests.cs          — 5 integration тестов контроллера
+└── Asp_Book.Chapter12.Tests.csproj — ссылка на основной проект</code></pre>
                 </div>
             </section>
 
             <section class="mb-5">
-                <h3>5. Тест с группами</h3>
+                <h3>12. Запуск тестов</h3>
+
+                <p><strong>Из командной строки:</strong></p>
                 <div class="code-block">
-                    <pre><code>[Fact]
-public async Task GetMessagesAsync_WithGroupId_ShouldReturnGroupMessages()
-{
-    // Arrange
-    var context = GetInMemoryDbContext();
-    var service = new ChatService(context);
-
-    var group = await service.CreateGroupAsync("Группа 1");
-    await service.SendMessageAsync("В группе", "User1", group.Id);
-    await service.SendMessageAsync("Вне группы", "User2", null);
-
-    // Act
-    var groupMessages = await service.GetMessagesAsync(group.Id);
-    var allMessages = await service.GetMessagesAsync(null);
-
-    // Assert
-    Assert.Single(groupMessages);
-    Assert.Equal(2, allMessages.Count);
-}</code></pre>
-                </div>
-            </section>
-
-            <section class="mb-5">
-                <h3>6. Запуск тестов</h3>
-                <div class="code-block">
-                    <pre><code>// В терминале:
+                    <pre><code># Запуск всех тестов
 dotnet test
 
-// Или в Visual Studio:
-// Test Explorer -> Run All Tests</code></pre>
+# Подробный вывод
+dotnet test --verbosity normal
+
+# Ожидаемый результат:
+# Passed!  - Failed: 0, Passed: 13, Skipped: 0, Total: 13</code></pre>
+                </div>
+
+                <p><strong>Из Visual Studio:</strong></p>
+                <div class="code-block">
+                    <pre><code>// 1. Откройте Test Explorer: Test → Test Explorer
+// 2. Нажмите "Run All Tests" (▶)
+// 3. Зелёная галочка ✅ — тест прошёл
+// 4. Красный крестик ❌ — тест упал (кликните для деталей)</code></pre>
+                </div>
+
+                <p><strong>Запуск конкретного теста:</strong></p>
+                <div class="code-block">
+                    <pre><code># Только тесты сервиса:
+dotnet test --filter "FullyQualifiedName~ChatServiceTests"
+
+# Только один тест:
+dotnet test --filter "SendMessageAsync_ValidData_ReturnsSavedMessage"</code></pre>
                 </div>
             </section>
         </div>
@@ -315,7 +1352,7 @@ dotnet test
                 <div class="mb-2 p-2 border-bottom">
                     <strong>${m.sender}</strong>${m.groupName ? ` [${m.groupName}]` : ''}<br>
                     <small>${m.text}</small><br>
-                    <small class="text-muted">${new Date(m.timestamp).toLocaleString()}</small>
+                    <small class="text-muted">${new Date(m.createdAt).toLocaleString()}</small>
                 </div>
             `).join('');
             messagesArea.scrollTop = messagesArea.scrollHeight;
@@ -333,7 +1370,7 @@ dotnet test
             }
 
             try {
-                const response = await fetch(`${API_URL}/send`, {
+                const response = await fetch(`${API_URL}/messages`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({

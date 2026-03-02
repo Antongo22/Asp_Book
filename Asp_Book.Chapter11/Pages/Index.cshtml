@@ -25,15 +25,517 @@
             <h2>Теория</h2>
 
             <section class="mb-5">
-                <h3>Авторизация в SignalR</h3>
-                <p>SignalR поддерживает авторизацию через атрибут <code>[Authorize]</code> на Hub классе или методах.</p>
-                
-                <h4>Способы авторизации:</h4>
+                <h3>Зачем нужна авторизация в приложениях реального времени?</h3>
+                <p>В предыдущих главах мы создали WebSocket (глава 9) и SignalR (глава 10) чаты, но они были <strong>полностью открытыми</strong> — кто угодно мог подключиться и отправлять сообщения. В реальных приложениях нужно:</p>
                 <ul>
-                    <li><strong>На уровне Hub:</strong> <code>[Authorize]</code> на классе Hub</li>
-                    <li><strong>На уровне метода:</strong> <code>[Authorize(Roles = "Admin")]</code> на конкретном методе</li>
-                    <li><strong>Передача токена:</strong> Через query параметр <code>access_token</code></li>
+                    <li><strong>Знать, кто подключился</strong> — чтобы показывать имена, а не ID</li>
+                    <li><strong>Ограничивать доступ</strong> — не все пользователи должны видеть все каналы</li>
+                    <li><strong>Разграничивать права</strong> — администраторы имеют больше возможностей</li>
+                    <li><strong>Защищать данные</strong> — конфиденциальные уведомления только для нужных пользователей</li>
                 </ul>
+
+                <div class="alert alert-info mt-3">
+                    <strong>Основная идея:</strong> мы используем <strong>JWT токены</strong> (из главы 7) для авторизации подключений к SignalR Hub и WebSocket.
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Проблема: как передать JWT в SignalR?</h3>
+                <p>В обычных HTTP-запросах токен передаётся в заголовке <code>Authorization: Bearer {token}</code>. Но у SignalR и WebSocket есть <strong>проблема</strong>:</p>
+
+                <div class="alert alert-danger">
+                    <strong>Проблема:</strong> WebSocket API в браузере <strong>не позволяет</strong> устанавливать пользовательские заголовки (Authorization) при создании соединения!
+                </div>
+
+                <h4>Решение: передача токена через Query String</h4>
+                <p>Токен передаётся как параметр URL:</p>
+                <div class="code-block">
+                    <pre><code>// Вместо заголовка Authorization:
+// GET /chathub HTTP/1.1
+// Authorization: Bearer eyJhbG...
+
+// Передаём через query string:
+// GET /chathub?access_token=eyJhbG...
+
+// На клиенте (JavaScript):
+const connection = new signalR.HubConnectionBuilder()
+    .withUrl("/authorizedchathub", {
+        accessTokenFactory: () => token  // SignalR автоматически добавит ?access_token=...
+    })
+    .build();</code></pre>
+                    <div class="code-explanation">
+                        <strong>accessTokenFactory</strong> — функция, которая возвращает токен. SignalR вызывает её перед каждым подключением и автоматически добавляет <code>?access_token=...</code> к URL.
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Настройка JWT для SignalR в Program.cs</h3>
+                <p>Чтобы сервер мог прочитать токен из query string, нужно настроить <strong>событие</strong> <code>OnMessageReceived</code> в конфигурации JWT.</p>
+
+                <div class="code-block">
+                    <pre><code>// Program.cs
+var secretKey = builder.Configuration["Jwt:SecretKey"] 
+    ?? "MySuperSecretKeyThatIsAtLeast32CharactersLong!";
+var issuer = builder.Configuration["Jwt:Issuer"] ?? "AspBook";
+var audience = builder.Configuration["Jwt:Audience"] ?? "AspBookUsers";
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    // Стандартная валидация токена (как в главе 7)
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes(secretKey)),
+        ValidateIssuer = true,
+        ValidIssuer = issuer,
+        ValidateAudience = true,
+        ValidAudience = audience,
+        ValidateLifetime = true,
+        ClockSkew = TimeSpan.Zero
+    };
+
+    // НОВОЕ: обработка токена из query string для SignalR
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            // 1. Читаем токен из query параметра
+            var accessToken = context.Request.Query["access_token"];
+            
+            // 2. Проверяем, что запрос идёт к Hub
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) 
+                &amp;&amp; path.StartsWithSegments("/authorizedchathub"))
+            {
+                // 3. Устанавливаем токен — ASP.NET Core обработает его как обычный Bearer
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
+    };
+});</code></pre>
+                    <div class="code-explanation">
+                        <strong>Что происходит по шагам:</strong>
+                        <ol>
+                            <li>Клиент подключается к <code>/authorizedchathub?access_token=eyJhbG...</code></li>
+                            <li>ASP.NET Core вызывает событие <code>OnMessageReceived</code></li>
+                            <li>Мы извлекаем токен из query string и устанавливаем <code>context.Token</code></li>
+                            <li>ASP.NET Core валидирует токен как обычный Bearer token</li>
+                            <li>Если токен валидный — <code>Context.User</code> в Hub заполняется данными из claims</li>
+                        </ol>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Атрибут [Authorize] на SignalR Hub</h3>
+                <p>Атрибут <code>[Authorize]</code> работает так же, как в контроллерах, но применяется к Hub.</p>
+
+                <h4>1. Авторизация на уровне всего Hub</h4>
+                <div class="code-block">
+                    <pre><code>using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.SignalR;
+
+[Authorize]  // ← Все методы Hub требуют авторизации
+public class AuthorizedChatHub : Hub
+{
+    public async Task SendToAll(string message)
+    {
+        // Если пользователь не авторизован — сюда не попадёт
+        var username = Context.User?.Identity?.Name ?? "Unknown";
+        await Clients.All.SendAsync("ReceiveMessage", username, message);
+    }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Что произойдет без токена:</strong> Клиент получит ошибку при попытке подключения — SignalR вернёт <strong>401 Unauthorized</strong> и соединение не будет установлено.
+                    </div>
+                </div>
+
+                <h4>2. Авторизация на уровне метода</h4>
+                <div class="code-block">
+                    <pre><code>[Authorize]
+public class ChatHub : Hub
+{
+    // Доступно всем авторизованным пользователям
+    public async Task SendToAll(string message) { ... }
+
+    // Доступно ТОЛЬКО пользователям с ролью "Admin"
+    [Authorize(Roles = "Admin")]
+    public async Task SendToAdmins(string message)
+    {
+        await Clients.Group("Admins").SendAsync("ReceiveAdminMessage", 
+            Context.User?.Identity?.Name, message);
+    }
+
+    // Переопределение: разрешить без авторизации
+    // (не работает, если [Authorize] на классе — Hub всё равно требует подключение с токеном)
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Извлечение данных пользователя в Hub (Context.User)</h3>
+                <p>После успешной авторизации, <strong>все claims из JWT</strong> доступны через <code>Context.User</code>.</p>
+
+                <div class="code-block">
+                    <pre><code>[Authorize]
+public class AuthorizedChatHub : Hub
+{
+    public async Task SendToAll(string message)
+    {
+        // Извлекаем данные из JWT токена
+        var username = Context.User?.Identity?.Name ?? "Unknown";
+        var userId = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var email = Context.User?.FindFirst(ClaimTypes.Email)?.Value;
+        var role = Context.User?.FindFirst(ClaimTypes.Role)?.Value;
+        var connectionId = Context.ConnectionId;
+
+        await Clients.All.SendAsync("ReceiveMessage", username, message);
+    }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Доступные свойства Context:</strong>
+                        <table class="table table-striped table-bordered mt-2">
+                            <thead>
+                                <tr>
+                                    <th>Свойство</th>
+                                    <th>Описание</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>Context.User</code></td>
+                                    <td>Объект <code>ClaimsPrincipal</code> с данными из JWT</td>
+                                </tr>
+                                <tr>
+                                    <td><code>Context.User?.Identity?.Name</code></td>
+                                    <td>Имя пользователя (из <code>ClaimTypes.Name</code>)</td>
+                                </tr>
+                                <tr>
+                                    <td><code>Context.User?.IsInRole("Admin")</code></td>
+                                    <td>Проверка роли (из <code>ClaimTypes.Role</code>)</td>
+                                </tr>
+                                <tr>
+                                    <td><code>Context.ConnectionId</code></td>
+                                    <td>Уникальный ID SignalR-соединения</td>
+                                </tr>
+                                <tr>
+                                    <td><code>Context.GetHttpContext()</code></td>
+                                    <td>Доступ к HTTP-контексту (заголовки, cookies)</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Группы и роли с авторизацией</h3>
+                <p>С авторизацией мы можем <strong>автоматически</strong> добавлять пользователей в группы по ролям при подключении.</p>
+
+                <div class="code-block">
+                    <pre><code>[Authorize]
+public class AuthorizedChatHub : Hub
+{
+    // При подключении — добавляем в группу по роли
+    public override async Task OnConnectedAsync()
+    {
+        var username = Context.User?.Identity?.Name ?? "Unknown";
+        var role = Context.User?.FindFirst(ClaimTypes.Role)?.Value;
+
+        // Автоматическое добавление в группу по роли
+        if (Context.User?.IsInRole("Admin") == true)
+        {
+            await Groups.AddToGroupAsync(Context.ConnectionId, "Admins");
+        }
+
+        // Уведомляем всех
+        await Clients.All.SendAsync("UserConnected", username);
+        await base.OnConnectedAsync();
+    }
+
+    // При отключении — убираем из группы
+    public override async Task OnDisconnectedAsync(Exception? exception)
+    {
+        if (Context.User?.IsInRole("Admin") == true)
+        {
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, "Admins");
+        }
+
+        var username = Context.User?.Identity?.Name ?? "Unknown";
+        await Clients.All.SendAsync("UserDisconnected", username);
+        await base.OnDisconnectedAsync(exception);
+    }
+
+    // Метод только для администраторов
+    [Authorize(Roles = "Admin")]
+    public async Task SendToAdmins(string message)
+    {
+        var username = Context.User?.Identity?.Name ?? "Unknown";
+        await Clients.Group("Admins").SendAsync("ReceiveAdminMessage", username, message);
+    }
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Авторизация WebSocket с Middleware</h3>
+                <p>Для чистых WebSocket (без SignalR) авторизацию реализуем в <strong>middleware</strong>.</p>
+
+                <div class="code-block">
+                    <pre><code>public class AuthorizedWebSocketMiddleware
+{
+    private readonly RequestDelegate _next;
+    private static readonly Dictionary&lt;string, WebSocket&gt; _connections = new();
+    private static readonly Dictionary&lt;string, string&gt; _userConnections = new();
+
+    public AuthorizedWebSocketMiddleware(RequestDelegate next)
+    {
+        _next = next;
+    }
+
+    public async Task InvokeAsync(HttpContext context)
+    {
+        if (context.WebSockets.IsWebSocketRequest)
+        {
+            // 1. Получаем токен из query string
+            var token = context.Request.Query["access_token"].ToString();
+            
+            // 2. Если токена нет — отказ
+            if (string.IsNullOrEmpty(token))
+            {
+                context.Response.StatusCode = 401;
+                return;
+            }
+
+            // 3. Проверяем, авторизован ли пользователь
+            //    (если JWT middleware уже обработал токен)
+            if (context.User?.Identity?.IsAuthenticated != true)
+            {
+                context.Response.StatusCode = 401;
+                return;
+            }
+
+            // 4. Принимаем соединение
+            var webSocket = await context.WebSockets.AcceptWebSocketAsync();
+            var connectionId = Guid.NewGuid().ToString();
+            var username = context.User?.Identity?.Name ?? "Unknown";
+            
+            _connections[connectionId] = webSocket;
+            _userConnections[connectionId] = username;
+
+            await HandleWebSocket(webSocket, connectionId, username);
+        }
+        else
+        {
+            await _next(context);
+        }
+    }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Отличие от обычного WebSocket middleware:</strong>
+                        <ul>
+                            <li>Проверяем наличие <code>access_token</code> в query string</li>
+                            <li>Проверяем, что пользователь авторизован (<code>IsAuthenticated</code>)</li>
+                            <li>Если нет — возвращаем <strong>401</strong> и не принимаем соединение</li>
+                            <li>Сохраняем имя пользователя из claims</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Клиентский код с передачей токена</h3>
+
+                <h4>SignalR с JWT токеном:</h4>
+                <div class="code-block">
+                    <pre><code>// Получаем токен (из localStorage, cookie, или после логина)
+const token = localStorage.getItem('accessToken');
+
+// Создаём соединение с передачей токена
+const connection = new signalR.HubConnectionBuilder()
+    .withUrl("/authorizedchathub", {
+        accessTokenFactory: () => token
+        // SignalR добавит ?access_token=eyJhbG... к URL
+    })
+    .build();
+
+// Обработка событий
+connection.on("ReceiveMessage", (user, message) => {
+    console.log(`${user}: ${message}`);
+});
+
+// Подключение
+connection.start()
+    .then(() => console.log('Авторизованное подключение установлено'))
+    .catch(err => {
+        if (err.message &amp;&amp; err.message.includes('401')) {
+            console.error('Токен невалиден или отсутствует');
+            // Перенаправить на логин
+        }
+    });</code></pre>
+                </div>
+
+                <h4>WebSocket с JWT токеном:</h4>
+                <div class="code-block">
+                    <pre><code>const token = localStorage.getItem('accessToken');
+const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+
+// Передаём токен через query string
+const ws = new WebSocket(
+    `${protocol}//${window.location.host}/ws?access_token=${token}`
+);
+
+ws.onopen = () => console.log('Авторизованный WebSocket подключен');
+ws.onerror = () => console.error('Ошибка (возможно, 401)');</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Регистрация в Program.cs (полная настройка)</h3>
+                <p>Полная конфигурация <code>Program.cs</code> для авторизации SignalR и WebSocket:</p>
+
+                <div class="code-block">
+                    <pre><code>using Asp_Book.Chapter11.Hubs;
+using Asp_Book.Chapter11.Middleware;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddControllers();
+builder.Services.AddRazorPages();
+
+// 1. SignalR
+builder.Services.AddSignalR();
+
+// 2. JWT Authentication
+var secretKey = builder.Configuration["Jwt:SecretKey"] 
+    ?? "MySuperSecretKeyThatIsAtLeast32CharactersLong!";
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes(secretKey)),
+        ValidateIssuer = true,
+        ValidIssuer = builder.Configuration["Jwt:Issuer"] ?? "AspBook",
+        ValidateAudience = true,
+        ValidAudience = builder.Configuration["Jwt:Audience"] ?? "AspBookUsers",
+        ValidateLifetime = true,
+        ClockSkew = TimeSpan.Zero
+    };
+
+    // Чтение токена из query string для SignalR
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) 
+                &amp;&amp; path.StartsWithSegments("/authorizedchathub"))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
+    };
+});
+
+builder.Services.AddAuthorization();
+
+var app = builder.Build();
+
+app.UseStaticFiles();
+app.UseRouting();
+
+app.UseAuthentication();  // Сначала аутентификация
+app.UseAuthorization();   // Потом авторизация
+
+// WebSocket с авторизацией
+app.UseWebSockets();
+app.UseMiddleware&lt;AuthorizedWebSocketMiddleware&gt;();
+
+app.MapRazorPages();
+app.MapControllers();
+
+// SignalR Hub с авторизацией
+app.MapHub&lt;AuthorizedChatHub&gt;("/authorizedchathub");
+
+app.Run();</code></pre>
+                    <div class="code-explanation">
+                        <strong>Порядок middleware критически важен:</strong>
+                        <ol>
+                            <li><code>UseAuthentication()</code> — должен быть <strong>до</strong> <code>UseAuthorization()</code></li>
+                            <li><code>UseAuthorization()</code> — должен быть <strong>до</strong> маппинга Hub</li>
+                            <li><code>UseWebSockets()</code> — должен быть <strong>до</strong> WebSocket middleware</li>
+                            <li><code>MapHub</code> — маппинг после всех middleware</li>
+                        </ol>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Сравнение подходов авторизации</h3>
+                <div class="table-responsive">
+                    <table class="table table-striped table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Параметр</th>
+                                <th>SignalR + JWT</th>
+                                <th>WebSocket + JWT</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Передача токена</td>
+                                <td><code>accessTokenFactory</code> (автоматически)</td>
+                                <td>Вручную в URL: <code>?access_token=...</code></td>
+                            </tr>
+                            <tr>
+                                <td>Проверка токена</td>
+                                <td>Автоматическая (<code>OnMessageReceived</code>)</td>
+                                <td>Вручную в middleware</td>
+                            </tr>
+                            <tr>
+                                <td>Доступ к данным</td>
+                                <td><code>Context.User</code></td>
+                                <td><code>context.User</code> (из HttpContext)</td>
+                            </tr>
+                            <tr>
+                                <td>Атрибут [Authorize]</td>
+                                <td>✅ На классе и методах</td>
+                                <td>❌ Проверка вручную в middleware</td>
+                            </tr>
+                            <tr>
+                                <td>Группы по ролям</td>
+                                <td>✅ Встроенные Groups</td>
+                                <td>❌ Словарь вручную</td>
+                            </tr>
+                            <tr>
+                                <td>Переподключение</td>
+                                <td>✅ Автоматическое с новым токеном</td>
+                                <td>❌ Вручную</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </section>
 
             <section class="mb-5">
@@ -103,123 +605,478 @@
             </section>
 
             <section class="mb-5">
-                <h3>Задача: Реализовать авторизацию</h3>
+                <h3>Задание для закрепления</h3>
                 <div class="alert alert-warning">
                     <h5>Ваша задача:</h5>
-                    <p>Изучите реализацию авторизации в SignalR и WebSockets:</p>
+                    <p>Создайте авторизованный SignalR Hub <code>AuthorizedChatHub</code>, который:</p>
                     <ul>
-                        <li>Как защитить SignalR Hub авторизацией?</li>
-                        <li>Как передать JWT токен в SignalR?</li>
-                        <li>Как авторизовать WebSocket соединение?</li>
+                        <li>Требует JWT токен для подключения (атрибут <code>[Authorize]</code>)</li>
+                        <li>Метод <code>SendToAll(string message)</code> — извлекает имя из токена и отправляет всем</li>
+                        <li>Метод <code>SendToUser(string targetUser, string message)</code> — отправка конкретному пользователю</li>
+                        <li>Метод <code>SendToAdmins(string message)</code> — доступен <strong>только пользователям с ролью Admin</strong></li>
+                        <li>При подключении — автоматически добавляет Admin в группу "Admins"</li>
+                        <li>При отключении — убирает из группы</li>
                     </ul>
+                    <p>Настройте <code>Program.cs</code> с JWT аутентификацией, чтением токена из query string, и маппингом Hub.</p>
                 </div>
             </section>
         </div>
 
         <div class="tab-pane fade" id="answers" role="tabpanel">
-            <h2>Решение: Авторизация с SignalR и WebSockets</h2>
+            <h2>Полное решение: Авторизация с SignalR и WebSockets</h2>
+            <p>Ниже — все файлы, необходимые для работы решения.</p>
 
             <section class="mb-5">
-                <h3>1. SignalR Hub с авторизацией</h3>
+                <h3>1. appsettings.json</h3>
                 <div class="code-block">
-                    <pre><code>using Microsoft.AspNetCore.Authorization;
+                    <pre><code>{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*",
+  "Jwt": {
+    "SecretKey": "MySuperSecretKeyThatIsAtLeast32CharactersLong!",
+    "Issuer": "AspBook",
+    "Audience": "AspBookUsers"
+  }
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>2. Hubs/AuthorizedChatHub.cs</h3>
+                <div class="code-block">
+                    <pre><code>using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 
-[Authorize] // Требует авторизации для подключения
+namespace Asp_Book.Chapter11.Hubs;
+
+[Authorize]  // Требует JWT для подключения
 public class AuthorizedChatHub : Hub
 {
+    // Отправка сообщения ВСЕМ авторизованным пользователям
     public async Task SendToAll(string message)
     {
+        // Извлекаем имя пользователя из JWT claims
         var username = Context.User?.Identity?.Name ?? "Unknown";
         await Clients.All.SendAsync("ReceiveMessage", username, message);
     }
 
-    [Authorize(Roles = "Admin")] // Только для администраторов
+    // Отправка сообщения КОНКРЕТНОМУ пользователю
+    public async Task SendToUser(string targetUser, string message)
+    {
+        var username = Context.User?.Identity?.Name ?? "Unknown";
+        await Clients.User(targetUser).SendAsync("ReceiveMessage", username, message);
+    }
+
+    // Отправка ТОЛЬКО администраторам
+    [Authorize(Roles = "Admin")]
     public async Task SendToAdmins(string message)
     {
         var username = Context.User?.Identity?.Name ?? "Unknown";
         await Clients.Group("Admins").SendAsync("ReceiveAdminMessage", username, message);
     }
 
+    // При подключении — добавляем Admin в группу "Admins"
     public override async Task OnConnectedAsync()
     {
-        // Добавление в группу по роли
+        var username = Context.User?.Identity?.Name ?? "Unknown";
+
+        // Автоматическое добавление в группу по роли
         if (Context.User?.IsInRole("Admin") == true)
         {
             await Groups.AddToGroupAsync(Context.ConnectionId, "Admins");
         }
+
+        // Уведомляем всех о подключении (с именем, а не ID!)
+        await Clients.All.SendAsync("UserConnected", username);
         await base.OnConnectedAsync();
+    }
+
+    // При отключении — убираем из группы
+    public override async Task OnDisconnectedAsync(Exception? exception)
+    {
+        if (Context.User?.IsInRole("Admin") == true)
+        {
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, "Admins");
+        }
+
+        var username = Context.User?.Identity?.Name ?? "Unknown";
+        await Clients.All.SendAsync("UserDisconnected", username);
+        await base.OnDisconnectedAsync(exception);
+    }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Ключевые моменты:</strong>
+                        <ul>
+                            <li><code>[Authorize]</code> на классе — подключение без JWT невозможно</li>
+                            <li><code>[Authorize(Roles = "Admin")]</code> на методе — дополнительная проверка роли</li>
+                            <li><code>Context.User?.Identity?.Name</code> — имя из JWT claim <code>ClaimTypes.Name</code></li>
+                            <li><code>Context.User?.IsInRole("Admin")</code> — проверка роли из claim <code>ClaimTypes.Role</code></li>
+                            <li><code>Groups.AddToGroupAsync</code> — добавление в группу SignalR для массовой рассылки</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>3. Middleware/AuthorizedWebSocketMiddleware.cs</h3>
+                <div class="code-block">
+                    <pre><code>using System.Net.WebSockets;
+                    using System.Text;
+
+namespace Asp_Book.Chapter11.Middleware;
+
+public class AuthorizedWebSocketMiddleware
+{
+    private readonly RequestDelegate _next;
+    private static readonly Dictionary&lt;string, WebSocket&gt; _connections = new();
+    private static readonly Dictionary&lt;string, string&gt; _userConnections = new();
+
+    public AuthorizedWebSocketMiddleware(RequestDelegate next)
+    {
+        _next = next;
+    }
+
+    public async Task InvokeAsync(HttpContext context)
+    {
+        if (context.WebSockets.IsWebSocketRequest)
+        {
+            // 1. Проверяем наличие токена
+            var token = context.Request.Query["access_token"].ToString();
+            if (string.IsNullOrEmpty(token))
+            {
+                context.Response.StatusCode = 401;  // Unauthorized
+                return;
+            }
+
+            // 2. Принимаем соединение
+            var webSocket = await context.WebSockets.AcceptWebSocketAsync();
+            var connectionId = Guid.NewGuid().ToString();
+            _connections[connectionId] = webSocket;
+
+            await HandleWebSocket(webSocket, connectionId);
+        }
+        else
+        {
+            await _next(context);
+        }
+    }
+
+    private async Task HandleWebSocket(WebSocket webSocket, string connectionId)
+    {
+        var buffer = new byte[1024 * 4];
+
+        try
+        {
+            while (webSocket.State == WebSocketState.Open)
+            {
+                var result = await webSocket.ReceiveAsync(
+                    new ArraySegment&lt;byte&gt;(buffer), CancellationToken.None);
+
+                if (result.MessageType == WebSocketMessageType.Text)
+                {
+                    var message = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                    await BroadcastMessageAsync($"{connectionId}: {message}");
+                }
+                else if (result.MessageType == WebSocketMessageType.Close)
+                {
+                    await webSocket.CloseAsync(
+                        WebSocketCloseStatus.NormalClosure,
+                        "Connection closed",
+                        CancellationToken.None);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"WebSocket error: {ex.Message}");
+        }
+        finally
+        {
+            _connections.Remove(connectionId);
+            _userConnections.Remove(connectionId);
+
+            if (webSocket.State == WebSocketState.Open)
+            {
+                await webSocket.CloseAsync(
+                    WebSocketCloseStatus.NormalClosure,
+                    "Connection closed",
+                    CancellationToken.None);
+            }
+        }
+    }
+
+    private async Task BroadcastMessageAsync(string message)
+    {
+        var messageBytes = Encoding.UTF8.GetBytes(message);
+        var tasks = _connections.Values
+            .Where(ws => ws.State == WebSocketState.Open)
+            .Select(ws => ws.SendAsync(
+                new ArraySegment&lt;byte&gt;(messageBytes),
+                WebSocketMessageType.Text,
+                true,
+                CancellationToken.None));
+
+        await Task.WhenAll(tasks);
     }
 }</code></pre>
                 </div>
             </section>
 
             <section class="mb-5">
-                <h3>2. Настройка JWT для SignalR в Program.cs</h3>
+                <h3>4. Program.cs (полный файл)</h3>
                 <div class="code-block">
-                    <pre><code>.AddJwtBearer(options =>
+                    <pre><code>using System.Text;
+using Asp_Book.Chapter11.Hubs;
+using Asp_Book.Chapter11.Middleware;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddControllers();
+builder.Services.AddRazorPages().AddRazorRuntimeCompilation();
+
+// 1. SignalR
+builder.Services.AddSignalR();
+
+// 2. JWT Authentication
+var secretKey = builder.Configuration["Jwt:SecretKey"]
+    ?? "MySuperSecretKeyThatIsAtLeast32CharactersLong!";
+var issuer = builder.Configuration["Jwt:Issuer"] ?? "AspBook";
+var audience = builder.Configuration["Jwt:Audience"] ?? "AspBookUsers";
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
 {
     options.TokenValidationParameters = new TokenValidationParameters
     {
-        // ... параметры валидации
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes(secretKey)),
+        ValidateIssuer = true,
+        ValidIssuer = issuer,
+        ValidateAudience = true,
+        ValidAudience = audience,
+        ValidateLifetime = true,
+        ClockSkew = TimeSpan.Zero
     };
 
-    // Настройка для SignalR - получение токена из query
+    // Чтение токена из query string для SignalR
     options.Events = new JwtBearerEvents
     {
         OnMessageReceived = context =>
         {
             var accessToken = context.Request.Query["access_token"];
             var path = context.HttpContext.Request.Path;
-            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/chathub"))
+            if (!string.IsNullOrEmpty(accessToken)
+                &amp;&amp; path.StartsWithSegments("/authorizedchathub"))
             {
                 context.Token = accessToken;
             }
             return Task.CompletedTask;
         }
     };
-});</code></pre>
+});
+
+builder.Services.AddAuthorization();
+
+// 3. Swagger с JWT
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Глава 11: Авторизация с SignalR и WebSockets",
+        Version = "v1",
+        Description = "Авторизация в приложениях реального времени с JWT"
+    });
+
+    // Swagger сам подставит "Bearer " перед токеном
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "Введите JWT токен (без приставки Bearer)",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT"
+    });
+
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty&lt;string&gt;()
+        }
+    });
+});
+
+var app = builder.Build();
+
+app.UseSwagger();
+app.UseSwaggerUI();
+app.UseStaticFiles();
+app.UseRouting();
+
+// Порядок важен!
+app.UseAuthentication();   // 1. Аутентификация
+app.UseAuthorization();    // 2. Авторизация
+
+// 3. WebSocket с авторизацией
+app.UseWebSockets();
+app.UseMiddleware&lt;AuthorizedWebSocketMiddleware&gt;();
+
+app.MapRazorPages();
+app.MapControllers();
+
+// 4. SignalR Hub с авторизацией
+app.MapHub&lt;AuthorizedChatHub&gt;("/authorizedchathub");
+
+app.Run();</code></pre>
+                    <div class="code-explanation">
+                        <strong>Ключевой момент — событие <code>OnMessageReceived</code>:</strong>
+                        <ul>
+                            <li>Проверяет, что запрос идёт к Hub (<code>StartsWithSegments("/authorizedchathub")</code>)</li>
+                            <li>Извлекает токен из query параметра <code>access_token</code></li>
+                            <li>Устанавливает <code>context.Token</code> — ASP.NET Core валидирует его как Bearer token</li>
+                        </ul>
+                    </div>
                 </div>
             </section>
 
             <section class="mb-5">
-                <h3>3. Клиентский код с токеном</h3>
+                <h3>5. Клиентский код (JavaScript)</h3>
+                <p>Подключение к авторизованному SignalR Hub:</p>
                 <div class="code-block">
-                    <pre><code>const token = localStorage.getItem('accessToken');
+                    <pre><code>const token = localStorage.getItem('chapter11_jwt_token');
+
+// 1. Создаём соединение с передачей токена
 const connection = new signalR.HubConnectionBuilder()
     .withUrl("/authorizedchathub", {
-        accessTokenFactory: () => token // Передача токена
+        accessTokenFactory: () => token
     })
     .build();
 
-connection.start().then(() => {
-    console.log('Подключено с авторизацией');
-});</code></pre>
+// 2. Обработка входящих сообщений
+connection.on("ReceiveMessage", (user, message) => {
+    addMessage(user, message, 'info');
+});
+
+connection.on("UserConnected", (username) => {
+    addMessage('Система', `${username} подключился`, 'success');
+});
+
+connection.on("UserDisconnected", (username) => {
+    addMessage('Система', `${username} отключился`, 'warning');
+});
+
+connection.on("ReceiveAdminMessage", (user, message) => {
+    addMessage(`[ADMIN] ${user}`, message, 'danger');
+});
+
+// 3. Подключение
+connection.start()
+    .then(() => {
+        console.log('Авторизованное подключение установлено');
+        console.log('Connection ID:', connection.connectionId);
+    })
+    .catch(err => {
+        if (err.message &amp;&amp; err.message.includes('401')) {
+            console.error('Ошибка авторизации: токен невалиден');
+        } else {
+            console.error('Ошибка подключения:', err);
+        }
+    });
+
+// 4. Отправка сообщений
+function sendToAll(message) {
+    connection.invoke("SendToAll", message);
+}
+
+function sendToAdmins(message) {
+    connection.invoke("SendToAdmins", message);
+}</code></pre>
                 </div>
             </section>
 
             <section class="mb-5">
-                <h3>4. WebSocket с авторизацией</h3>
+                <h3>6. Структура проекта</h3>
                 <div class="code-block">
-                    <pre><code>public async Task InvokeAsync(HttpContext context)
-{
-    if (context.WebSockets.IsWebSocketRequest)
-    {
-        // Получение токена из query
-        var token = context.Request.Query["access_token"].ToString();
-        if (string.IsNullOrEmpty(token))
-        {
-            context.Response.StatusCode = 401;
-            return;
-        }
+                    <pre><code>Asp_Book.Chapter11/
+├── Hubs/
+│   └── AuthorizedChatHub.cs          — [Authorize] Hub с ролями
+├── Middleware/
+│   └── AuthorizedWebSocketMiddleware.cs — WS с проверкой токена
+├── Pages/
+│   └── Index.cshtml                  — UI с чатом + клиентский JS
+├── Program.cs                        — JWT + SignalR + OnMessageReceived
+├── appsettings.json                  — конфигурация JWT
+└── Dockerfile</code></pre>
+                </div>
+            </section>
 
-        // Валидация токена (упрощенно)
-        // В реальном приложении используйте JwtSecurityTokenHandler
-        
-        var webSocket = await context.WebSockets.AcceptWebSocketAsync();
-        // ... обработка WebSocket
-    }
-}</code></pre>
+            <section class="mb-5">
+                <h3>7. Тестирование</h3>
+
+                <p><strong>Шаг 1 — Получите JWT токен</strong> (из главы 7 или 8):</p>
+                <div class="code-block">
+                    <pre><code>POST /api/auth/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "admin123"
+}
+
+// Ответ: { "accessToken": "eyJhbG...", ... }</code></pre>
+                </div>
+
+                <p><strong>Шаг 2 — Подключитесь с токеном:</strong></p>
+                <div class="code-block">
+                    <pre><code>// JavaScript:
+const connection = new signalR.HubConnectionBuilder()
+    .withUrl("/authorizedchathub", {
+        accessTokenFactory: () => "eyJhbG..."
+    })
+    .build();
+
+connection.start(); // ✅ Подключено</code></pre>
+                </div>
+
+                <p><strong>Шаг 3 — Попробуйте без токена:</strong></p>
+                <div class="code-block">
+                    <pre><code>const connection = new signalR.HubConnectionBuilder()
+    .withUrl("/authorizedchathub")  // Без токена!
+    .build();
+
+connection.start(); // ❌ Error: 401 Unauthorized</code></pre>
+                </div>
+
+                <p><strong>Шаг 4 — Проверьте ролевой доступ:</strong></p>
+                <div class="code-block">
+                    <pre><code>// С ролью User:
+connection.invoke("SendToAdmins", "test");
+// ❌ Ошибка: нет прав
+
+// С ролью Admin:
+connection.invoke("SendToAdmins", "test");
+// ✅ Сообщение отправлено в группу Admins</code></pre>
                 </div>
             </section>
         </div>
@@ -319,6 +1176,18 @@ connection.start().then(() => {
             // Обработка сообщений
             connection.on("ReceiveMessage", (user, message) => {
                 addMessage(user, message, 'info');
+            });
+
+            connection.on("ReceiveAdminMessage", (user, message) => {
+                addMessage(`[ADMIN] ${user}`, message, 'danger');
+            });
+
+            connection.on("UserConnected", (username) => {
+                addMessage('Система', `${username} подключился`, 'success');
+            });
+
+            connection.on("UserDisconnected", (username) => {
+                addMessage('Система', `${username} отключился`, 'warning');
             });
 
             // Подключение

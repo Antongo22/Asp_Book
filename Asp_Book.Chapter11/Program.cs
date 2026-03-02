@@ -86,13 +86,13 @@ builder.Services.AddSwaggerGen(c =>
         Version = "v1"
     });
 
+    // SecuritySchemeType.Http — Swagger сам подставит "Bearer " перед токеном
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "JWT Authorization header",
-        Name = "Authorization",
-        In = ParameterLocation.Header,
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer"
+        Description = "Введите JWT токен (без приставки Bearer — она подставится автоматически)",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT"
     });
 
     c.AddSecurityRequirement(new OpenApiSecurityRequirement

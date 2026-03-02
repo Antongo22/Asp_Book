@@ -102,60 +102,77 @@
         }
 
         .table {
-            color: #ffffff;
-            background-color: var(--card-bg);
+            --bs-table-bg: #252525;
+            --bs-table-color: #ffffff;
+            --bs-table-border-color: #404040;
+            --bs-table-striped-bg: #2d2d2d;
+            --bs-table-striped-color: #ffffff;
+            --bs-table-hover-bg: #3d3d3d;
+            --bs-table-hover-color: #ffffff;
+            --bs-table-active-bg: #3d3d3d;
+            --bs-table-active-color: #ffffff;
+            color: #ffffff !important;
+            background-color: #252525 !important;
+            border-color: #404040;
         }
 
         .table thead th {
-            background-color: var(--bg-secondary);
-            border-color: var(--border-color);
-            color: #ffffff;
+            color: #ffffff !important;
+            background-color: #3d3d3d !important;
+            border-color: #404040 !important;
         }
 
         .table tbody td {
-            border-color: var(--border-color);
-            background-color: var(--card-bg);
-            color: #ffffff;
+            color: #ffffff !important;
+            border-color: #404040 !important;
+            background-color: #252525 !important;
         }
 
         .table tbody tr {
-            background-color: var(--card-bg);
-            color: #ffffff;
+            color: #ffffff !important;
+            background-color: #252525 !important;
         }
 
         .table-striped > tbody > tr:nth-of-type(odd) {
-            background-color: var(--bg-secondary);
-            color: #ffffff;
+            --bs-table-striped-bg: #2d2d2d;
+            --bs-table-striped-color: #ffffff;
+            background-color: #2d2d2d !important;
+            color: #ffffff !important;
         }
 
         .table-striped > tbody > tr:nth-of-type(odd) td {
-            color: #ffffff;
+            color: #ffffff !important;
+            background-color: #2d2d2d !important;
         }
 
         .table-striped > tbody > tr:nth-of-type(even) {
-            background-color: var(--card-bg);
-            color: #ffffff;
+            background-color: #252525 !important;
+            color: #ffffff !important;
         }
 
         .table-striped > tbody > tr:nth-of-type(even) td {
-            color: #ffffff;
-        }
-
-        .table-bordered {
-            border-color: var(--border-color);
-        }
-
-        .table-bordered td, .table-bordered th {
-            border-color: var(--border-color);
+            color: #ffffff !important;
+            background-color: #252525 !important;
         }
 
         .table-hover tbody tr:hover {
-            background-color: var(--bg-tertiary);
-            color: #ffffff;
+            --bs-table-hover-bg: #3d3d3d;
+            --bs-table-hover-color: #ffffff;
+            background-color: #3d3d3d !important;
+            color: #ffffff !important;
         }
 
         .table-hover tbody tr:hover td {
-            color: #ffffff;
+            color: #ffffff !important;
+            background-color: #3d3d3d !important;
+        }
+
+        .table-bordered {
+            border-color: #404040 !important;
+        }
+
+        .table-bordered td, .table-bordered th {
+            border-color: #404040 !important;
         }
 
         .table code {

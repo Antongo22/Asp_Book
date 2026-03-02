@@ -481,14 +481,13 @@ builder.Services.AddSwaggerGen(c =>
         Version = "v1"
     });
 
-    // 1. Определяем схему безопасности
+    // 1. Определяем схему безопасности (тип Http + bearer)
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "Введите JWT токен: Bearer {ваш_токен}",
-        Name = "Authorization",
-        In = ParameterLocation.Header,
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer"
+        Description = "Введите JWT токен (без приставки Bearer — она подставится автоматически)",
+        Type = SecuritySchemeType.Http,    // ← Http, а не ApiKey!
+        Scheme = "bearer",                 // ← схема bearer (в нижнем регистре)
+        BearerFormat = "JWT"               // ← подсказка формата для Swagger UI
     });
 
     // 2. Применяем схему ко всем эндпоинтам
@@ -512,10 +511,68 @@ builder.Services.AddSwaggerGen(c =>
                         <ol>
                             <li>Открываете Swagger UI (<code>/swagger</code>)</li>
                             <li>Вызываете <code>POST /api/auth/login</code> — получаете токен</li>
-                            <li>Нажимаете кнопку <strong>Authorize</strong> (вверху справа)</li>
-                            <li>Вводите: <code>Bearer ваш_токен</code></li>
+                            <li>Нажимаете кнопку <strong>Authorize</strong> 🔓 (вверху справа)</li>
+                            <li>Вставляете <strong>только сам токен</strong> (например: <code>eyJhbGciOiJIUzI1NiIs...</code>)</li>
+                            <li>Swagger <strong>сам</strong> добавит приставку <code>Bearer </code> к заголовку</li>
                             <li>Теперь все запросы в Swagger автоматически отправляются с токеном</li>
                         </ol>
+                    </div>
+                </div>
+
+                <h4 class="mt-4">Почему <code>SecuritySchemeType.Http</code>, а не <code>SecuritySchemeType.ApiKey</code>?</h4>
+                <div class="alert alert-info">
+                    <p>В OpenAPI (стандарт Swagger) есть несколько типов схем безопасности:</p>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-striped table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Тип</th>
+                                <th>Что делает</th>
+                                <th>Что вводит пользователь</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>SecuritySchemeType.ApiKey</code></td>
+                                <td>Просто передаёт значение в заголовок <strong>как есть</strong></td>
+                                <td><code>Bearer eyJhbG...</code> (нужно вручную писать "Bearer ")</td>
+                            </tr>
+                            <tr>
+                                <td><code>SecuritySchemeType.Http</code></td>
+                                <td>Использует HTTP-схему аутентификации (RFC 7235). Swagger <strong>сам формирует заголовок</strong></td>
+                                <td><code>eyJhbG...</code> (только токен, "Bearer " подставится автоматически)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="code-block mt-3">
+                    <pre><code>// ❌ Старый способ — SecuritySchemeType.ApiKey
+// Пользователь должен ввести: "Bearer eyJhbGciOiJIUzI1NiIs..."
+// Если забудет "Bearer " — получит 401 Unauthorized
+c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+{
+    Name = "Authorization",
+    In = ParameterLocation.Header,
+    Type = SecuritySchemeType.ApiKey,    // Просто ApiKey в заголовке
+    Scheme = "Bearer"
+});
+
+// ✅ Правильный способ — SecuritySchemeType.Http
+// Пользователь вводит только: "eyJhbGciOiJIUzI1NiIs..."
+// Swagger сам отправит: "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+{
+    Type = SecuritySchemeType.Http,      // HTTP-аутентификация по стандарту
+    Scheme = "bearer",                   // Схема "bearer" (RFC 6750)
+    BearerFormat = "JWT"                 // Подсказка: формат токена — JWT
+});</code></pre>
+                    <div class="code-explanation">
+                        <strong>Как это работает под капотом:</strong>
+                        <p>Когда вы указываете <code>Type = SecuritySchemeType.Http</code> и <code>Scheme = "bearer"</code>, Swagger UI понимает, что это стандартная HTTP Bearer аутентификация (по <strong>RFC 6750</strong>). Swagger знает, что заголовок <code>Authorization</code> должен выглядеть как <code>Bearer {токен}</code>, и формирует его автоматически.</p>
+                        <p><code>BearerFormat = "JWT"</code> — это просто подсказка для Swagger UI, что токен в формате JWT. На логику не влияет, но помогает разработчикам.</p>
                     </div>
                 </div>
             </section>
@@ -1093,13 +1150,13 @@ builder.Services.AddSwaggerGen(c =>
         Version = "v1"
     });
 
+    // Swagger сам подставит "Bearer " перед токеном
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "Введите JWT токен: Bearer {ваш_токен}",
-        Name = "Authorization",
-        In = ParameterLocation.Header,
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer"
+        Description = "Введите JWT токен (без приставки Bearer)",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT"
     });
 
     c.AddSecurityRequirement(new OpenApiSecurityRequirement

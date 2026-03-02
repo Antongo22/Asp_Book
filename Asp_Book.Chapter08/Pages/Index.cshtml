@@ -45,16 +45,86 @@
             </section>
 
             <section class="mb-5">
-                <h3>Как работает Refresh Token</h3>
+                <h3>Access Token vs Refresh Token</h3>
+                <div class="table-responsive">
+                    <table class="table table-striped table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Параметр</th>
+                                <th>Access Token</th>
+                                <th>Refresh Token</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Срок жизни</td>
+                                <td>Короткий (15-30 минут)</td>
+                                <td>Длинный (7-30 дней)</td>
+                            </tr>
+                            <tr>
+                                <td>Назначение</td>
+                                <td>Доступ к ресурсам API</td>
+                                <td>Получение нового Access Token</td>
+                            </tr>
+                            <tr>
+                                <td>Хранение</td>
+                                <td>Не хранится на сервере (stateless)</td>
+                                <td>Хранится в базе данных (для отзыва)</td>
+                            </tr>
+                            <tr>
+                                <td>Формат</td>
+                                <td>JWT (JSON Web Token)</td>
+                                <td>Случайная строка (Base64)</td>
+                            </tr>
+                            <tr>
+                                <td>Передача</td>
+                                <td>В заголовке Authorization</td>
+                                <td>В теле POST запроса</td>
+                            </tr>
+                            <tr>
+                                <td>Можно отозвать?</td>
+                                <td>❌ Нет (живёт до истечения)</td>
+                                <td>✅ Да (через базу данных)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Как работает Refresh Token (полный цикл)</h3>
                 <ol>
-                    <li><strong>Вход:</strong> Пользователь вводит логин и пароль</li>
-                    <li><strong>Получение токенов:</strong> Сервер возвращает Access Token и Refresh Token</li>
-                    <li><strong>Использование Access Token:</strong> Клиент использует Access Token для запросов</li>
-                    <li><strong>Истечение Access Token:</strong> Когда Access Token истекает, сервер возвращает 401</li>
-                    <li><strong>Обновление:</strong> Клиент отправляет Refresh Token на эндпоинт /refresh</li>
-                    <li><strong>Новые токены:</strong> Сервер проверяет Refresh Token и выдает новые Access и Refresh токены</li>
-                    <li><strong>Отзыв старого:</strong> Старый Refresh Token отзывается (revoked)</li>
+                    <li><strong>Вход:</strong> Пользователь отправляет логин и пароль на <code>POST /api/auth/login</code></li>
+                    <li><strong>Получение токенов:</strong> Сервер возвращает <strong>Access Token</strong> и <strong>Refresh Token</strong></li>
+                    <li><strong>Использование Access Token:</strong> Клиент отправляет запросы с <code>Authorization: Bearer {accessToken}</code></li>
+                    <li><strong>Истечение Access Token:</strong> Через 15 минут сервер возвращает <strong>401 Unauthorized</strong></li>
+                    <li><strong>Обновление:</strong> Клиент отправляет Refresh Token на <code>POST /api/auth/refresh</code></li>
+                    <li><strong>Новые токены:</strong> Сервер проверяет Refresh Token и выдает <strong>новую пару</strong> токенов</li>
+                    <li><strong>Ротация:</strong> Старый Refresh Token <strong>отзывается</strong> (помечается как недействительный)</li>
                 </ol>
+
+                <div class="code-block mt-3">
+                    <pre><code>// Схема работы:
+// 
+// Клиент                              Сервер
+//   |                                    |
+//   |--- POST /login (логин, пароль) --->|
+//   |<-- AccessToken + RefreshToken -----|
+//   |                                    |
+//   |--- GET /api/data (AccessToken) --->|  ✅ 200 OK
+//   |<-- Данные -------------------------|
+//   |                                    |
+//   |    ... 15 минут прошло ...         |
+//   |                                    |
+//   |--- GET /api/data (AccessToken) --->|  ❌ 401 (токен истёк)
+//   |<-- 401 Unauthorized ---------------|
+//   |                                    |
+//   |--- POST /refresh (RefreshToken) -->|
+//   |<-- НОВЫЙ AccessToken + RefreshToken|
+//   |                                    |
+//   |--- GET /api/data (НОВЫЙ Access) -->|  ✅ 200 OK
+//   |<-- Данные -------------------------|</code></pre>
+                </div>
             </section>
 
             <section class="mb-5">
@@ -62,9 +132,528 @@
                 <ul>
                     <li><strong>Хранение в БД:</strong> Refresh Token хранится в базе данных для возможности отзыва</li>
                     <li><strong>Отзыв токенов:</strong> При выходе или подозрительной активности токен можно отозвать</li>
-                    <li><strong>Ротация токенов:</strong> При каждом обновлении выдается новый Refresh Token</li>
+                    <li><strong>Ротация токенов:</strong> При каждом обновлении выдается новый Refresh Token, а старый отзывается</li>
                     <li><strong>Проверка валидности:</strong> Проверяется срок действия и статус отзыва</li>
                 </ul>
+
+                <div class="alert alert-danger mt-3">
+                    <strong>Важно!</strong> Refresh Token — это «ключ к обновлению». Если он украден — злоумышленник может получать новые Access Tokens. Поэтому:
+                    <ul>
+                        <li>Всегда храните Refresh Token безопасно (httpOnly cookie, не localStorage)</li>
+                        <li>Используйте ротацию — при каждом обновлении старый токен становится недействительным</li>
+                        <li>Ограничивайте срок жизни (7-30 дней)</li>
+                    </ul>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Модели данных</h3>
+                <p>Для работы с Refresh Token нужны две модели — <strong>пользователь</strong> и <strong>сам токен</strong>.</p>
+
+                <h4>Модель User</h4>
+                <div class="code-block">
+                    <pre><code>namespace Asp_Book.Chapter08.Models;
+
+public class User
+{
+    public int Id { get; set; }
+    public string Username { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string PasswordHash { get; set; } = string.Empty;  // Храним ХЕШ, не пароль!
+    public string Role { get; set; } = "User";
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Важно:</strong> Никогда не храните пароли в открытом виде! Только хеш (SHA256, BCrypt и т.д.).
+                    </div>
+                </div>
+
+                <h4>Модель RefreshToken</h4>
+                <div class="code-block">
+                    <pre><code>namespace Asp_Book.Chapter08.Models;
+
+public class RefreshToken
+{
+    public int Id { get; set; }
+    public string Token { get; set; } = string.Empty;       // Сам токен (Base64 строка)
+    public int UserId { get; set; }                          // К какому пользователю привязан
+    public DateTime Expires { get; set; }                    // Когда истекает
+    public bool IsRevoked { get; set; }                      // Отозван ли
+    public DateTime Created { get; set; } = DateTime.UtcNow; // Когда создан
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Поля:</strong>
+                        <ul>
+                            <li><code>Token</code> — случайная строка, которая выдаётся клиенту</li>
+                            <li><code>UserId</code> — связь с пользователем, чтобы при обновлении знать, кому выдать новый Access Token</li>
+                            <li><code>IsRevoked</code> — флаг «отозван». Если <code>true</code> — токен больше не работает</li>
+                            <li><code>Expires</code> — срок действия. Даже если токен не отозван, он перестаёт работать после этой даты</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>ApplicationDbContext и In-Memory Database</h3>
+                <p>Для хранения пользователей и refresh-токенов используем <strong>Entity Framework Core</strong> с <strong>In-Memory базой данных</strong> (для демонстрации).</p>
+
+                <div class="code-block">
+                    <pre><code>using Asp_Book.Chapter08.Models;
+using Microsoft.EntityFrameworkCore;
+
+namespace Asp_Book.Chapter08.Data;
+
+public class ApplicationDbContext : DbContext
+{
+    public ApplicationDbContext(DbContextOptions&lt;ApplicationDbContext&gt; options)
+        : base(options)
+    {
+    }
+
+    public DbSet&lt;User&gt; Users { get; set; }
+    public DbSet&lt;RefreshToken&gt; RefreshTokens { get; set; }
+}</code></pre>
+                </div>
+
+                <p>Регистрация в <code>Program.cs</code>:</p>
+                <div class="code-block">
+                    <pre><code>// In-Memory Database (для демонстрации, в продакшене используйте SQLite/PostgreSQL)
+builder.Services.AddDbContext&lt;ApplicationDbContext&gt;(options =>
+    options.UseInMemoryDatabase("RefreshTokenDb"));</code></pre>
+                    <div class="code-explanation">
+                        <strong>NuGet пакет:</strong> <code>Microsoft.EntityFrameworkCore.InMemory</code>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Генерация Refresh Token (RandomNumberGenerator)</h3>
+                <p>В отличие от Access Token (JWT), Refresh Token — это просто <strong>случайная криптографически стойкая строка</strong>.</p>
+
+                <div class="code-block">
+                    <pre><code>using System.Security.Cryptography;
+
+public string GenerateRefreshToken()
+{
+    // 1. Создаём массив из 64 случайных байт
+    var randomNumber = new byte[64];
+    
+    // 2. Используем криптографический генератор случайных чисел
+    using var rng = RandomNumberGenerator.Create();
+    rng.GetBytes(randomNumber);
+    
+    // 3. Преобразуем в Base64 строку
+    return Convert.ToBase64String(randomNumber);
+    // Результат: "x7Kp2mN+Qf3vR8tY1wZ0aB4cD6eF9gH2jK5lM8nO3pQ7rS0uV..."
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Почему именно так?</strong>
+                        <ul>
+                            <li><code>RandomNumberGenerator</code> — криптографически стойкий генератор (нельзя предсказать)</li>
+                            <li><code>64 байта</code> — достаточная длина для защиты от перебора</li>
+                            <li><code>Base64</code> — удобный формат для передачи в JSON/HTTP</li>
+                        </ul>
+                        <strong>НЕ используйте:</strong> <code>Guid.NewGuid()</code> или <code>Random</code> — они предсказуемы!
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Сервис токенов (TokenService)</h3>
+                <p>Сервис содержит всю логику работы с токенами: генерация Access Token (JWT), генерация Refresh Token, сохранение в БД, валидация и отзыв.</p>
+
+                <h4>Интерфейс ITokenService</h4>
+                <div class="code-block">
+                    <pre><code>public interface ITokenService
+{
+    string GenerateAccessToken(User user);           // JWT токен
+    string GenerateRefreshToken();                   // Случайная строка
+    Task SaveRefreshTokenAsync(int userId, string refreshToken, DateTime expires);
+    Task&lt;RefreshToken?&gt; GetRefreshTokenAsync(string token);
+    Task&lt;bool&gt; IsRefreshTokenValidAsync(string token);
+    Task RevokeRefreshTokenAsync(string token);      // Отзыв одного токена
+}</code></pre>
+                </div>
+
+                <h4>Реализация TokenService</h4>
+                <div class="code-block">
+                    <pre><code>public class TokenService : ITokenService
+{
+    private readonly IConfiguration _configuration;
+    private readonly ApplicationDbContext _context;
+    private readonly string _secretKey;
+    private readonly string _issuer;
+    private readonly string _audience;
+
+    public TokenService(IConfiguration configuration, ApplicationDbContext context)
+    {
+        _configuration = configuration;
+        _context = context;
+        _secretKey = _configuration["Jwt:SecretKey"] 
+            ?? "MySuperSecretKeyThatIsAtLeast32CharactersLong!";
+        _issuer = _configuration["Jwt:Issuer"] ?? "AspBook";
+        _audience = _configuration["Jwt:Audience"] ?? "AspBookUsers";
+    }
+
+    // Генерация JWT Access Token (как в главе 7)
+    public string GenerateAccessToken(User user)
+    {
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new Claim(ClaimTypes.Name, user.Username),
+            new Claim(ClaimTypes.Email, user.Email),
+            new Claim(ClaimTypes.Role, user.Role)
+        };
+
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secretKey));
+        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        var token = new JwtSecurityToken(
+            issuer: _issuer,
+            audience: _audience,
+            claims: claims,
+            expires: DateTime.UtcNow.AddMinutes(15),  // Короткий срок!
+            signingCredentials: credentials
+        );
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    // Генерация криптографически стойкого Refresh Token
+    public string GenerateRefreshToken()
+    {
+        var randomNumber = new byte[64];
+        using var rng = RandomNumberGenerator.Create();
+        rng.GetBytes(randomNumber);
+        return Convert.ToBase64String(randomNumber);
+    }
+
+    // Сохранение Refresh Token в базу данных
+    public async Task SaveRefreshTokenAsync(int userId, string refreshToken, DateTime expires)
+    {
+        var token = new RefreshToken
+        {
+            Token = refreshToken,
+            UserId = userId,
+            Expires = expires,
+            IsRevoked = false
+        };
+        _context.RefreshTokens.Add(token);
+        await _context.SaveChangesAsync();
+    }
+
+    // Получение Refresh Token из БД
+    public async Task&lt;RefreshToken?&gt; GetRefreshTokenAsync(string token)
+    {
+        return await _context.RefreshTokens
+            .FirstOrDefaultAsync(rt => rt.Token == token);
+    }
+
+    // Проверка: токен существует, НЕ отозван, НЕ просрочен
+    public async Task&lt;bool&gt; IsRefreshTokenValidAsync(string token)
+    {
+        var refreshToken = await GetRefreshTokenAsync(token);
+        return refreshToken != null 
+            &amp;&amp; !refreshToken.IsRevoked 
+            &amp;&amp; refreshToken.Expires > DateTime.UtcNow;
+    }
+
+    // Отзыв токена — помечаем IsRevoked = true
+    public async Task RevokeRefreshTokenAsync(string token)
+    {
+        var refreshToken = await GetRefreshTokenAsync(token);
+        if (refreshToken != null)
+        {
+            refreshToken.IsRevoked = true;
+            await _context.SaveChangesAsync();
+        }
+    }
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Хеширование паролей (UserService)</h3>
+                <p>Пароли хранятся в виде <strong>хеша</strong> — необратимого преобразования. При проверке мы хешируем введённый пароль и сравниваем с сохранённым хешем.</p>
+
+                <div class="code-block">
+                    <pre><code>using System.Security.Cryptography;
+using System.Text;
+
+public class UserService : IUserService
+{
+    private readonly ApplicationDbContext _context;
+
+    public UserService(ApplicationDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task&lt;User&gt; CreateUserAsync(string username, string email, string password)
+    {
+        var user = new User
+        {
+            Username = username,
+            Email = email,
+            PasswordHash = HashPassword(password),  // Хешируем!
+            Role = "User"
+        };
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
+        return user;
+    }
+
+    public bool VerifyPassword(string password, string passwordHash)
+    {
+        return HashPassword(password) == passwordHash;
+    }
+
+    // SHA256 хеширование (для демонстрации)
+    // В продакшене используйте BCrypt!
+    private static string HashPassword(string password)
+    {
+        using var sha256 = SHA256.Create();
+        var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
+        return Convert.ToBase64String(hashedBytes);
+    }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Примечание:</strong> SHA256 используется для простоты. В реальных проектах используйте <code>BCrypt</code> — он медленнее, что затрудняет перебор паролей.
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>DTO — модели запросов и ответов</h3>
+                <p>DTO (Data Transfer Objects) используются для приёма данных от клиента и формирования ответов.</p>
+
+                <div class="code-block">
+                    <pre><code>// Запрос на вход
+public class LoginRequest
+{
+    [Required]
+    public string Username { get; set; } = string.Empty;
+    [Required]
+    public string Password { get; set; } = string.Empty;
+}
+
+// Запрос на обновление токена
+public class RefreshTokenRequest
+{
+    [Required]
+    public string RefreshToken { get; set; } = string.Empty;
+}
+
+// Ответ с парой токенов
+public class AuthResponse
+{
+    public string AccessToken { get; set; } = string.Empty;
+    public string RefreshToken { get; set; } = string.Empty;
+    public string Username { get; set; } = string.Empty;
+    public string Role { get; set; } = string.Empty;
+    public DateTime AccessTokenExpires { get; set; }
+    public DateTime RefreshTokenExpires { get; set; }
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>AuthController — эндпоинты авторизации</h3>
+                <p>Контроллер содержит три ключевых эндпоинта: <strong>login</strong>, <strong>refresh</strong> и <strong>revoke</strong>.</p>
+
+                <h4>POST /api/auth/login — вход</h4>
+                <div class="code-block">
+                    <pre><code>[HttpPost("login")]
+public async Task&lt;IActionResult&gt; Login([FromBody] LoginRequest request)
+{
+    // 1. Ищем пользователя по имени
+    var user = await _userService.GetUserByUsernameAsync(request.Username);
+    
+    // 2. Проверяем пароль
+    if (user == null || !_userService.VerifyPassword(request.Password, user.PasswordHash))
+        return Unauthorized(new { message = "Неверные учетные данные" });
+
+    // 3. Генерируем ОБА токена
+    var accessToken = _tokenService.GenerateAccessToken(user);
+    var refreshToken = _tokenService.GenerateRefreshToken();
+    var refreshTokenExpires = DateTime.UtcNow.AddDays(7);
+
+    // 4. Сохраняем Refresh Token в БД
+    await _tokenService.SaveRefreshTokenAsync(user.Id, refreshToken, refreshTokenExpires);
+
+    // 5. Возвращаем оба токена клиенту
+    return Ok(new AuthResponse
+    {
+        AccessToken = accessToken,
+        RefreshToken = refreshToken,
+        Username = user.Username,
+        Role = user.Role,
+        AccessTokenExpires = DateTime.UtcNow.AddMinutes(15),
+        RefreshTokenExpires = refreshTokenExpires
+    });
+}</code></pre>
+                </div>
+
+                <h4>POST /api/auth/refresh — обновление токенов</h4>
+                <div class="code-block">
+                    <pre><code>[HttpPost("refresh")]
+public async Task&lt;IActionResult&gt; Refresh([FromBody] RefreshTokenRequest request)
+{
+    // 1. Проверяем: токен существует, не отозван, не просрочен
+    if (!await _tokenService.IsRefreshTokenValidAsync(request.RefreshToken))
+        return Unauthorized(new { message = "Недействительный refresh token" });
+
+    // 2. Получаем данные токена (нужен UserId)
+    var refreshToken = await _tokenService.GetRefreshTokenAsync(request.RefreshToken);
+    var user = await _userService.GetUserByIdAsync(refreshToken!.UserId);
+    if (user == null) return Unauthorized();
+
+    // 3. ОТЗЫВАЕМ старый refresh token (ротация!)
+    await _tokenService.RevokeRefreshTokenAsync(request.RefreshToken);
+
+    // 4. Генерируем НОВУЮ пару токенов
+    var newAccessToken = _tokenService.GenerateAccessToken(user);
+    var newRefreshToken = _tokenService.GenerateRefreshToken();
+    var newRefreshTokenExpires = DateTime.UtcNow.AddDays(7);
+
+    // 5. Сохраняем новый Refresh Token
+    await _tokenService.SaveRefreshTokenAsync(user.Id, newRefreshToken, newRefreshTokenExpires);
+
+    return Ok(new AuthResponse
+    {
+        AccessToken = newAccessToken,
+        RefreshToken = newRefreshToken,
+        Username = user.Username,
+        Role = user.Role,
+        AccessTokenExpires = DateTime.UtcNow.AddMinutes(15),
+        RefreshTokenExpires = newRefreshTokenExpires
+    });
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Ротация токенов:</strong> При каждом обновлении старый Refresh Token отзывается и выдаётся новый. Это предотвращает повторное использование украденного токена.
+                    </div>
+                </div>
+
+                <h4>POST /api/auth/revoke — отзыв токена</h4>
+                <div class="code-block">
+                    <pre><code>[HttpPost("revoke")]
+public async Task&lt;IActionResult&gt; Revoke([FromBody] RefreshTokenRequest request)
+{
+    await _tokenService.RevokeRefreshTokenAsync(request.RefreshToken);
+    return Ok(new { message = "Refresh token отозван" });
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Настройка Program.cs</h3>
+                <p>Полная настройка включает: In-Memory БД, JWT аутентификацию, регистрацию сервисов и Swagger с поддержкой Bearer.</p>
+
+                <div class="code-block">
+                    <pre><code>var builder = WebApplication.CreateBuilder(args);
+
+// 1. Контроллеры и Razor Pages
+builder.Services.AddControllers();
+builder.Services.AddRazorPages();
+
+// 2. In-Memory Database
+builder.Services.AddDbContext&lt;ApplicationDbContext&gt;(options =>
+    options.UseInMemoryDatabase("RefreshTokenDb"));
+
+// 3. Регистрация сервисов в DI
+builder.Services.AddScoped&lt;IUserService, UserService&gt;();
+builder.Services.AddScoped&lt;ITokenService, TokenService&gt;();
+
+// 4. JWT Authentication (как в главе 7)
+var secretKey = builder.Configuration["Jwt:SecretKey"] 
+    ?? "MySuperSecretKeyThatIsAtLeast32CharactersLong!";
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes(secretKey)),
+        ValidateIssuer = true,
+        ValidIssuer = builder.Configuration["Jwt:Issuer"] ?? "AspBook",
+        ValidateAudience = true,
+        ValidAudience = builder.Configuration["Jwt:Audience"] ?? "AspBookUsers",
+        ValidateLifetime = true,
+        ClockSkew = TimeSpan.Zero
+    };
+});
+
+builder.Services.AddAuthorization();
+
+// 5. Swagger с JWT
+builder.Services.AddSwaggerGen(c => { /* как в главе 7 */ });
+
+var app = builder.Build();
+
+app.UseAuthentication();  // Сначала аутентификация
+app.UseAuthorization();   // Потом авторизация
+
+app.MapControllers();
+app.MapRazorPages();
+app.Run();</code></pre>
+                    <div class="code-explanation">
+                        <strong>Что нового по сравнению с главой 7:</strong>
+                        <ul>
+                            <li><code>AddDbContext</code> — база данных для хранения Refresh Tokens</li>
+                            <li><code>AddScoped</code> — сервисы привязаны к времени жизни HTTP-запроса (один экземпляр на запрос)</li>
+                            <li>Два сервиса: <code>ITokenService</code> (работа с токенами) и <code>IUserService</code> (работа с пользователями)</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Использование на клиенте (JavaScript)</h3>
+                <p>На клиенте нужно: сохранить оба токена, при 401 — автоматически обновить, при неудаче — перенаправить на логин.</p>
+
+                <div class="code-block">
+                    <pre><code>// 1. Вход — получаем оба токена
+const loginResponse = await fetch('/api/Auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'user', password: 'pass' })
+});
+const { accessToken, refreshToken } = await loginResponse.json();
+
+// 2. Обычный запрос с Access Token
+async function apiRequest(url) {
+    let response = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+    });
+
+    // 3. Если 401 — пробуем обновить токен
+    if (response.status === 401) {
+        const refreshResponse = await fetch('/api/Auth/refresh', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken })
+        });
+
+        if (refreshResponse.ok) {
+            const tokens = await refreshResponse.json();
+            accessToken = tokens.accessToken;
+            refreshToken = tokens.refreshToken;
+
+            // 4. Повторяем оригинальный запрос с новым токеном
+            response = await fetch(url, {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
+        } else {
+            // Refresh Token тоже невалиден — на логин
+            window.location.href = '/login';
+        }
+    }
+
+    return response;
+}</code></pre>
+                </div>
             </section>
 
             <section class="mb-5">
@@ -140,27 +729,71 @@
             </section>
 
             <section class="mb-5">
-                <h3>Задача: Реализовать Refresh Token</h3>
+                <h3>Задание для закрепления</h3>
                 <div class="alert alert-warning">
                     <h5>Ваша задача:</h5>
-                    <p>Изучите реализацию Refresh Token в проекте и ответьте на вопросы:</p>
+                    <p>Добавьте эндпоинт <code>POST /api/auth/logout</code>, который:</p>
                     <ul>
-                        <li>Как генерируется Refresh Token?</li>
-                        <li>Как хранятся Refresh Token в БД?</li>
-                        <li>Как происходит обновление Access Token?</li>
-                        <li>Как отозвать Refresh Token?</li>
+                        <li>Доступен <strong>только авторизованным</strong> пользователям (с JWT токеном, атрибут <code>[Authorize]</code>)</li>
+                        <li>Извлекает <strong>ID пользователя</strong> из JWT токена (<code>ClaimTypes.NameIdentifier</code>)</li>
+                        <li>Отзывает <strong>все активные</strong> refresh токены этого пользователя</li>
+                        <li>Возвращает сообщение об успешном выходе</li>
                     </ul>
+                    <p><strong>Подсказка:</strong> Вам понадобится метод в <code>ITokenService</code> для отзыва всех токенов по <code>UserId</code>.</p>
+                    <p><strong>Пример ответа:</strong></p>
+                    <pre><code>{
+  "message": "Все сессии завершены. Отозвано токенов: 3"
+}</code></pre>
                 </div>
             </section>
         </div>
 
         <div class="tab-pane fade" id="answers" role="tabpanel">
-            <h2>Решение: Реализация Refresh Token</h2>
+            <h2>Полное решение: Refresh Token + Logout</h2>
+            <p>Ниже — все файлы, необходимые для работы решения.</p>
 
             <section class="mb-5">
-                <h3>1. Модель RefreshToken</h3>
+                <h3>1. appsettings.json</h3>
                 <div class="code-block">
-                    <pre><code>public class RefreshToken
+                    <pre><code>{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*",
+  "Jwt": {
+    "SecretKey": "MySuperSecretKeyThatIsAtLeast32CharactersLong!",
+    "Issuer": "AspBook",
+    "Audience": "AspBookUsers"
+  }
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>2. Models/User.cs</h3>
+                <div class="code-block">
+                    <pre><code>namespace Asp_Book.Chapter08.Models;
+
+public class User
+{
+    public int Id { get; set; }
+    public string Username { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string PasswordHash { get; set; } = string.Empty;
+    public string Role { get; set; } = "User";
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>3. Models/RefreshToken.cs</h3>
+                <div class="code-block">
+                    <pre><code>namespace Asp_Book.Chapter08.Models;
+
+public class RefreshToken
 {
     public int Id { get; set; }
     public string Token { get; set; } = string.Empty;
@@ -173,192 +806,592 @@
             </section>
 
             <section class="mb-5">
-                <h3>2. Генерация Refresh Token</h3>
+                <h3>4. DTOs/LoginRequest.cs</h3>
                 <div class="code-block">
-                    <pre><code>public string GenerateRefreshToken()
+                    <pre><code>using System.ComponentModel.DataAnnotations;
+
+namespace Asp_Book.Chapter08.DTOs;
+
+public class LoginRequest
 {
-    var randomNumber = new byte[64];
-    using var rng = RandomNumberGenerator.Create();
-    rng.GetBytes(randomNumber);
-    return Convert.ToBase64String(randomNumber);
+    [Required]
+    public string Username { get; set; } = string.Empty;
+    [Required]
+    public string Password { get; set; } = string.Empty;
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>5. DTOs/RefreshTokenRequest.cs</h3>
+                <div class="code-block">
+                    <pre><code>using System.ComponentModel.DataAnnotations;
+
+namespace Asp_Book.Chapter08.DTOs;
+
+public class RefreshTokenRequest
+{
+    [Required]
+    public string RefreshToken { get; set; } = string.Empty;
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>6. DTOs/AuthResponse.cs</h3>
+                <div class="code-block">
+                    <pre><code>namespace Asp_Book.Chapter08.DTOs;
+
+public class AuthResponse
+{
+    public string AccessToken { get; set; } = string.Empty;
+    public string RefreshToken { get; set; } = string.Empty;
+    public string Username { get; set; } = string.Empty;
+    public string Role { get; set; } = string.Empty;
+    public DateTime AccessTokenExpires { get; set; }
+    public DateTime RefreshTokenExpires { get; set; }
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>7. Data/ApplicationDbContext.cs</h3>
+                <div class="code-block">
+                    <pre><code>using Asp_Book.Chapter08.Models;
+using Microsoft.EntityFrameworkCore;
+
+namespace Asp_Book.Chapter08.Data;
+
+public class ApplicationDbContext : DbContext
+{
+    public ApplicationDbContext(DbContextOptions&lt;ApplicationDbContext&gt; options)
+        : base(options)
+    {
+    }
+
+    public DbSet&lt;User&gt; Users { get; set; }
+    public DbSet&lt;RefreshToken&gt; RefreshTokens { get; set; }
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>8. Services/ITokenService.cs + TokenService.cs</h3>
+                <div class="code-block">
+                    <pre><code>// ITokenService.cs
+using Asp_Book.Chapter08.Models;
+
+namespace Asp_Book.Chapter08.Services;
+
+public interface ITokenService
+{
+    string GenerateAccessToken(User user);
+    string GenerateRefreshToken();
+    Task&lt;RefreshToken?&gt; GetRefreshTokenAsync(string token);
+    Task SaveRefreshTokenAsync(int userId, string refreshToken, DateTime expires);
+    Task RevokeRefreshTokenAsync(string token);
+    Task&lt;bool&gt; IsRefreshTokenValidAsync(string token);
+    Task&lt;int&gt; RevokeAllUserTokensAsync(int userId);  // НОВЫЙ метод для logout
+}</code></pre>
+                </div>
+
+                <div class="code-block">
+                    <pre><code>// TokenService.cs
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
+using Asp_Book.Chapter08.Data;
+using Asp_Book.Chapter08.Models;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+
+namespace Asp_Book.Chapter08.Services;
+
+public class TokenService : ITokenService
+{
+    private readonly IConfiguration _configuration;
+    private readonly ApplicationDbContext _context;
+    private readonly string _secretKey;
+    private readonly string _issuer;
+    private readonly string _audience;
+
+    public TokenService(IConfiguration configuration, ApplicationDbContext context)
+    {
+        _configuration = configuration;
+        _context = context;
+        _secretKey = _configuration["Jwt:SecretKey"] 
+            ?? "MySuperSecretKeyThatIsAtLeast32CharactersLong!";
+        _issuer = _configuration["Jwt:Issuer"] ?? "AspBook";
+        _audience = _configuration["Jwt:Audience"] ?? "AspBookUsers";
+    }
+
+    public string GenerateAccessToken(User user)
+    {
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new Claim(ClaimTypes.Name, user.Username),
+            new Claim(ClaimTypes.Email, user.Email),
+            new Claim(ClaimTypes.Role, user.Role)
+        };
+
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secretKey));
+        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        var token = new JwtSecurityToken(
+            issuer: _issuer,
+            audience: _audience,
+            claims: claims,
+            expires: DateTime.UtcNow.AddMinutes(15),
+            signingCredentials: credentials
+        );
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    public string GenerateRefreshToken()
+    {
+        var randomNumber = new byte[64];
+        using var rng = RandomNumberGenerator.Create();
+        rng.GetBytes(randomNumber);
+        return Convert.ToBase64String(randomNumber);
+    }
+
+    public async Task SaveRefreshTokenAsync(int userId, string refreshToken, DateTime expires)
+    {
+        var token = new RefreshToken
+        {
+            Token = refreshToken,
+            UserId = userId,
+            Expires = expires,
+            IsRevoked = false
+        };
+        _context.RefreshTokens.Add(token);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task&lt;RefreshToken?&gt; GetRefreshTokenAsync(string token)
+    {
+        return await _context.RefreshTokens
+            .FirstOrDefaultAsync(rt => rt.Token == token);
+    }
+
+    public async Task&lt;bool&gt; IsRefreshTokenValidAsync(string token)
+    {
+        var refreshToken = await GetRefreshTokenAsync(token);
+        return refreshToken != null 
+            &amp;&amp; !refreshToken.IsRevoked 
+            &amp;&amp; refreshToken.Expires > DateTime.UtcNow;
+    }
+
+    public async Task RevokeRefreshTokenAsync(string token)
+    {
+        var refreshToken = await GetRefreshTokenAsync(token);
+        if (refreshToken != null)
+        {
+            refreshToken.IsRevoked = true;
+            await _context.SaveChangesAsync();
+        }
+    }
+
+    // РЕШЕНИЕ ЗАДАНИЯ: отзыв ВСЕХ токенов пользователя
+    public async Task&lt;int&gt; RevokeAllUserTokensAsync(int userId)
+    {
+        var activeTokens = await _context.RefreshTokens
+            .Where(rt => rt.UserId == userId &amp;&amp; !rt.IsRevoked)
+            .ToListAsync();
+
+        foreach (var token in activeTokens)
+        {
+            token.IsRevoked = true;
+        }
+
+        await _context.SaveChangesAsync();
+        return activeTokens.Count;  // Возвращаем количество отозванных
+    }
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>9. Services/IUserService.cs + UserService.cs</h3>
+                <div class="code-block">
+                    <pre><code>// IUserService.cs
+using Asp_Book.Chapter08.Models;
+
+namespace Asp_Book.Chapter08.Services;
+
+public interface IUserService
+{
+    Task&lt;User?&gt; GetUserByUsernameAsync(string username);
+    Task&lt;User?&gt; GetUserByIdAsync(int id);
+    Task&lt;User&gt; CreateUserAsync(string username, string email, string password);
+    bool VerifyPassword(string password, string passwordHash);
+}</code></pre>
+                </div>
+
+                <div class="code-block">
+                    <pre><code>// UserService.cs
+using System.Security.Cryptography;
+using System.Text;
+using Asp_Book.Chapter08.Data;
+using Asp_Book.Chapter08.Models;
+using Microsoft.EntityFrameworkCore;
+
+namespace Asp_Book.Chapter08.Services;
+
+public class UserService : IUserService
+{
+    private readonly ApplicationDbContext _context;
+
+    public UserService(ApplicationDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task&lt;User?&gt; GetUserByUsernameAsync(string username)
+    {
+        return await _context.Users
+            .FirstOrDefaultAsync(u => u.Username == username);
+    }
+
+    public async Task&lt;User?&gt; GetUserByIdAsync(int id)
+    {
+        return await _context.Users.FindAsync(id);
+    }
+
+    public async Task&lt;User&gt; CreateUserAsync(string username, string email, string password)
+    {
+        var user = new User
+        {
+            Username = username,
+            Email = email,
+            PasswordHash = HashPassword(password),
+            Role = "User"
+        };
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
+        return user;
+    }
+
+    public bool VerifyPassword(string password, string passwordHash)
+    {
+        return HashPassword(password) == passwordHash;
+    }
+
+    private static string HashPassword(string password)
+    {
+        using var sha256 = SHA256.Create();
+        var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
+        return Convert.ToBase64String(hashedBytes);
+    }
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>10. Controllers/AuthController.cs (с logout)</h3>
+                <p>Полный контроллер включая <strong>решение задания</strong> — эндпоинт <code>/api/auth/logout</code>:</p>
+                <div class="code-block">
+                    <pre><code>using System.Security.Claims;
+using Asp_Book.Chapter08.DTOs;
+using Asp_Book.Chapter08.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace Asp_Book.Chapter08.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class AuthController : ControllerBase
+{
+    private readonly IUserService _userService;
+    private readonly ITokenService _tokenService;
+
+    public AuthController(IUserService userService, ITokenService tokenService)
+    {
+        _userService = userService;
+        _tokenService = tokenService;
+    }
+
+    [HttpPost("login")]
+    public async Task&lt;IActionResult&gt; Login([FromBody] LoginRequest request)
+    {
+        var user = await _userService.GetUserByUsernameAsync(request.Username);
+        if (user == null || !_userService.VerifyPassword(request.Password, user.PasswordHash))
+            return Unauthorized(new { message = "Неверное имя пользователя или пароль" });
+
+        var accessToken = _tokenService.GenerateAccessToken(user);
+        var refreshToken = _tokenService.GenerateRefreshToken();
+        var refreshTokenExpires = DateTime.UtcNow.AddDays(7);
+
+        await _tokenService.SaveRefreshTokenAsync(user.Id, refreshToken, refreshTokenExpires);
+
+        return Ok(new AuthResponse
+        {
+            AccessToken = accessToken,
+            RefreshToken = refreshToken,
+            Username = user.Username,
+            Role = user.Role,
+            AccessTokenExpires = DateTime.UtcNow.AddMinutes(15),
+            RefreshTokenExpires = refreshTokenExpires
+        });
+    }
+
+    [HttpPost("refresh")]
+    public async Task&lt;IActionResult&gt; Refresh([FromBody] RefreshTokenRequest request)
+    {
+        if (!await _tokenService.IsRefreshTokenValidAsync(request.RefreshToken))
+            return Unauthorized(new { message = "Недействительный refresh token" });
+
+        var refreshToken = await _tokenService.GetRefreshTokenAsync(request.RefreshToken);
+        if (refreshToken == null)
+            return Unauthorized(new { message = "Refresh token не найден" });
+
+        var user = await _userService.GetUserByIdAsync(refreshToken.UserId);
+        if (user == null)
+            return Unauthorized(new { message = "Пользователь не найден" });
+
+        await _tokenService.RevokeRefreshTokenAsync(request.RefreshToken);
+
+        var newAccessToken = _tokenService.GenerateAccessToken(user);
+        var newRefreshToken = _tokenService.GenerateRefreshToken();
+        var newRefreshTokenExpires = DateTime.UtcNow.AddDays(7);
+
+        await _tokenService.SaveRefreshTokenAsync(user.Id, newRefreshToken, newRefreshTokenExpires);
+
+        return Ok(new AuthResponse
+        {
+            AccessToken = newAccessToken,
+            RefreshToken = newRefreshToken,
+            Username = user.Username,
+            Role = user.Role,
+            AccessTokenExpires = DateTime.UtcNow.AddMinutes(15),
+            RefreshTokenExpires = newRefreshTokenExpires
+        });
+    }
+
+    [HttpPost("revoke")]
+    public async Task&lt;IActionResult&gt; Revoke([FromBody] RefreshTokenRequest request)
+    {
+        await _tokenService.RevokeRefreshTokenAsync(request.RefreshToken);
+        return Ok(new { message = "Refresh token отозван" });
+    }
+
+    // ===== РЕШЕНИЕ ЗАДАНИЯ =====
+    [Authorize]  // Требуется JWT токен!
+    [HttpPost("logout")]
+    public async Task&lt;IActionResult&gt; Logout()
+    {
+        // 1. Извлекаем ID пользователя из JWT токена
+        var userIdClaim = User.Claims
+            .FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+
+        if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
+            return Unauthorized(new { message = "Невозможно определить пользователя" });
+
+        // 2. Отзываем ВСЕ активные refresh токены этого пользователя
+        var revokedCount = await _tokenService.RevokeAllUserTokensAsync(userId);
+
+        // 3. Возвращаем результат
+        return Ok(new 
+        { 
+            message = $"Все сессии завершены. Отозвано токенов: {revokedCount}" 
+        });
+    }
 }</code></pre>
                     <div class="code-explanation">
-                        <strong>Объяснение:</strong> Refresh Token генерируется как криптографически стойкая случайная строка длиной 64 байта, преобразованная в Base64.
+                        <strong>Ключевые моменты решения:</strong>
+                        <ul>
+                            <li><code>[Authorize]</code> — эндпоинт доступен только с валидным JWT токеном</li>
+                            <li><code>ClaimTypes.NameIdentifier</code> — извлекаем ID пользователя, который был записан при генерации токена</li>
+                            <li><code>RevokeAllUserTokensAsync</code> — новый метод, который отзывает все активные токены пользователя</li>
+                        </ul>
                     </div>
                 </div>
             </section>
 
             <section class="mb-5">
-                <h3>3. Сохранение Refresh Token в БД</h3>
+                <h3>11. Program.cs (полный файл)</h3>
                 <div class="code-block">
-                    <pre><code>public async Task SaveRefreshTokenAsync(int userId, string refreshToken, DateTime expires)
+                    <pre><code>using System.Text;
+using Asp_Book.Chapter08.Data;
+using Asp_Book.Chapter08.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddControllers();
+builder.Services.AddRazorPages().AddRazorRuntimeCompilation();
+
+// In-Memory Database
+builder.Services.AddDbContext&lt;ApplicationDbContext&gt;(options =>
+    options.UseInMemoryDatabase("RefreshTokenDb"));
+
+// Регистрация сервисов
+builder.Services.AddScoped&lt;IUserService, UserService&gt;();
+builder.Services.AddScoped&lt;ITokenService, TokenService&gt;();
+
+// JWT Authentication
+var secretKey = builder.Configuration["Jwt:SecretKey"] 
+    ?? "MySuperSecretKeyThatIsAtLeast32CharactersLong!";
+var issuer = builder.Configuration["Jwt:Issuer"] ?? "AspBook";
+var audience = builder.Configuration["Jwt:Audience"] ?? "AspBookUsers";
+
+builder.Services.AddAuthentication(options =>
 {
-    var token = new RefreshToken
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
     {
-        Token = refreshToken,
-        UserId = userId,
-        Expires = expires,
-        IsRevoked = false
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes(secretKey)),
+        ValidateIssuer = true,
+        ValidIssuer = issuer,
+        ValidateAudience = true,
+        ValidAudience = audience,
+        ValidateLifetime = true,
+        ClockSkew = TimeSpan.Zero
     };
+});
 
-    _context.RefreshTokens.Add(token);
-    await _context.SaveChangesAsync();
-}</code></pre>
-                </div>
-            </section>
+builder.Services.AddAuthorization();
 
-            <section class="mb-5">
-                <h3>4. Метод Login с выдачей обоих токенов</h3>
-                <div class="code-block">
-                    <pre><code>[HttpPost("login")]
-public async Task&lt;IActionResult&gt; Login([FromBody] LoginRequest request)
+// Swagger с JWT
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
 {
-    var user = await _userService.GetUserByUsernameAsync(request.Username);
-    if (user == null || !_userService.VerifyPassword(request.Password, user.PasswordHash))
+    c.SwaggerDoc("v1", new OpenApiInfo
     {
-        return Unauthorized(new { message = "Неверные учетные данные" });
-    }
-
-    // Генерация токенов
-    var accessToken = _tokenService.GenerateAccessToken(user);
-    var refreshToken = _tokenService.GenerateRefreshToken();
-    var refreshTokenExpires = DateTime.UtcNow.AddDays(7);
-
-    // Сохранение refresh token
-    await _tokenService.SaveRefreshTokenAsync(
-        user.Id, refreshToken, refreshTokenExpires);
-
-    return Ok(new AuthResponse
-    {
-        AccessToken = accessToken,
-        RefreshToken = refreshToken,
-        Username = user.Username,
-        Role = user.Role,
-        AccessTokenExpires = DateTime.UtcNow.AddMinutes(15),
-        RefreshTokenExpires = refreshTokenExpires
+        Title = "Глава 8: Refresh Token",
+        Version = "v1"
     });
-}</code></pre>
-                </div>
-            </section>
 
-            <section class="mb-5">
-                <h3>5. Метод Refresh для обновления токенов</h3>
-                <div class="code-block">
-                    <pre><code>[HttpPost("refresh")]
-public async Task&lt;IActionResult&gt; Refresh([FromBody] RefreshTokenRequest request)
-{
-    // Проверка валидности refresh token
-    if (!await _tokenService.IsRefreshTokenValidAsync(request.RefreshToken))
+    // Swagger сам подставит "Bearer " перед токеном
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        return Unauthorized(new { message = "Недействительный refresh token" });
-    }
-
-    var refreshToken = await _tokenService.GetRefreshTokenAsync(request.RefreshToken);
-    if (refreshToken == null)
-    {
-        return Unauthorized(new { message = "Refresh token не найден" });
-    }
-
-    // Получение пользователя
-    var user = await GetUserByIdAsync(refreshToken.UserId);
-
-    // Отзыв старого refresh token
-    await _tokenService.RevokeRefreshTokenAsync(request.RefreshToken);
-
-    // Генерация новых токенов
-    var newAccessToken = _tokenService.GenerateAccessToken(user);
-    var newRefreshToken = _tokenService.GenerateRefreshToken();
-    var newRefreshTokenExpires = DateTime.UtcNow.AddDays(7);
-
-    // Сохранение нового refresh token
-    await _tokenService.SaveRefreshTokenAsync(
-        user.Id, newRefreshToken, newRefreshTokenExpires);
-
-    return Ok(new AuthResponse
-    {
-        AccessToken = newAccessToken,
-        RefreshToken = newRefreshToken,
-        Username = user.Username,
-        Role = user.Role,
-        AccessTokenExpires = DateTime.UtcNow.AddMinutes(15),
-        RefreshTokenExpires = newRefreshTokenExpires
+        Description = "Введите JWT токен (без приставки Bearer)",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT"
     });
-}</code></pre>
+
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty&lt;string&gt;()
+        }
+    });
+});
+
+var app = builder.Build();
+
+app.UseSwagger();
+app.UseSwaggerUI();
+app.UseStaticFiles();
+app.UseRouting();
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapRazorPages();
+app.MapControllers();
+
+app.Run();</code></pre>
                 </div>
             </section>
 
             <section class="mb-5">
-                <h3>6. Проверка валидности Refresh Token</h3>
-                <div class="code-block">
-                    <pre><code>public async Task&lt;bool&gt; IsRefreshTokenValidAsync(string token)
-{
-    var refreshToken = await _context.RefreshTokens
-        .FirstOrDefaultAsync(rt => rt.Token == token);
-    
-    return refreshToken != null 
-        && !refreshToken.IsRevoked 
-        && refreshToken.Expires > DateTime.UtcNow;
-}</code></pre>
-                </div>
-            </section>
+                <h3>12. Тестирование</h3>
 
-            <section class="mb-5">
-                <h3>7. Отзыв Refresh Token</h3>
+                <p><strong>Шаг 1 — Вход:</strong></p>
                 <div class="code-block">
-                    <pre><code>[HttpPost("revoke")]
-public async Task&lt;IActionResult&gt; Revoke([FromBody] RefreshTokenRequest request)
+                    <pre><code>POST /api/auth/login
+Content-Type: application/json
+
 {
-    await _tokenService.RevokeRefreshTokenAsync(request.RefreshToken);
-    return Ok(new { message = "Refresh token отозван" });
+  "username": "admin",
+  "password": "admin123"
 }
 
-// В сервисе:
-public async Task RevokeRefreshTokenAsync(string token)
+// Ответ: { accessToken, refreshToken, ... }</code></pre>
+                </div>
+
+                <p><strong>Шаг 2 — Обновление токена:</strong></p>
+                <div class="code-block">
+                    <pre><code>POST /api/auth/refresh
+Content-Type: application/json
+
 {
-    var refreshToken = await GetRefreshTokenAsync(token);
-    if (refreshToken != null)
-    {
-        refreshToken.IsRevoked = true;
-        await _context.SaveChangesAsync();
-    }
+  "refreshToken": "x7Kp2mN+Qf3vR8tY1wZ0aB4cD6eF9gH..."
+}
+
+// Ответ: { НОВЫЙ accessToken, НОВЫЙ refreshToken, ... }</code></pre>
+                </div>
+
+                <p><strong>Шаг 3 — Logout (с JWT токеном):</strong></p>
+                <div class="code-block">
+                    <pre><code>POST /api/auth/logout
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+
+// Ответ:
+{
+  "message": "Все сессии завершены. Отозвано токенов: 3"
 }</code></pre>
+                </div>
+
+                <p><strong>Шаг 4 — Попытка обновить после logout:</strong></p>
+                <div class="code-block">
+                    <pre><code>POST /api/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "старый_токен"
+}
+
+// Ответ: 401 Unauthorized
+// { "message": "Недействительный refresh token" }</code></pre>
                 </div>
             </section>
 
             <section class="mb-5">
-                <h3>8. Использование на клиенте</h3>
+                <h3>13. Структура проекта</h3>
                 <div class="code-block">
-                    <pre><code>// 1. Вход и получение токенов
-const loginResponse = await fetch('/api/Auth/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: 'user', password: 'pass' })
-});
-const { accessToken, refreshToken } = await loginResponse.json();
-
-// Сохранение токенов
-localStorage.setItem('accessToken', accessToken);
-localStorage.setItem('refreshToken', refreshToken);
-
-// 2. При истечении Access Token (401)
-async function refreshAccessToken() {
-    const refreshToken = localStorage.getItem('refreshToken');
-    const response = await fetch('/api/Auth/refresh', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken })
-    });
-    
-    if (response.ok) {
-        const { accessToken, refreshToken: newRefreshToken } = await response.json();
-        localStorage.setItem('accessToken', accessToken);
-        localStorage.setItem('refreshToken', newRefreshToken);
-        return accessToken;
-    }
-    
-    // Если refresh token невалиден - перенаправить на логин
-    window.location.href = '/login';
-}</code></pre>
+                    <pre><code>Asp_Book.Chapter08/
+├── Controllers/
+│   └── AuthController.cs          — login, refresh, revoke, logout
+├── Data/
+│   └── ApplicationDbContext.cs    — DbContext с Users и RefreshTokens
+├── DTOs/
+│   ├── AuthResponse.cs            — ответ с токенами
+│   ├── LoginRequest.cs            — запрос на вход
+│   └── RefreshTokenRequest.cs     — запрос на обновление/отзыв
+├── Models/
+│   ├── RefreshToken.cs            — модель refresh токена
+│   └── User.cs                    — модель пользователя
+├── Services/
+│   ├── ITokenService.cs           — интерфейс работы с токенами
+│   ├── TokenService.cs            — реализация (генерация, валидация, отзыв)
+│   ├── IUserService.cs            — интерфейс работы с пользователями
+│   └── UserService.cs             — реализация (хеширование, CRUD)
+├── Program.cs                     — точка входа, DI, JWT, Swagger
+└── appsettings.json               — конфигурация JWT</code></pre>
                 </div>
             </section>
         </div>
@@ -434,7 +1467,7 @@ async function refreshAccessToken() {
                 const result = await response.json();
                 if (response.ok) {
                     accessToken = result.accessToken;
-                    refreshToken = result.refreshToken; // Новый refresh token
+                    refreshToken = result.refreshToken;
                     accessTokenExpires = new Date(result.accessTokenExpires);
                     refreshTokenExpires = new Date(result.refreshTokenExpires);
 
@@ -495,7 +1528,7 @@ async function refreshAccessToken() {
                         document.getElementById('accessTokenTimer').textContent = 
                             `${minutes}:${seconds.toString().padStart(2, '0')}`;
                         
-                        if (diff < 60000) { // Меньше минуты
+                        if (diff < 60000) {
                             document.getElementById('accessTokenTimer').className = 'fw-bold text-danger';
                         }
                     } else {

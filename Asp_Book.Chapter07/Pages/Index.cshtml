@@ -181,35 +181,882 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...</code></pre>
                 </div>
             </section>
 
+            </section>
+
             <section class="mb-5">
-                <h3>Задача: Реализовать JWT авторизацию</h3>
-                <div class="alert alert-warning">
-                    <h5>Ваша задача:</h5>
-                    <p>Изучите реализацию JWT авторизации в проекте и ответьте на вопросы:</p>
-                    <ul>
-                        <li>Как генерируется JWT токен?</li>
-                        <li>Как настроена валидация токена?</li>
-                        <li>Как защитить контроллер с помощью атрибута [Authorize]?</li>
-                        <li>Как добавить JWT в Swagger для тестирования?</li>
-                    </ul>
+                <h3>Как генерируется JWT токен?</h3>
+                <p>Для генерации JWT токена нужно: создать <strong>claims</strong> (данные о пользователе), подписать их <strong>секретным ключом</strong> и указать <strong>срок действия</strong>.</p>
+
+                <h4>1. Установка пакета</h4>
+                <div class="code-block">
+                    <pre><code>dotnet add package System.IdentityModel.Tokens.Jwt
+dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer</code></pre>
+                </div>
+
+                <h4>2. Сервис генерации токена</h4>
+                <div class="code-block">
+                    <pre><code>using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using Microsoft.IdentityModel.Tokens;
+
+public class JwtService
+{
+    private readonly string _secretKey;
+    private readonly string _issuer;
+    private readonly string _audience;
+
+    public JwtService(IConfiguration configuration)
+    {
+        _secretKey = configuration["Jwt:SecretKey"] 
+            ?? "MySuperSecretKeyThatIsAtLeast32CharactersLong!";
+        _issuer = configuration["Jwt:Issuer"] ?? "AspBook";
+        _audience = configuration["Jwt:Audience"] ?? "AspBookUsers";
+    }
+
+    public string GenerateToken(string username, string email, string role)
+    {
+        // 1. Claims — информация о пользователе, зашитая в токен
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.Name, username),
+            new Claim(ClaimTypes.Email, email),
+            new Claim(ClaimTypes.Role, role)
+        };
+
+        // 2. Ключ для подписи (из секретной строки)
+        var key = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes(_secretKey));
+
+        // 3. Алгоритм подписи
+        var credentials = new SigningCredentials(
+            key, SecurityAlgorithms.HmacSha256);
+
+        // 4. Собираем токен
+        var token = new JwtSecurityToken(
+            issuer: _issuer,       // Кто выдал
+            audience: _audience,   // Для кого
+            claims: claims,        // Данные
+            expires: DateTime.UtcNow.AddHours(1), // Срок жизни
+            signingCredentials: credentials         // Подпись
+        );
+
+        // 5. Преобразуем в строку
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Пошагово:</strong>
+                        <ul>
+                            <li><code>Claims</code> — пары «ключ-значение», которые хранятся внутри токена (имя, роль, email)</li>
+                            <li><code>SymmetricSecurityKey</code> — секретный ключ, которым подписывается токен (минимум 32 символа)</li>
+                            <li><code>SigningCredentials</code> — алгоритм HMAC-SHA256 для подписи</li>
+                            <li><code>JwtSecurityToken</code> — сборка всех частей: issuer, audience, claims, срок, подпись</li>
+                            <li><code>WriteToken()</code> — превращает объект токена в строку вида <code>eyJhbG...</code></li>
+                        </ul>
+                    </div>
                 </div>
             </section>
-        </div>
-
-        <div class="tab-pane fade" id="answers" role="tabpanel">
-            <h2>Решение: Реализация JWT Авторизации</h2>
 
             <section class="mb-5">
-                <h3>1. Настройка JWT в Program.cs</h3>
+                <h3>Как настроена валидация токена?</h3>
+                <p>Валидация настраивается в <code>Program.cs</code>. При каждом запросе ASP.NET Core автоматически проверяет токен по заданным параметрам.</p>
+
                 <div class="code-block">
-                    <pre><code>using System.Text;
+                    <pre><code>// Program.cs
+using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Настройка JWT Authentication
-var secretKey = builder.Configuration["Jwt:SecretKey"] 
+var secretKey = builder.Configuration["Jwt:SecretKey"]
+    ?? "MySuperSecretKeyThatIsAtLeast32CharactersLong!";
+
+// Настройка аутентификации с JWT
+builder.Services.AddAuthentication(options =>
+{
+    // Схема по умолчанию — JWT Bearer
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    // Параметры валидации токена
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuerSigningKey = true,  // Проверять подпись
+        IssuerSigningKey = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes(secretKey)),  // Ключ для проверки
+
+        ValidateIssuer = true,            // Проверять издателя
+        ValidIssuer = "AspBook",          // Ожидаемый издатель
+
+        ValidateAudience = true,          // Проверять аудиторию
+        ValidAudience = "AspBookUsers",   // Ожидаемая аудитория
+
+        ValidateLifetime = true,          // Проверять срок действия
+        ClockSkew = TimeSpan.Zero         // Без допуска по времени
+    };
+});
+
+builder.Services.AddAuthorization();  // Подключаем авторизацию
+
+var app = builder.Build();
+
+// ВАЖНО: порядок middleware имеет значение!
+app.UseAuthentication();  // Сначала аутентификация (кто вы?)
+app.UseAuthorization();   // Потом авторизация (что вам разрешено?)
+
+app.MapControllers();
+app.Run();</code></pre>
+                    <div class="code-explanation">
+                        <strong>Что проверяется при каждом запросе:</strong>
+                        <table class="table table-striped table-bordered mt-2">
+                            <thead>
+                                <tr>
+                                    <th>Параметр</th>
+                                    <th>Что проверяет</th>
+                                    <th>Если не совпадает</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>ValidateIssuerSigningKey</code></td>
+                                    <td>Подпись не подделана</td>
+                                    <td>401 Unauthorized</td>
+                                </tr>
+                                <tr>
+                                    <td><code>ValidateIssuer</code></td>
+                                    <td>Токен выдан нашим сервером</td>
+                                    <td>401 Unauthorized</td>
+                                </tr>
+                                <tr>
+                                    <td><code>ValidateAudience</code></td>
+                                    <td>Токен предназначен для нас</td>
+                                    <td>401 Unauthorized</td>
+                                </tr>
+                                <tr>
+                                    <td><code>ValidateLifetime</code></td>
+                                    <td>Токен не просрочен</td>
+                                    <td>401 Unauthorized</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <h4>Конфигурация в appsettings.json</h4>
+                <div class="code-block">
+                    <pre><code>{
+  "Jwt": {
+    "SecretKey": "MySuperSecretKeyThatIsAtLeast32CharactersLong!",
+    "Issuer": "AspBook",
+    "Audience": "AspBookUsers"
+  }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Важно:</strong> В продакшене <code>SecretKey</code> должен храниться в безопасном месте (переменные окружения, Azure Key Vault), а не в коде или appsettings.json.
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Как защитить контроллер с помощью [Authorize]?</h3>
+                <p>Атрибут <code>[Authorize]</code> указывает, что для доступа к методу (или всему контроллеру) нужен валидный JWT токен.</p>
+
+                <div class="code-block">
+                    <pre><code>using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
+
+[ApiController]
+[Route("api/[controller]")]
+public class ProtectedController : ControllerBase
+{
+    // Доступен ВСЕМ (без токена)
+    [HttpGet("public")]
+    public IActionResult GetPublicData()
+    {
+        return Ok(new { message = "Это публичные данные" });
+    }
+
+    // Доступен только авторизованным (с токеном)
+    [Authorize]
+    [HttpGet("private")]
+    public IActionResult GetPrivateData()
+    {
+        // Достаём данные из токена
+        var username = User.Identity?.Name;
+        var email = User.Claims
+            .FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value;
+
+        return Ok(new { message = "Это приватные данные", username, email });
+    }
+
+    // Доступен только пользователям с ролью "Admin"
+    [Authorize(Roles = "Admin")]
+    [HttpGet("admin")]
+    public IActionResult GetAdminData()
+    {
+        return Ok(new { message = "Только для администраторов" });
+    }
+
+    // Доступен пользователям с ролью "Admin" ИЛИ "Manager"
+    [Authorize(Roles = "Admin,Manager")]
+    [HttpGet("management")]
+    public IActionResult GetManagementData()
+    {
+        return Ok(new { message = "Для администраторов и менеджеров" });
+    }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Варианты использования [Authorize]:</strong>
+                        <table class="table table-striped table-bordered mt-2">
+                            <thead>
+                                <tr>
+                                    <th>Атрибут</th>
+                                    <th>Кто имеет доступ</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>(без атрибута)</td>
+                                    <td>Все — токен не нужен</td>
+                                </tr>
+                                <tr>
+                                    <td><code>[Authorize]</code></td>
+                                    <td>Любой авторизованный пользователь (есть валидный токен)</td>
+                                </tr>
+                                <tr>
+                                    <td><code>[Authorize(Roles = "Admin")]</code></td>
+                                    <td>Только пользователи с ролью Admin</td>
+                                </tr>
+                                <tr>
+                                    <td><code>[Authorize(Roles = "Admin,Manager")]</code></td>
+                                    <td>Пользователи с ролью Admin <strong>или</strong> Manager</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <p><strong>Можно поставить [Authorize] на весь контроллер</strong>, а отдельные методы сделать публичными через <code>[AllowAnonymous]</code>:</p>
+                <div class="code-block">
+                    <pre><code>[ApiController]
+[Route("api/[controller]")]
+[Authorize]  // Весь контроллер требует авторизации
+public class UsersController : ControllerBase
+{
+    [AllowAnonymous]  // Этот метод доступен без токена
+    [HttpPost("login")]
+    public IActionResult Login(LoginRequest request)
+    {
+        // Логин доступен всем
+    }
+
+    [HttpGet("profile")]  // Этот метод требует токен (наследует [Authorize])
+    public IActionResult GetProfile()
+    {
+        var username = User.Identity?.Name;
+        return Ok(new { username });
+    }
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Как добавить JWT в Swagger для тестирования?</h3>
+                <p>По умолчанию Swagger не знает о JWT. Нужно добавить кнопку «Authorize» для ввода токена.</p>
+
+                <div class="code-block">
+                    <pre><code>// Program.cs
+using Microsoft.OpenApi.Models;
+
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "JWT API",
+        Version = "v1"
+    });
+
+    // 1. Определяем схему безопасности
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "Введите JWT токен: Bearer {ваш_токен}",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer"
+    });
+
+    // 2. Применяем схему ко всем эндпоинтам
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty&lt;string&gt;()
+        }
+    });
+});</code></pre>
+                    <div class="code-explanation">
+                        <strong>Как пользоваться:</strong>
+                        <ol>
+                            <li>Открываете Swagger UI (<code>/swagger</code>)</li>
+                            <li>Вызываете <code>POST /api/auth/login</code> — получаете токен</li>
+                            <li>Нажимаете кнопку <strong>Authorize</strong> (вверху справа)</li>
+                            <li>Вводите: <code>Bearer ваш_токен</code></li>
+                            <li>Теперь все запросы в Swagger автоматически отправляются с токеном</li>
+                        </ol>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Безопасное хранение секретных ключей</h3>
+                <p>В примерах выше секретный ключ хранится в <code>appsettings.json</code>. Это удобно для разработки, но <strong>опасно для продакшена</strong>.</p>
+
+                <h4>Почему appsettings.json — небезопасно?</h4>
+                <div class="alert alert-danger">
+                    <ul>
+                        <li><strong>Попадает в Git</strong> — если вы случайно закоммитите <code>appsettings.json</code> с секретным ключом, он будет виден всем, у кого есть доступ к репозиторию</li>
+                        <li><strong>Виден на сервере</strong> — файл лежит рядом с приложением и может быть прочитан при утечке</li>
+                        <li><strong>Один файл на всех</strong> — разработчики, тестировщики и продакшен используют одинаковые ключи</li>
+                        <li><strong>Нет разделения</strong> — секреты смешаны с обычной конфигурацией (логирование, строки подключения)</li>
+                    </ul>
+                </div>
+
+                <h4>Решение: переменные окружения и .env файл</h4>
+                <p><strong>.env файл</strong> — это текстовый файл с переменными окружения, который <strong>не добавляется в Git</strong>.</p>
+
+                <p><strong>Шаг 1:</strong> Создайте файл <code>.env</code> в корне проекта:</p>
+                <div class="code-block">
+                    <pre><code># .env — этот файл НЕ добавляется в Git!
+JWT_SECRET_KEY=ваш_сгенерированный_секретный_ключ_минимум_32_символа
+JWT_ISSUER=AspBook
+JWT_AUDIENCE=AspBookUsers</code></pre>
+                </div>
+
+                <p><strong>Шаг 2:</strong> Добавьте <code>.env</code> в <code>.gitignore</code>:</p>
+                <div class="code-block">
+                    <pre><code># .gitignore
+.env
+*.env</code></pre>
+                </div>
+
+                <p><strong>Шаг 3:</strong> Считывайте переменные окружения в <code>Program.cs</code>:</p>
+                <div class="code-block">
+                    <pre><code>// Program.cs
+var builder = WebApplication.CreateBuilder(args);
+
+// Переменные окружения имеют приоритет над appsettings.json
+var secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY")
+    ?? builder.Configuration["Jwt:SecretKey"]
+    ?? throw new Exception("JWT SecretKey не настроен!");
+
+var issuer = Environment.GetEnvironmentVariable("JWT_ISSUER")
+    ?? builder.Configuration["Jwt:Issuer"]
+    ?? "AspBook";
+
+var audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE")
+    ?? builder.Configuration["Jwt:Audience"]
+    ?? "AspBookUsers";</code></pre>
+                    <div class="code-explanation">
+                        <strong>Порядок приоритетов:</strong>
+                        <ol>
+                            <li>Переменная окружения (<code>JWT_SECRET_KEY</code>) — если задана, используется она</li>
+                            <li><code>appsettings.json</code> — если переменной окружения нет</li>
+                            <li>Значение по умолчанию или ошибка — если ничего не задано</li>
+                        </ol>
+                    </div>
+                </div>
+
+                <p><strong>Шаг 4:</strong> Для Docker — передавайте переменные через <code>docker-compose.yml</code>:</p>
+                <div class="code-block">
+                    <pre><code># docker-compose.yml
+services:
+  chapter07:
+    build: ./Asp_Book.Chapter07
+    environment:
+      - JWT_SECRET_KEY=your_production_secret_key_here_min_32_chars
+      - JWT_ISSUER=AspBook
+      - JWT_AUDIENCE=AspBookUsers
+
+# Или через .env файл:
+services:
+  chapter07:
+    build: ./Asp_Book.Chapter07
+    env_file:
+      - .env</code></pre>
+                </div>
+
+                <h4>Генерация случайных секретных ключей</h4>
+                <p>Никогда не придумывайте ключи вручную — генерируйте случайные:</p>
+
+                <p><strong>PowerShell (Windows):</strong></p>
+                <div class="code-block">
+                    <pre><code># Генерация случайного ключа 64 символа
+[Convert]::ToBase64String((1..48 | ForEach-Object { Get-Random -Maximum 256 }) -as [byte[]])</code></pre>
+                </div>
+
+                <p><strong>Bash (Linux/Mac):</strong></p>
+                <div class="code-block">
+                    <pre><code># Генерация случайного ключа 64 символа
+openssl rand -base64 48</code></pre>
+                </div>
+
+                <p><strong>Через .NET CLI (любая ОС):</strong></p>
+                <div class="code-block">
+                    <pre><code># Генерация через dotnet-script или C# Interactive
+dotnet script -e "Console.WriteLine(Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(48)))"</code></pre>
+                </div>
+
+                <p><strong>Или просто в C# коде (для одноразовой генерации):</strong></p>
+                <div class="code-block">
+                    <pre><code>using System.Security.Cryptography;
+
+// Генерация безопасного случайного ключа
+var key = Convert.ToBase64String(RandomNumberGenerator.GetBytes(48));
+Console.WriteLine(key);
+// Пример: "x7Kp2mN+Qf3vR8tY1wZ0aB4cD6eF9gH2jK5lM8nO3pQ7rS0uV4wX"</code></pre>
+                </div>
+
+                <h4>Сравнение способов хранения секретов</h4>
+                <div class="table-responsive">
+                    <table class="table table-striped table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Способ</th>
+                                <th>Безопасность</th>
+                                <th>Удобство</th>
+                                <th>Когда использовать</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>appsettings.json</code></td>
+                                <td>❌ Низкая</td>
+                                <td>✅ Удобно</td>
+                                <td>Только для разработки</td>
+                            </tr>
+                            <tr>
+                                <td><code>.env</code> файл</td>
+                                <td>⚠️ Средняя</td>
+                                <td>✅ Удобно</td>
+                                <td>Разработка + простой деплой</td>
+                            </tr>
+                            <tr>
+                                <td>Переменные окружения</td>
+                                <td>✅ Высокая</td>
+                                <td>⚠️ Средне</td>
+                                <td>Продакшен, Docker</td>
+                            </tr>
+                            <tr>
+                                <td><code>dotnet user-secrets</code></td>
+                                <td>✅ Высокая</td>
+                                <td>✅ Удобно</td>
+                                <td>Локальная разработка</td>
+                            </tr>
+                            <tr>
+                                <td>Azure Key Vault / AWS Secrets</td>
+                                <td>✅✅ Очень высокая</td>
+                                <td>⚠️ Сложнее</td>
+                                <td>Крупные проекты, облако</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h4>Бонус: dotnet user-secrets (для локальной разработки)</h4>
+                <p>ASP.NET Core имеет встроенный инструмент для безопасного хранения секретов:</p>
+                <div class="code-block">
+                    <pre><code># Инициализация (один раз для проекта)
+dotnet user-secrets init
+
+# Добавление секрета
+dotnet user-secrets set "Jwt:SecretKey" "ваш_секретный_ключ"
+
+# Просмотр всех секретов
+dotnet user-secrets list
+
+# Удаление секрета
+dotnet user-secrets remove "Jwt:SecretKey"</code></pre>
+                    <div class="code-explanation">
+                        <strong>Как это работает:</strong>
+                        <ul>
+                            <li>Секреты хранятся в <strong>домашней папке пользователя</strong>, а не в проекте</li>
+                            <li>Автоматически подключаются в <code>Development</code> режиме</li>
+                            <li>Не попадают в Git</li>
+                            <li>Доступны через <code>builder.Configuration["Jwt:SecretKey"]</code> как обычно</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Задание для закрепления</h3>
+                <div class="alert alert-warning">
+                    <h5>Ваша задача:</h5>
+                    <p>Создайте защищённый эндпоинт <code>GET /api/profile</code>, который:</p>
+                    <ul>
+                        <li>Доступен <strong>только авторизованным</strong> пользователям (с JWT токеном)</li>
+                        <li>Извлекает из токена <strong>имя пользователя</strong>, <strong>email</strong> и <strong>роль</strong></li>
+                        <li>Возвращает JSON с этими данными</li>
+                    </ul>
+                    <p><strong>Пример ответа:</strong></p>
+                    <pre><code>{
+  "username": "ivan",
+  "email": "ivan@mail.com",
+  "role": "User",
+  "message": "Добро пожаловать, ivan!"
+}</code></pre>
+                    <p>Если токен отсутствует или невалиден — должен возвращаться <strong>401 Unauthorized</strong>.</p>
+                </div>
+            </section>
+        </div>
+
+        <div class="tab-pane fade" id="answers" role="tabpanel">
+            <h2>Полное решение: JWT авторизация + эндпоинт /api/profile</h2>
+            <p>Ниже — все файлы, необходимые для работы решения.</p>
+
+            <section class="mb-5">
+                <h3>1. appsettings.json</h3>
+                <div class="code-block">
+                    <pre><code>{
+  "Jwt": {
+    "SecretKey": "MySuperSecretKeyThatIsAtLeast32CharactersLong!",
+    "Issuer": "AspBook",
+    "Audience": "AspBookUsers"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information"
+    }
+  }
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>2. Models/User.cs</h3>
+                <div class="code-block">
+                    <pre><code>namespace Asp_Book.Chapter07.Models;
+
+public class User
+{
+    public int Id { get; set; }
+    public string Username { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string PasswordHash { get; set; } = string.Empty;
+    public string Role { get; set; } = "User";
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>3. Models/AuthModels.cs</h3>
+                <p>DTO для запросов и ответов аутентификации:</p>
+                <div class="code-block">
+                    <pre><code>using System.ComponentModel.DataAnnotations;
+
+namespace Asp_Book.Chapter07.Models;
+
+// Запрос на регистрацию
+public class RegisterRequest
+{
+    [Required]
+    [StringLength(50, MinimumLength = 3)]
+    public string Username { get; set; } = string.Empty;
+
+    [Required]
+    [EmailAddress]
+    public string Email { get; set; } = string.Empty;
+
+    [Required]
+    [StringLength(100, MinimumLength = 6)]
+    public string Password { get; set; } = string.Empty;
+}
+
+// Запрос на вход
+public class LoginRequest
+{
+    [Required]
+    public string Username { get; set; } = string.Empty;
+
+    [Required]
+    public string Password { get; set; } = string.Empty;
+}
+
+// Ответ с токеном
+public class AuthResponse
+{
+    public string Token { get; set; } = string.Empty;
+    public string Username { get; set; } = string.Empty;
+    public string Role { get; set; } = string.Empty;
+    public DateTime Expires { get; set; }
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>4. Services/JwtService.cs</h3>
+                <p>Сервис для генерации JWT токенов:</p>
+                <div class="code-block">
+                    <pre><code>using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using Microsoft.IdentityModel.Tokens;
+using Asp_Book.Chapter07.Models;
+
+namespace Asp_Book.Chapter07.Services;
+
+public interface IJwtService
+{
+    string GenerateToken(User user);
+}
+
+public class JwtService : IJwtService
+{
+    private readonly string _secretKey;
+    private readonly string _issuer;
+    private readonly string _audience;
+
+    public JwtService(IConfiguration configuration)
+    {
+        _secretKey = configuration["Jwt:SecretKey"]
+            ?? "MySuperSecretKeyThatIsAtLeast32CharactersLong!";
+        _issuer = configuration["Jwt:Issuer"] ?? "AspBook";
+        _audience = configuration["Jwt:Audience"] ?? "AspBookUsers";
+    }
+
+    public string GenerateToken(User user)
+    {
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new Claim(ClaimTypes.Name, user.Username),
+            new Claim(ClaimTypes.Email, user.Email),
+            new Claim(ClaimTypes.Role, user.Role)
+        };
+
+        var key = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes(_secretKey));
+        var credentials = new SigningCredentials(
+            key, SecurityAlgorithms.HmacSha256);
+
+        var token = new JwtSecurityToken(
+            issuer: _issuer,
+            audience: _audience,
+            claims: claims,
+            expires: DateTime.UtcNow.AddHours(1),
+            signingCredentials: credentials
+        );
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>5. Services/UserService.cs</h3>
+                <p>Сервис для работы с пользователями (хранение в памяти для простоты):</p>
+                <div class="code-block">
+                    <pre><code>using System.Security.Cryptography;
+using System.Text;
+using Asp_Book.Chapter07.Models;
+
+namespace Asp_Book.Chapter07.Services;
+
+public interface IUserService
+{
+    User? GetUserByUsername(string username);
+    User CreateUser(string username, string email, string password);
+    bool VerifyPassword(string password, string passwordHash);
+}
+
+public class UserService : IUserService
+{
+    // Для простоты храним пользователей в памяти
+    // В реальном проекте — используйте базу данных
+    private readonly List&lt;User&gt; _users = new();
+    private int _nextId = 1;
+
+    public User? GetUserByUsername(string username)
+    {
+        return _users.FirstOrDefault(
+            u => u.Username.Equals(username, StringComparison.OrdinalIgnoreCase));
+    }
+
+    public User CreateUser(string username, string email, string password)
+    {
+        var user = new User
+        {
+            Id = _nextId++,
+            Username = username,
+            Email = email,
+            PasswordHash = HashPassword(password),
+            Role = "User"
+        };
+
+        _users.Add(user);
+        return user;
+    }
+
+    public bool VerifyPassword(string password, string passwordHash)
+    {
+        return HashPassword(password) == passwordHash;
+    }
+
+    private string HashPassword(string password)
+    {
+        using var sha256 = SHA256.Create();
+        var bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
+        return Convert.ToBase64String(bytes);
+    }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Примечание:</strong> В реальном проекте используйте базу данных и <code>BCrypt</code> для хеширования паролей. Хранение в памяти — только для демонстрации.
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>6. Controllers/AuthController.cs</h3>
+                <p>Контроллер для регистрации и входа:</p>
+                <div class="code-block">
+                    <pre><code>using Microsoft.AspNetCore.Mvc;
+using Asp_Book.Chapter07.Models;
+using Asp_Book.Chapter07.Services;
+
+namespace Asp_Book.Chapter07.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class AuthController : ControllerBase
+{
+    private readonly IUserService _userService;
+    private readonly IJwtService _jwtService;
+
+    public AuthController(IUserService userService, IJwtService jwtService)
+    {
+        _userService = userService;
+        _jwtService = jwtService;
+    }
+
+    [HttpPost("register")]
+    public IActionResult Register([FromBody] RegisterRequest request)
+    {
+        if (_userService.GetUserByUsername(request.Username) != null)
+            return BadRequest(new { message = "Пользователь уже существует" });
+
+        var user = _userService.CreateUser(
+            request.Username, request.Email, request.Password);
+
+        var token = _jwtService.GenerateToken(user);
+
+        return Ok(new AuthResponse
+        {
+            Token = token,
+            Username = user.Username,
+            Role = user.Role,
+            Expires = DateTime.UtcNow.AddHours(1)
+        });
+    }
+
+    [HttpPost("login")]
+    public IActionResult Login([FromBody] LoginRequest request)
+    {
+        var user = _userService.GetUserByUsername(request.Username);
+
+        if (user == null || !_userService.VerifyPassword(
+            request.Password, user.PasswordHash))
+            return Unauthorized(new { message = "Неверные учетные данные" });
+
+        var token = _jwtService.GenerateToken(user);
+
+        return Ok(new AuthResponse
+        {
+            Token = token,
+            Username = user.Username,
+            Role = user.Role,
+            Expires = DateTime.UtcNow.AddHours(1)
+        });
+    }
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>7. Controllers/ProfileController.cs</h3>
+                <p>Защищённый эндпоинт — решение задания:</p>
+                <div class="code-block">
+                    <pre><code>using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
+
+namespace Asp_Book.Chapter07.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class ProfileController : ControllerBase
+{
+    // GET: api/profile
+    [Authorize]
+    [HttpGet]
+    public IActionResult GetProfile()
+    {
+        var username = User.Identity?.Name;
+        var email = User.Claims
+            .FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value;
+        var role = User.Claims
+            .FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+
+        return Ok(new
+        {
+            username = username,
+            email = email,
+            role = role,
+            message = $"Добро пожаловать, {username}!"
+        });
+    }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Ключевой момент:</strong> Атрибут <code>[Authorize]</code> автоматически проверяет токен. Если токен невалиден или отсутствует — метод не вызывается, сразу возвращается <strong>401 Unauthorized</strong>.
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>8. Program.cs (полный файл)</h3>
+                <p>Главный файл — связывает всё вместе:</p>
+                <div class="code-block">
+                    <pre><code>using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+using Asp_Book.Chapter07.Services;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// === Регистрация сервисов ===
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+
+// Регистрация наших сервисов в DI
+builder.Services.AddSingleton&lt;IUserService, UserService&gt;();  // Singleton — один экземпляр на всё приложение
+builder.Services.AddSingleton&lt;IJwtService, JwtService&gt;();
+
+// === Настройка JWT аутентификации ===
+var secretKey = builder.Configuration["Jwt:SecretKey"]
     ?? "MySuperSecretKeyThatIsAtLeast32CharactersLong!";
 var issuer = builder.Configuration["Jwt:Issuer"] ?? "AspBook";
 var audience = builder.Configuration["Jwt:Audience"] ?? "AspBookUsers";
@@ -237,218 +1084,18 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
-var app = builder.Build();
-
-// ВАЖНО: UseAuthentication должен быть ПЕРЕД UseAuthorization
-app.UseAuthentication();
-app.UseAuthorization();</code></pre>
-                    <div class="code-explanation">
-                        <strong>Объяснение:</strong>
-                        <ul>
-                            <li><code>AddAuthentication</code> — регистрирует схему аутентификации JWT</li>
-                            <li><code>AddJwtBearer</code> — настраивает параметры валидации токена</li>
-                            <li><code>TokenValidationParameters</code> — параметры проверки токена (издатель, аудитория, подпись)</li>
-                            <li><code>UseAuthentication()</code> — добавляет middleware для аутентификации (должен быть перед UseAuthorization)</li>
-                        </ul>
-                    </div>
-                </div>
-            </section>
-
-            <section class="mb-5">
-                <h3>2. Сервис для генерации JWT токена</h3>
-                <div class="code-block">
-                    <pre><code>using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
-using Microsoft.IdentityModel.Tokens;
-
-public class JwtService : IJwtService
-{
-    private readonly string _secretKey;
-    private readonly string _issuer;
-    private readonly string _audience;
-
-    public JwtService(IConfiguration configuration)
-    {
-        _secretKey = configuration["Jwt:SecretKey"] 
-            ?? "MySuperSecretKeyThatIsAtLeast32CharactersLong!";
-        _issuer = configuration["Jwt:Issuer"] ?? "AspBook";
-        _audience = configuration["Jwt:Audience"] ?? "AspBookUsers";
-    }
-
-    public string GenerateToken(User user)
-    {
-        // Создание claims (данных в токене)
-        var claims = new[]
-        {
-            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new Claim(ClaimTypes.Name, user.Username),
-            new Claim(ClaimTypes.Email, user.Email),
-            new Claim(ClaimTypes.Role, user.Role)
-        };
-
-        // Создание ключа для подписи
-        var key = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(_secretKey));
-        var credentials = new SigningCredentials(
-            key, SecurityAlgorithms.HmacSha256);
-
-        // Создание токена
-        var token = new JwtSecurityToken(
-            issuer: _issuer,
-            audience: _audience,
-            claims: claims,
-            expires: DateTime.UtcNow.AddHours(1), // Срок действия
-            signingCredentials: credentials
-        );
-
-        // Возврат токена в виде строки
-        return new JwtSecurityTokenHandler().WriteToken(token);
-    }
-}</code></pre>
-                    <div class="code-explanation">
-                        <strong>Объяснение:</strong>
-                        <ul>
-                            <li><code>ClaimTypes</code> — стандартные типы claims (Name, Email, Role и т.д.)</li>
-                            <li><code>SymmetricSecurityKey</code> — симметричный ключ для подписи токена</li>
-                            <li><code>SigningCredentials</code> — учетные данные для подписи (алгоритм HmacSha256)</li>
-                            <li><code>JwtSecurityToken</code> — создание токена с указанными параметрами</li>
-                            <li><code>expires</code> — срок действия токена (обычно 1 час)</li>
-                        </ul>
-                    </div>
-                </div>
-            </section>
-
-            <section class="mb-5">
-                <h3>3. Контроллер для регистрации и входа</h3>
-                <div class="code-block">
-                    <pre><code>[ApiController]
-[Route("api/[controller]")]
-public class AuthController : ControllerBase
-{
-    private readonly IUserService _userService;
-    private readonly IJwtService _jwtService;
-
-    public AuthController(IUserService userService, IJwtService jwtService)
-    {
-        _userService = userService;
-        _jwtService = jwtService;
-    }
-
-    [HttpPost("register")]
-    public IActionResult Register([FromBody] RegisterRequest request)
-    {
-        // Проверка существования пользователя
-        if (_userService.GetUserByUsername(request.Username) != null)
-        {
-            return BadRequest(new { message = "Пользователь уже существует" });
-        }
-
-        // Создание пользователя
-        var user = _userService.CreateUser(
-            request.Username, 
-            request.Email, 
-            request.Password);
-
-        // Генерация токена
-        var token = _jwtService.GenerateToken(user);
-
-        return Ok(new AuthResponse
-        {
-            Token = token,
-            Username = user.Username,
-            Role = user.Role,
-            Expires = DateTime.UtcNow.AddHours(1)
-        });
-    }
-
-    [HttpPost("login")]
-    public IActionResult Login([FromBody] LoginRequest request)
-    {
-        var user = _userService.GetUserByUsername(request.Username);
-        
-        // Проверка пользователя и пароля
-        if (user == null || !_userService.VerifyPassword(
-            request.Password, user.PasswordHash))
-        {
-            return Unauthorized(new { message = "Неверные учетные данные" });
-        }
-
-        // Генерация токена
-        var token = _jwtService.GenerateToken(user);
-
-        return Ok(new AuthResponse
-        {
-            Token = token,
-            Username = user.Username,
-            Role = user.Role,
-            Expires = DateTime.UtcNow.AddHours(1)
-        });
-    }
-}</code></pre>
-                </div>
-            </section>
-
-            <section class="mb-5">
-                <h3>4. Защита контроллера с помощью [Authorize]</h3>
-                <div class="code-block">
-                    <pre><code>using Microsoft.AspNetCore.Authorization;
-
-[ApiController]
-[Route("api/[controller]")]
-[Authorize] // Требует авторизации для всех методов
-public class ProtectedController : ControllerBase
-{
-    [HttpGet("data")]
-    public IActionResult GetProtectedData()
-    {
-        // Получение информации о пользователе из токена
-        var username = User.Identity?.Name;
-        var role = User.Claims.FirstOrDefault(
-            c => c.Type == ClaimTypes.Role)?.Value;
-
-        return Ok(new
-        {
-            message = "Это защищенные данные",
-            username = username,
-            role = role
-        });
-    }
-
-    [HttpGet("admin")]
-    [Authorize(Roles = "Admin")] // Требует роль Admin
-    public IActionResult GetAdminData()
-    {
-        return Ok(new { message = "Данные для администраторов" });
-    }
-}</code></pre>
-                    <div class="code-explanation">
-                        <strong>Объяснение:</strong>
-                        <ul>
-                            <li><code>[Authorize]</code> — атрибут требует наличия валидного токена</li>
-                            <li><code>[Authorize(Roles = "Admin")]</code> — требует не только токен, но и роль Admin</li>
-                            <li><code>User.Identity.Name</code> — имя пользователя из токена</li>
-                            <li><code>User.Claims</code> — все claims из токена</li>
-                        </ul>
-                    </div>
-                </div>
-            </section>
-
-            <section class="mb-5">
-                <h3>5. Настройка Swagger для работы с JWT</h3>
-                <div class="code-block">
-                    <pre><code>builder.Services.AddSwaggerGen(c =>
+// === Настройка Swagger с поддержкой JWT ===
+builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo
     {
-        Title = "Глава 7: JWT Авторизация",
+        Title = "JWT API",
         Version = "v1"
     });
 
-    // Добавление поддержки JWT в Swagger
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "JWT Authorization header. Example: \"Authorization: Bearer {token}\"",
+        Description = "Введите JWT токен: Bearer {ваш_токен}",
         Name = "Authorization",
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.ApiKey,
@@ -469,49 +1116,122 @@ public class ProtectedController : ControllerBase
             Array.Empty&lt;string&gt;()
         }
     });
-});</code></pre>
+});
+
+var app = builder.Build();
+
+// === Middleware (порядок важен!) ===
+app.UseSwagger();
+app.UseSwaggerUI();
+
+app.UseAuthentication();  // 1. Проверка токена (кто вы?)
+app.UseAuthorization();   // 2. Проверка прав (что вам разрешено?)
+
+app.MapControllers();
+app.Run();</code></pre>
                     <div class="code-explanation">
-                        <strong>Объяснение:</strong>
-                        <ul>
-                            <li><code>AddSecurityDefinition</code> — определяет схему безопасности для Swagger</li>
-                            <li><code>AddSecurityRequirement</code> — применяет схему ко всем эндпоинтам</li>
-                            <li>В Swagger UI появится кнопка "Authorize" для ввода токена</li>
-                        </ul>
+                        <strong>Что регистрируется в DI:</strong>
+                        <table class="table table-striped table-bordered mt-2">
+                            <thead>
+                                <tr>
+                                    <th>Сервис</th>
+                                    <th>Время жизни</th>
+                                    <th>Зачем</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>IUserService</code></td>
+                                    <td>Singleton</td>
+                                    <td>Хранит пользователей в памяти</td>
+                                </tr>
+                                <tr>
+                                    <td><code>IJwtService</code></td>
+                                    <td>Singleton</td>
+                                    <td>Генерирует JWT токены</td>
+                                </tr>
+                                <tr>
+                                    <td>Authentication</td>
+                                    <td>—</td>
+                                    <td>Проверяет JWT токен в заголовке</td>
+                                </tr>
+                                <tr>
+                                    <td>Authorization</td>
+                                    <td>—</td>
+                                    <td>Проверяет роли и доступ</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </section>
 
             <section class="mb-5">
-                <h3>6. Конфигурация в appsettings.json</h3>
+                <h3>9. Структура проекта</h3>
+                <div class="code-block">
+                    <pre><code>Asp_Book.Chapter07/
+├── Controllers/
+│   ├── AuthController.cs       — регистрация и вход
+│   └── ProfileController.cs    — защищённый эндпоинт (задание)
+├── Models/
+│   ├── User.cs                 — модель пользователя
+│   └── AuthModels.cs           — DTO (RegisterRequest, LoginRequest, AuthResponse)
+├── Services/
+│   ├── JwtService.cs           — генерация JWT токенов
+│   └── UserService.cs          — работа с пользователями
+├── Program.cs                  — точка входа, настройка DI и JWT
+└── appsettings.json            — конфигурация (секретный ключ, issuer, audience)</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>10. Тестирование</h3>
+
+                <p><strong>Шаг 1 — Регистрация:</strong></p>
+                <div class="code-block">
+                    <pre><code>POST /api/auth/register
+Content-Type: application/json
+
+{
+  "username": "ivan",
+  "email": "ivan@mail.com",
+  "password": "password123"
+}</code></pre>
+                </div>
+
+                <p><strong>Ответ:</strong></p>
                 <div class="code-block">
                     <pre><code>{
-  "Jwt": {
-    "SecretKey": "MySuperSecretKeyThatIsAtLeast32CharactersLong!",
-    "Issuer": "AspBook",
-    "Audience": "AspBookUsers"
-  }
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "username": "ivan",
+  "role": "User",
+  "expires": "2026-03-02T15:00:00Z"
 }</code></pre>
-                    <div class="code-explanation">
-                        <strong>Объяснение:</strong>
-                        <ul>
-                            <li><code>SecretKey</code> — секретный ключ для подписи токена (минимум 32 символа)</li>
-                            <li><code>Issuer</code> — издатель токена (обычно название приложения)</li>
-                            <li><code>Audience</code> — аудитория токена (для кого предназначен)</li>
-                            <li><strong>ВАЖНО:</strong> В продакшене SecretKey должен храниться в безопасном месте (переменные окружения, Azure Key Vault)</li>
-                        </ul>
-                    </div>
                 </div>
-            </section>
 
-            <section class="mb-5">
-                <h3>Как использовать:</h3>
-                <ol>
-                    <li><strong>Регистрация:</strong> POST /api/Auth/register с телом <code>{"username": "user", "email": "user@test.com", "password": "password123"}</code></li>
-                    <li><strong>Вход:</strong> POST /api/Auth/login с телом <code>{"username": "user", "password": "password123"}</code></li>
-                    <li><strong>Получение токена:</strong> В ответе будет поле <code>token</code></li>
-                    <li><strong>Использование токена:</strong> В заголовке запроса: <code>Authorization: Bearer {token}</code></li>
-                    <li><strong>В Swagger:</strong> Нажмите кнопку "Authorize", введите токен (без слова "Bearer")</li>
-                </ol>
+                <p><strong>Шаг 2 — Запрос профиля (с токеном):</strong></p>
+                <div class="code-block">
+                    <pre><code>GET /api/profile
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...</code></pre>
+                </div>
+
+                <p><strong>Ответ (200 OK):</strong></p>
+                <div class="code-block">
+                    <pre><code>{
+  "username": "ivan",
+  "email": "ivan@mail.com",
+  "role": "User",
+  "message": "Добро пожаловать, ivan!"
+}</code></pre>
+                </div>
+
+                <p><strong>Запрос без токена:</strong></p>
+                <div class="code-block">
+                    <pre><code>GET /api/profile
+// Без заголовка Authorization
+
+// Ответ: 401 Unauthorized</code></pre>
+                </div>
             </section>
         </div>
     </div>

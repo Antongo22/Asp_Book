@@ -104,6 +104,23 @@
             background-color: var(--card-bg);
         }
 
+        .table thead th {
+            background-color: var(--bg-secondary);
+            border-color: var(--border-color);
+            color: #ffffff;
+        }
+
+        .table tbody td {
+            border-color: var(--border-color);
+            background-color: var(--card-bg);
+            color: #ffffff;
+        }
+
+        .table tbody tr {
+            background-color: var(--card-bg);
+            color: #ffffff;
+        }
+
         .table-striped > tbody > tr:nth-of-type(odd) {
             background-color: var(--bg-secondary);
             color: #ffffff;
@@ -113,12 +130,30 @@
             color: #ffffff;
         }
 
+        .table-striped > tbody > tr:nth-of-type(even) {
+            background-color: var(--card-bg);
+            color: #ffffff;
+        }
+
+        .table-striped > tbody > tr:nth-of-type(even) td {
+            color: #ffffff;
+        }
+
         .table-bordered {
             border-color: var(--border-color);
         }
 
         .table-bordered td, .table-bordered th {
             border-color: var(--border-color);
+        }
+
+        .table-hover tbody tr:hover {
+            background-color: var(--bg-tertiary);
+            color: #ffffff;
+        }
+
+        .table-hover tbody tr:hover td {
+            color: #ffffff;
         }
 
         pre {

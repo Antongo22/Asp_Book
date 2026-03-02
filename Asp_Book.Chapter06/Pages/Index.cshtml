@@ -38,6 +38,420 @@
             </section>
 
             <section class="mb-5">
+                <h3>Создание ApplicationDbContext</h3>
+                <p><strong>ApplicationDbContext</strong> — это главный класс для работы с базой данных через EF Core. Он наследуется от <code>DbContext</code> и содержит наборы данных (<code>DbSet</code>) для каждой таблицы.</p>
+
+                <h4>1. Создание модели (таблицы)</h4>
+                <p>Сначала нужно создать класс модели — он будет представлять таблицу в базе данных. Создайте папку <code>Models/</code> и файл в ней:</p>
+                <div class="code-block">
+                    <pre><code>// Models/Product.cs
+namespace Asp_Book.Chapter06.Models;
+
+public class Product
+{
+    public int Id { get; set; }               // Первичный ключ (автоматически)
+    public string Name { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public decimal Price { get; set; }
+    public int Stock { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Соглашения EF Core:</strong>
+                        <ul>
+                            <li>Свойство с именем <code>Id</code> или <code>[ClassName]Id</code> автоматически становится первичным ключом</li>
+                            <li>Каждое свойство — это столбец в таблице</li>
+                            <li>Тип C# автоматически сопоставляется с типом столбца в БД</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>2. Создание класса ApplicationDbContext</h4>
+                <p>Создайте папку <code>Data/</code> и файл <code>ApplicationDbContext.cs</code>:</p>
+                <div class="code-block">
+                    <pre><code>// Data/ApplicationDbContext.cs
+using Microsoft.EntityFrameworkCore;
+using Asp_Book.Chapter06.Models;
+
+namespace Asp_Book.Chapter06.Data;
+
+public class ApplicationDbContext : DbContext
+{
+    // Конструктор принимает настройки (какую БД использовать и т.д.)
+    public ApplicationDbContext(DbContextOptions&lt;ApplicationDbContext&gt; options)
+        : base(options)
+    {
+    }
+
+    // Каждый DbSet — это таблица в базе данных
+    public DbSet&lt;Product&gt; Products { get; set; }
+
+    // Если нужно добавить ещё одну таблицу — добавьте ещё один DbSet:
+    // public DbSet&lt;Order&gt; Orders { get; set; }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Объяснение:</strong>
+                        <ul>
+                            <li><code>DbContext</code> — базовый класс EF Core, от которого мы наследуемся</li>
+                            <li><code>DbContextOptions</code> — содержит настройки подключения (провайдер БД, строку подключения)</li>
+                            <li><code>DbSet&lt;Product&gt;</code> — представляет таблицу <code>Products</code> в базе данных</li>
+                            <li>Имя свойства (<code>Products</code>) станет именем таблицы</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>3. Регистрация ApplicationDbContext в Program.cs</h4>
+                <p>Чтобы приложение знало о контексте базы данных, его нужно зарегистрировать через Dependency Injection в <code>Program.cs</code>:</p>
+                <div class="code-block">
+                    <pre><code>// Program.cs
+using Microsoft.EntityFrameworkCore;
+using Asp_Book.Chapter06.Data;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Регистрация ApplicationDbContext с SQLite
+builder.Services.AddDbContext&lt;ApplicationDbContext&gt;(options =>
+    options.UseSqlite("Data Source=app.db"));
+
+builder.Services.AddControllers();
+
+var app = builder.Build();
+app.MapControllers();
+app.Run();</code></pre>
+                    <div class="code-explanation">
+                        <strong>Что здесь происходит:</strong>
+                        <ul>
+                            <li><code>AddDbContext&lt;ApplicationDbContext&gt;</code> — регистрирует контекст БД в системе DI</li>
+                            <li><code>options.UseSqlite(...)</code> — указывает, какую СУБД использовать (и строку подключения)</li>
+                            <li>После регистрации <code>ApplicationDbContext</code> можно внедрять в контроллеры через конструктор</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>4. Использование в контроллере</h4>
+                <p>После регистрации контекст можно использовать в контроллерах через внедрение зависимости (Dependency Injection):</p>
+                <div class="code-block">
+                    <pre><code>[ApiController]
+[Route("api/[controller]")]
+public class ProductsController : ControllerBase
+{
+    private readonly ApplicationDbContext _context;
+
+    // DI автоматически передаёт зарегистрированный ApplicationDbContext
+    public ProductsController(ApplicationDbContext context)
+    {
+        _context = context;
+    }
+
+    [HttpGet]
+    public async Task&lt;ActionResult&lt;IEnumerable&lt;Product&gt;&gt;&gt; GetProducts()
+    {
+        return await _context.Products.ToListAsync();
+    }
+
+    [HttpPost]
+    public async Task&lt;ActionResult&lt;Product&gt;&gt; CreateProduct(Product product)
+    {
+        _context.Products.Add(product);
+        await _context.SaveChangesAsync();
+        return CreatedAtAction(nameof(GetProducts), new { id = product.Id }, product);
+    }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Объяснение:</strong>
+                        <ul>
+                            <li><code>_context.Products</code> — обращение к таблице Products</li>
+                            <li><code>ToListAsync()</code> — получить все записи из таблицы</li>
+                            <li><code>_context.Products.Add(product)</code> — добавить запись</li>
+                            <li><code>SaveChangesAsync()</code> — сохранить изменения в базе данных</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>5. Настройка модели через OnModelCreating (опционально)</h4>
+                <p>Если нужно настроить модель более детально (ограничения, индексы и т.д.), используйте метод <code>OnModelCreating</code>:</p>
+                <div class="code-block">
+                    <pre><code>public class ApplicationDbContext : DbContext
+{
+    public ApplicationDbContext(DbContextOptions&lt;ApplicationDbContext&gt; options)
+        : base(options) { }
+
+    public DbSet&lt;Product&gt; Products { get; set; }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity&lt;Product&gt;(entity =>
+        {
+            entity.HasKey(e => e.Id);                           // Первичный ключ
+            entity.Property(e => e.Name)
+                .IsRequired()                                   // Обязательное поле
+                .HasMaxLength(200);                             // Максимальная длина
+            entity.Property(e => e.Price)
+                .HasColumnType("decimal(18,2)");                // Тип столбца
+        });
+    }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Когда использовать OnModelCreating:</strong>
+                        <ul>
+                            <li>Когда нужны составные ключи</li>
+                            <li>Когда нужно настроить точный тип столбца в БД</li>
+                            <li>Для настройки связей между таблицами (один-ко-многим, многие-ко-многим)</li>
+                            <li>Для добавления индексов и ограничений</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="alert alert-info mt-3">
+                    <strong>Итого — порядок действий:</strong>
+                    <ol>
+                        <li>Создать модель (класс в папке <code>Models/</code>)</li>
+                        <li>Создать <code>ApplicationDbContext</code> (класс в папке <code>Data/</code>)</li>
+                        <li>Зарегистрировать контекст в <code>Program.cs</code> через <code>AddDbContext</code></li>
+                        <li>Внедрять контекст в контроллеры через конструктор</li>
+                        <li>Создать и применить миграцию</li>
+                    </ol>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Подключение разных СУБД (Систем Управления Базами Данных)</h3>
+                <p>EF Core поддерживает множество баз данных. Для каждой СУБД нужно установить соответствующий NuGet пакет и зарегистрировать провайдер в <code>Program.cs</code>.</p>
+
+                <h4>1. SQL Server (Microsoft SQL Server)</h4>
+                <p><strong>Установка пакета:</strong></p>
+                <div class="code-block">
+                    <pre><code>dotnet add package Microsoft.EntityFrameworkCore.SqlServer</code></pre>
+                </div>
+
+                <p><strong>Регистрация в Program.cs:</strong></p>
+                <div class="code-block">
+                    <pre><code>using Microsoft.EntityFrameworkCore;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Регистрация DbContext с SQL Server
+builder.Services.AddDbContext&lt;ApplicationDbContext&gt;(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")
+        ?? "Server=localhost;Database=MyAppDb;Trusted_Connection=True;TrustServerCertificate=True;"));
+
+var app = builder.Build();
+app.Run();</code></pre>
+                    <div class="code-explanation">
+                        <strong>Строка подключения (appsettings.json):</strong>
+                        <ul>
+                            <li><code>Server</code> — адрес сервера SQL Server</li>
+                            <li><code>Database</code> — имя базы данных</li>
+                            <li><code>Trusted_Connection=True</code> — использование Windows аутентификации</li>
+                            <li><code>TrustServerCertificate=True</code> — для локальной разработки</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>2. PostgreSQL</h4>
+                <p><strong>Установка пакета:</strong></p>
+                <div class="code-block">
+                    <pre><code>dotnet add package Npgsql.EntityFrameworkCore.PostgreSQL</code></pre>
+                </div>
+
+                <p><strong>Регистрация в Program.cs:</strong></p>
+                <div class="code-block">
+                    <pre><code>using Microsoft.EntityFrameworkCore;
+using Npgsql.EntityFrameworkCore.PostgreSQL;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Регистрация DbContext с PostgreSQL
+builder.Services.AddDbContext&lt;ApplicationDbContext&gt;(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")
+        ?? "Host=localhost;Database=MyAppDb;Username=postgres;Password=your_password"));
+
+var app = builder.Build();
+app.Run();</code></pre>
+                    <div class="code-explanation">
+                        <strong>Строка подключения (appsettings.json):</strong>
+                        <ul>
+                            <li><code>Host</code> — адрес сервера PostgreSQL</li>
+                            <li><code>Database</code> — имя базы данных</li>
+                            <li><code>Username</code> — имя пользователя</li>
+                            <li><code>Password</code> — пароль</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>3. MySQL / MariaDB</h4>
+                <p><strong>Установка пакета:</strong></p>
+                <div class="code-block">
+                    <pre><code>dotnet add package Pomelo.EntityFrameworkCore.MySql</code></pre>
+                </div>
+
+                <p><strong>Регистрация в Program.cs:</strong></p>
+                <div class="code-block">
+                    <pre><code>using Microsoft.EntityFrameworkCore;
+using Pomelo.EntityFrameworkCore.MySql;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Регистрация DbContext с MySQL
+builder.Services.AddDbContext&lt;ApplicationDbContext&gt;(options =>
+    options.UseMySql(builder.Configuration.GetConnectionString("DefaultConnection")
+        ?? "Server=localhost;Database=MyAppDb;User=root;Password=your_password",
+        ServerVersion.AutoDetect("Server=localhost;User=root;Password=your_password")));
+
+var app = builder.Build();
+app.Run();</code></pre>
+                    <div class="code-explanation">
+                        <strong>Важно:</strong>
+                        <ul>
+                            <li>Используется пакет <code>Pomelo.EntityFrameworkCore.MySql</code> (официальный провайдер для MySQL)</li>
+                            <li><code>ServerVersion.AutoDetect()</code> — автоматическое определение версии сервера</li>
+                            <li>Можно указать версию вручную: <code>new MySqlServerVersion(new Version(8, 0, 21))</code></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>4. SQLite</h4>
+                <p><strong>Установка пакета:</strong></p>
+                <div class="code-block">
+                    <pre><code>dotnet add package Microsoft.EntityFrameworkCore.Sqlite</code></pre>
+                </div>
+
+                <p><strong>Регистрация в Program.cs:</strong></p>
+                <div class="code-block">
+                    <pre><code>using Microsoft.EntityFrameworkCore;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Регистрация DbContext с SQLite
+builder.Services.AddDbContext&lt;ApplicationDbContext&gt;(options =>
+    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")
+        ?? "Data Source=products.db"));
+
+var app = builder.Build();
+app.Run();</code></pre>
+                    <div class="code-explanation">
+                        <strong>Особенности SQLite:</strong>
+                        <ul>
+                            <li>Файловая база данных — не требует отдельного сервера</li>
+                            <li>Отлично подходит для разработки и небольших приложений</li>
+                            <li><code>Data Source</code> — путь к файлу базы данных</li>
+                            <li>База данных создается автоматически при первом использовании</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>5. In-Memory Database (для тестирования)</h4>
+                <p><strong>Установка пакета:</strong></p>
+                <div class="code-block">
+                    <pre><code>dotnet add package Microsoft.EntityFrameworkCore.InMemory</code></pre>
+                </div>
+
+                <p><strong>Регистрация в Program.cs:</strong></p>
+                <div class="code-block">
+                    <pre><code>using Microsoft.EntityFrameworkCore;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Регистрация DbContext с In-Memory базой данных
+builder.Services.AddDbContext&lt;ApplicationDbContext&gt;(options =>
+    options.UseInMemoryDatabase("TestDb"));
+
+var app = builder.Build();
+app.Run();</code></pre>
+                    <div class="code-explanation">
+                        <strong>Особенности In-Memory:</strong>
+                        <ul>
+                            <li>База данных существует только в памяти приложения</li>
+                            <li>Данные теряются при перезапуске приложения</li>
+                            <li>Используется для тестирования и прототипирования</li>
+                            <li>Не требует установки СУБД</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>6. Использование строки подключения из appsettings.json</h4>
+                <p>Рекомендуется хранить строки подключения в файле конфигурации:</p>
+
+                <div class="code-block">
+                    <pre><code>// appsettings.json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=localhost;Database=MyAppDb;Trusted_Connection=True;TrustServerCertificate=True;"
+  }
+}
+
+// Program.cs
+var builder = WebApplication.CreateBuilder(args);
+
+// Получаем строку подключения из конфигурации
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
+builder.Services.AddDbContext&lt;ApplicationDbContext&gt;(options =>
+    options.UseSqlServer(connectionString));</code></pre>
+                    <div class="code-explanation">
+                        <strong>Преимущества:</strong>
+                        <ul>
+                            <li>Легко менять строку подключения для разных окружений</li>
+                            <li>Не нужно хранить пароли в коде</li>
+                            <li>Можно использовать разные строки для Development/Production</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>7. Сравнение СУБД</h4>
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>СУБД</th>
+                                <th>Пакет NuGet</th>
+                                <th>Метод регистрации</th>
+                                <th>Когда использовать</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>SQL Server</strong></td>
+                                <td><code>Microsoft.EntityFrameworkCore.SqlServer</code></td>
+                                <td><code>UseSqlServer()</code></td>
+                                <td>Корпоративные приложения, Windows окружение</td>
+                            </tr>
+                            <tr>
+                                <td><strong>PostgreSQL</strong></td>
+                                <td><code>Npgsql.EntityFrameworkCore.PostgreSQL</code></td>
+                                <td><code>UseNpgsql()</code></td>
+                                <td>Кросс-платформенные приложения, Linux серверы</td>
+                            </tr>
+                            <tr>
+                                <td><strong>MySQL</strong></td>
+                                <td><code>Pomelo.EntityFrameworkCore.MySql</code></td>
+                                <td><code>UseMySql()</code></td>
+                                <td>Веб-приложения, популярная СУБД</td>
+                            </tr>
+                            <tr>
+                                <td><strong>SQLite</strong></td>
+                                <td><code>Microsoft.EntityFrameworkCore.Sqlite</code></td>
+                                <td><code>UseSqlite()</code></td>
+                                <td>Разработка, небольшие приложения, мобильные приложения</td>
+                            </tr>
+                            <tr>
+                                <td><strong>In-Memory</strong></td>
+                                <td><code>Microsoft.EntityFrameworkCore.InMemory</code></td>
+                                <td><code>UseInMemoryDatabase()</code></td>
+                                <td>Тестирование, прототипирование</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="alert alert-info mt-3">
+                    <strong>Важно:</strong> Независимо от выбранной СУБД, код работы с данными через EF Core остается одинаковым. Меняется только регистрация провайдера в <code>Program.cs</code>.
+                </div>
+            </section>
+
+            <section class="mb-5">
                 <h3>DTO (Data Transfer Objects)</h3>
                 <p><strong>DTO (Data Transfer Objects)</strong> — это объекты, предназначенные для передачи данных между слоями приложения без раскрытия внутренней структуры сущностей.</p>
                 
@@ -334,54 +748,50 @@ dotnet ef database update PreviousMigration</code></pre>
         </div>
 
         <div class="tab-pane fade" id="answers" role="tabpanel">
-            <h2>Решение задачи</h2>
+            <h2>Решение задачи: Модель Order с миграцией</h2>
 
             <section class="mb-5">
-                <h3>1. Модель Product</h3>
+                <h3>1. Модель Order</h3>
+                <p>Создайте файл <code>Models/Order.cs</code>:</p>
                 <div class="code-block">
-                    <pre><code>namespace Asp_Book.Chapter06.Models;
+                    <pre><code>using System.ComponentModel.DataAnnotations;
 
-public class Product
+namespace Asp_Book.Chapter06.Models;
+
+public class Order
 {
-    public int Id { get; set; }
-    public string Name { get; set; } = string.Empty;
-    public string Description { get; set; } = string.Empty;
-    public decimal Price { get; set; }
-    public int Stock { get; set; }
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public int Id { get; set; }  // Первичный ключ
+
+    [Required]
+    public string CustomerName { get; set; } = string.Empty;  // Обязательное поле
+
+    public decimal TotalAmount { get; set; }
+
+    public DateTime OrderDate { get; set; }
+
+    public string Status { get; set; } = string.Empty;
 }</code></pre>
+                    <div class="code-explanation">
+                        <strong>Объяснение полей:</strong>
+                        <ul>
+                            <li><code>Id</code> — первичный ключ (автоматически распознается EF Core по соглашению об именовании)</li>
+                            <li><code>CustomerName</code> — обязательное поле (атрибут <code>[Required]</code>)</li>
+                            <li><code>TotalAmount</code> — тип <code>decimal</code> для денежных сумм</li>
+                            <li><code>OrderDate</code> — дата заказа</li>
+                            <li><code>Status</code> — статус заказа (например, "Pending", "Completed", "Cancelled")</li>
+                        </ul>
+                    </div>
                 </div>
             </section>
 
             <section class="mb-5">
-                <h3>2. DTO для передачи данных</h3>
-                <div class="code-block">
-                    <pre><code>namespace Asp_Book.Chapter06.DTOs;
-
-public class ProductDto
-{
-    public int Id { get; set; }
-    public string Name { get; set; } = string.Empty;
-    public string Description { get; set; } = string.Empty;
-    public decimal Price { get; set; }
-    public int Stock { get; set; }
-}
-
-public class CreateProductDto
-{
-    public string Name { get; set; } = string.Empty;
-    public string Description { get; set; } = string.Empty;
-    public decimal Price { get; set; }
-    public int Stock { get; set; }
-}</code></pre>
-                </div>
-            </section>
-
-            <section class="mb-5">
-                <h3>3. ApplicationDbContext</h3>
+                <h3>2. Добавление DbSet в ApplicationDbContext</h3>
+                <p>Обновите файл <code>Data/ApplicationDbContext.cs</code>:</p>
                 <div class="code-block">
                     <pre><code>using Microsoft.EntityFrameworkCore;
 using Asp_Book.Chapter06.Models;
+
+namespace Asp_Book.Chapter06.Data;
 
 public class ApplicationDbContext : DbContext
 {
@@ -390,95 +800,251 @@ public class ApplicationDbContext : DbContext
     {
     }
 
-    public DbSet&lt;Product&gt; Products { get; set; }
+    public DbSet&lt;Order&gt; Orders { get; set; }
+    
+    // Если у вас уже есть другие DbSet, добавьте Orders к ним
+    // public DbSet&lt;Product&gt; Products { get; set; }
 }</code></pre>
+                    <div class="code-explanation">
+                        <strong>Важно:</strong>
+                        <ul>
+                            <li><code>DbSet&lt;Order&gt;</code> — представляет таблицу Orders в базе данных</li>
+                            <li>EF Core автоматически создаст таблицу с именем <code>Orders</code> (множественное число от Order)</li>
+                            <li>Если у вас уже есть другие модели, просто добавьте эту строку к существующим DbSet</li>
+                        </ul>
+                    </div>
                 </div>
             </section>
 
             <section class="mb-5">
-                <h3>4. Регистрация в Program.cs</h3>
+                <h3>3. Установка инструментов EF Core (если еще не установлены)</h3>
+                <p>Для работы с миграциями нужно установить инструменты EF Core:</p>
                 <div class="code-block">
-                    <pre><code>builder.Services.AddDbContext&lt;ApplicationDbContext&gt;(options =>
-    options.UseSqlite("Data Source=products.db"));</code></pre>
+                    <pre><code>dotnet tool install --global dotnet-ef</code></pre>
+                    <div class="code-explanation">
+                        <strong>Примечание:</strong> Если инструменты уже установлены, этот шаг можно пропустить. Проверить установку можно командой <code>dotnet ef --version</code>.
+                    </div>
                 </div>
             </section>
 
             <section class="mb-5">
-                <h3>5. CRUD контроллер</h3>
+                <h3>4. Создание миграции</h3>
+                <p>Выполните команду для создания миграции:</p>
                 <div class="code-block">
-                    <pre><code>[ApiController]
+                    <pre><code>dotnet ef migrations add AddOrderTable</code></pre>
+                    <div class="code-explanation">
+                        <strong>Что происходит:</strong>
+                        <ul>
+                            <li>EF Core анализирует модель <code>Order</code> и сравнивает её с текущим состоянием базы данных</li>
+                            <li>Создается файл миграции в папке <code>Migrations/</code></li>
+                            <li>Имя миграции: <code>AddOrderTable</code> (можете выбрать любое имя)</li>
+                            <li>Миграция содержит SQL команды для создания таблицы Orders</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <p><strong>Структура созданной миграции:</strong></p>
+                <div class="code-block">
+                    <pre><code>// Migrations/YYYYMMDDHHMMSS_AddOrderTable.cs
+public partial class AddOrderTable : Migration
+{
+    protected override void Up(MigrationBuilder migrationBuilder)
+    {
+        migrationBuilder.CreateTable(
+            name: "Orders",
+            columns: table => new
+            {
+                Id = table.Column&lt;int&gt;(type: "INTEGER", nullable: false)
+                    .Annotation("Sqlite:Autoincrement", true),
+                CustomerName = table.Column&lt;string&gt;(type: "TEXT", nullable: false),
+                TotalAmount = table.Column&lt;decimal&gt;(type: "TEXT", nullable: false),
+                OrderDate = table.Column&lt;DateTime&gt;(type: "TEXT", nullable: false),
+                Status = table.Column&lt;string&gt;(type: "TEXT", nullable: false)
+            },
+            constraints: table =>
+            {
+                table.PrimaryKey("PK_Orders", x => x.Id);
+            });
+    }
+
+    protected override void Down(MigrationBuilder migrationBuilder)
+    {
+        migrationBuilder.DropTable(name: "Orders");
+    }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Объяснение миграции:</strong>
+                        <ul>
+                            <li><code>Up()</code> — применяет изменения (создает таблицу)</li>
+                            <li><code>Down()</code> — откатывает изменения (удаляет таблицу)</li>
+                            <li><code>Id</code> настроен как автоинкрементный первичный ключ</li>
+                            <li><code>CustomerName</code> помечен как <code>nullable: false</code> (обязательное поле)</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>5. Применение миграции к базе данных</h3>
+                <p>Выполните команду для применения миграции:</p>
+                <div class="code-block">
+                    <pre><code>dotnet ef database update</code></pre>
+                    <div class="code-explanation">
+                        <strong>Что происходит:</strong>
+                        <ul>
+                            <li>EF Core проверяет, какие миграции еще не применены</li>
+                            <li>Выполняет SQL команды из миграции <code>AddOrderTable</code></li>
+                            <li>Создает таблицу <code>Orders</code> в базе данных</li>
+                            <li>Обновляет таблицу <code>__EFMigrationsHistory</code> для отслеживания примененных миграций</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <p><strong>Альтернативный способ — применение миграции программно:</strong></p>
+                <div class="code-block">
+                    <pre><code>// Program.cs
+var app = builder.Build();
+
+// Применение миграций при запуске приложения
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService&lt;ApplicationDbContext&gt;();
+    dbContext.Database.Migrate();  // Применяет все непримененные миграции
+}
+
+app.Run();</code></pre>
+                    <div class="code-explanation">
+                        <strong>Когда использовать:</strong>
+                        <ul>
+                            <li><code>dotnet ef database update</code> — для ручного применения миграций</li>
+                            <li><code>Database.Migrate()</code> — для автоматического применения при запуске приложения</li>
+                            <li>В продакшене обычно используют <code>dotnet ef database update</code> для большего контроля</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>6. Проверка результата</h3>
+                <p>После применения миграции таблица <code>Orders</code> будет создана в базе данных со следующей структурой:</p>
+                <div class="table-responsive">
+                    <table class="table table-striped table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Поле</th>
+                                <th>Тип</th>
+                                <th>Обязательное</th>
+                                <th>Описание</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>Id</code></td>
+                                <td>INTEGER (int)</td>
+                                <td>Да</td>
+                                <td>Первичный ключ, автоинкремент</td>
+                            </tr>
+                            <tr>
+                                <td><code>CustomerName</code></td>
+                                <td>TEXT (string)</td>
+                                <td>Да</td>
+                                <td>Имя клиента</td>
+                            </tr>
+                            <tr>
+                                <td><code>TotalAmount</code></td>
+                                <td>TEXT (decimal)</td>
+                                <td>Да</td>
+                                <td>Общая сумма заказа</td>
+                            </tr>
+                            <tr>
+                                <td><code>OrderDate</code></td>
+                                <td>TEXT (DateTime)</td>
+                                <td>Да</td>
+                                <td>Дата заказа</td>
+                            </tr>
+                            <tr>
+                                <td><code>Status</code></td>
+                                <td>TEXT (string)</td>
+                                <td>Да</td>
+                                <td>Статус заказа</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>7. Полный пример использования</h3>
+                <p>Теперь вы можете использовать модель Order в контроллере:</p>
+                <div class="code-block">
+                    <pre><code>using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Asp_Book.Chapter06.Data;
+using Asp_Book.Chapter06.Models;
+
+[ApiController]
 [Route("api/[controller]")]
-public class ProductsController : ControllerBase
+public class OrdersController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
 
-    public ProductsController(ApplicationDbContext context)
+    public OrdersController(ApplicationDbContext context)
     {
         _context = context;
     }
 
+    // GET: api/orders
     [HttpGet]
-    public async Task&lt;ActionResult&lt;IEnumerable&lt;ProductDto&gt;&gt;&gt; GetProducts()
+    public async Task&lt;ActionResult&lt;IEnumerable&lt;Order&gt;&gt;&gt; GetOrders()
     {
-        var products = await _context.Products
-            .Select(p => new ProductDto
-            {
-                Id = p.Id,
-                Name = p.Name,
-                Price = p.Price,
-                Stock = p.Stock
-            })
-            .ToListAsync();
-        return Ok(products);
+        return await _context.Orders.ToListAsync();
     }
 
+    // POST: api/orders
     [HttpPost]
-    public async Task&lt;ActionResult&lt;ProductDto&gt;&gt; CreateProduct(CreateProductDto dto)
+    public async Task&lt;ActionResult&lt;Order&gt;&gt; CreateOrder(Order order)
     {
-        var product = new Product
-        {
-            Name = dto.Name,
-            Description = dto.Description,
-            Price = dto.Price,
-            Stock = dto.Stock
-        };
-
-        _context.Products.Add(product);
+        order.OrderDate = DateTime.UtcNow;  // Устанавливаем дату автоматически
+        _context.Orders.Add(order);
         await _context.SaveChangesAsync();
 
-        var productDto = new ProductDto
-        {
-            Id = product.Id,
-            Name = product.Name,
-            Price = product.Price,
-            Stock = product.Stock
-        };
-
-        return CreatedAtAction(nameof(GetProduct), new { id = product.Id }, productDto);
-    }
-
-    [HttpDelete("{id}")]
-    public async Task&lt;IActionResult&gt; DeleteProduct(int id)
-    {
-        var product = await _context.Products.FindAsync(id);
-        if (product == null) return NotFound();
-
-        _context.Products.Remove(product);
-        await _context.SaveChangesAsync();
-        return NoContent();
+        return CreatedAtAction(nameof(GetOrders), new { id = order.Id }, order);
     }
 }</code></pre>
                 </div>
             </section>
 
             <section class="mb-5">
-                <h3>6. Миграции</h3>
+                <h3>8. Полезные команды для работы с миграциями</h3>
                 <div class="code-block">
-                    <pre><code>// Создание миграции
-dotnet ef migrations add InitialCreate
+                    <pre><code>// Создать новую миграцию
+dotnet ef migrations add MigrationName
 
-// Применение миграции
-dotnet ef database update</code></pre>
+// Применить все непримененные миграции
+dotnet ef database update
+
+// Откатить последнюю миграцию
+dotnet ef database update PreviousMigrationName
+
+// Удалить последнюю миграцию (если она еще не применена)
+dotnet ef migrations remove
+
+// Список всех миграций
+dotnet ef migrations list
+
+// Создать SQL скрипт из миграций (без применения)
+dotnet ef migrations script
+
+// Создать SQL скрипт для конкретной миграции
+dotnet ef migrations script FromMigration ToMigration</code></pre>
+                    <div class="code-explanation">
+                        <strong>Важно:</strong>
+                        <ul>
+                            <li>Всегда проверяйте созданные миграции перед применением</li>
+                            <li>В продакшене используйте SQL скрипты для применения миграций</li>
+                            <li>Делайте резервные копии базы данных перед применением миграций</li>
+                        </ul>
+                    </div>
                 </div>
             </section>
         </div>

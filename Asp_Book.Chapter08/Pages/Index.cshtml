@@ -919,6 +919,62 @@ public class ApplicationDbContext : DbContext
     public DbSet&lt;RefreshToken&gt; RefreshTokens { get; set; }
 }</code></pre>
                 </div>
+
+                <div class="alert alert-info mt-3">
+                    <h5>Создание и применение миграции</h5>
+                    <p>Если вы используете <strong>реальную базу данных</strong> (SQLite, SQL Server, PostgreSQL и т.д.), а не In-Memory, нужно создать и применить миграцию:</p>
+                </div>
+
+                <p><strong>1. Установите инструменты EF Core</strong> (если ещё не установлены):</p>
+                <div class="code-block">
+                    <pre><code>dotnet tool install --global dotnet-ef</code></pre>
+                </div>
+
+                <p><strong>2. Создайте миграцию:</strong></p>
+                <div class="code-block">
+                    <pre><code># Из папки проекта Asp_Book.Chapter08
+dotnet ef migrations add InitialCreate</code></pre>
+                </div>
+                <p>Эта команда создаст папку <code>Migrations/</code> с файлами миграции, описывающими создание таблиц <code>Users</code> и <code>RefreshTokens</code>.</p>
+
+                <p><strong>3. Примените миграцию к базе данных:</strong></p>
+                <div class="code-block">
+                    <pre><code>dotnet ef database update</code></pre>
+                </div>
+
+                <p><strong>4. Или примените программно</strong> в <code>Program.cs</code> (автоматически при запуске):</p>
+                <div class="code-block">
+                    <pre><code>var app = builder.Build();
+
+// Автоматическое применение миграций при запуске
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider
+        .GetRequiredService&lt;ApplicationDbContext&gt;();
+    db.Database.Migrate(); // применит все непримененные миграции
+}</code></pre>
+                </div>
+
+                <div class="alert alert-warning mt-3">
+                    <strong>Примечание:</strong> В этом проекте мы используем <strong>In-Memory Database</strong> (<code>UseInMemoryDatabase</code>), 
+                    поэтому миграции <strong>не нужны</strong> — база создаётся автоматически в оперативной памяти. 
+                    Миграции необходимы только при работе с реальными СУБД (SQLite, PostgreSQL, SQL Server и др.).
+                </div>
+
+                <p><strong>Полезные команды:</strong></p>
+                <div class="code-block">
+                    <pre><code># Посмотреть список миграций
+dotnet ef migrations list
+
+# Откатить последнюю миграцию
+dotnet ef migrations remove
+
+# Откатить базу данных к конкретной миграции
+dotnet ef database update НазваниеМиграции
+
+# Сгенерировать SQL-скрипт (для production)
+dotnet ef migrations script</code></pre>
+                </div>
             </section>
 
             <section class="mb-5">

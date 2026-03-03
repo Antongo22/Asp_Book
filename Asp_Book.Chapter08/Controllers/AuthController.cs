@@ -1,5 +1,7 @@
+using System.Security.Claims;
 using Asp_Book.Chapter08.DTOs;
 using Asp_Book.Chapter08.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Asp_Book.Chapter08.Controllers;
@@ -15,6 +17,39 @@ public class AuthController : ControllerBase
     {
         _userService = userService;
         _tokenService = tokenService;
+    }
+
+    [HttpPost("register")]
+    public async Task<IActionResult> Register([FromBody] RegisterRequest request)
+    {
+        // Проверка: не занято ли имя пользователя
+        var existingUser = await _userService.GetUserByUsernameAsync(request.Username);
+        if (existingUser != null)
+        {
+            return BadRequest(new { message = "Пользователь с таким именем уже существует" });
+        }
+
+        // Создание пользователя
+        var user = await _userService.CreateUserAsync(request.Username, request.Email, request.Password);
+
+        // Генерация токенов сразу после регистрации
+        var accessToken = _tokenService.GenerateAccessToken(user);
+        var refreshToken = _tokenService.GenerateRefreshToken();
+        var refreshTokenExpires = DateTime.UtcNow.AddDays(7);
+
+        await _tokenService.SaveRefreshTokenAsync(user.Id, refreshToken, refreshTokenExpires);
+
+        var response = new AuthResponse
+        {
+            AccessToken = accessToken,
+            RefreshToken = refreshToken,
+            Username = user.Username,
+            Role = user.Role,
+            AccessTokenExpires = DateTime.UtcNow.AddMinutes(15),
+            RefreshTokenExpires = refreshTokenExpires
+        };
+
+        return Ok(response);
     }
 
     [HttpPost("login")]
@@ -101,5 +136,23 @@ public class AuthController : ControllerBase
     {
         await _tokenService.RevokeRefreshTokenAsync(request.RefreshToken);
         return Ok(new { message = "Refresh token отозван" });
+    }
+
+    [Authorize]
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout()
+    {
+        var userIdClaim = User.Claims
+            .FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+
+        if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
+            return Unauthorized(new { message = "Невозможно определить пользователя" });
+
+        var revokedCount = await _tokenService.RevokeAllUserTokensAsync(userId);
+
+        return Ok(new 
+        { 
+            message = $"Все сессии завершены. Отозвано токенов: {revokedCount}" 
+        });
     }
 }

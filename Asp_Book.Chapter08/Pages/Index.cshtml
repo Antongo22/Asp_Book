@@ -658,20 +658,40 @@ async function apiRequest(url) {
 
             <section class="mb-5">
                 <h3>Демонстрация: Refresh Token</h3>
-                <p>Попробуйте войти, получить токены и обновить Access Token:</p>
+                <p>Зарегистрируйтесь, войдите, получите токены и обновите Access Token:</p>
 
                 <div class="row mt-3">
                     <div class="col-md-6">
+                        <div class="card mb-3">
+                            <div class="card-header">
+                                <h5 class="mb-0">Регистрация</h5>
+                            </div>
+                            <div class="card-body">
+                                <form id="registerForm">
+                                    <div class="mb-2">
+                                        <input type="text" id="regUsername" class="form-control" placeholder="Имя пользователя" required />
+                                    </div>
+                                    <div class="mb-2">
+                                        <input type="email" id="regEmail" class="form-control" placeholder="Email" required />
+                                    </div>
+                                    <div class="mb-2">
+                                        <input type="password" id="regPassword" class="form-control" placeholder="Пароль (мин. 4 символа)" required />
+                                    </div>
+                                    <button type="submit" class="btn btn-primary w-100">Зарегистрироваться</button>
+                                </form>
+                                <div id="registerStatus" class="mt-2"></div>
+                            </div>
+                        </div>
                         <div class="card">
                             <div class="card-header">
                                 <h5 class="mb-0">Вход</h5>
                             </div>
                             <div class="card-body">
                                 <form id="loginForm">
-                                    <div class="mb-3">
+                                    <div class="mb-2">
                                         <input type="text" id="loginUsername" class="form-control" placeholder="Имя пользователя" required />
                                     </div>
-                                    <div class="mb-3">
+                                    <div class="mb-2">
                                         <input type="password" id="loginPassword" class="form-control" placeholder="Пароль" required />
                                     </div>
                                     <button type="submit" class="btn btn-success w-100">Войти</button>
@@ -680,50 +700,52 @@ async function apiRequest(url) {
                         </div>
                     </div>
                     <div class="col-md-6">
-                        <div class="card">
+                        <div class="card mb-3">
                             <div class="card-header">
                                 <h5 class="mb-0">Токены</h5>
                             </div>
                             <div class="card-body">
-                                <div class="mb-3">
-                                    <label class="form-label">Access Token:</label>
-                                    <textarea id="accessTokenDisplay" class="form-control form-control-sm" rows="2" readonly></textarea>
-                                    <div class="mt-1">
-                                        <small class="text-muted">Истекает через: <span id="accessTokenTimer" class="fw-bold">--:--</span></small>
-                                    </div>
+                                <div class="mb-2">
+                                    <label class="form-label small mb-1">Пользователь: <strong id="currentUser">—</strong> (роль: <span id="currentRole">—</span>)</label>
                                 </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Refresh Token:</label>
-                                    <textarea id="refreshTokenDisplay" class="form-control form-control-sm" rows="2" readonly></textarea>
-                                    <div class="mt-1">
-                                        <small class="text-muted">Истекает через: <span id="refreshTokenTimer" class="fw-bold">--:--</span></small>
-                                    </div>
+                                <div class="mb-2">
+                                    <label class="form-label small mb-1">Access Token:</label>
+                                    <textarea id="accessTokenDisplay" class="form-control form-control-sm" rows="2" readonly style="font-size: 0.75rem;"></textarea>
+                                    <small class="text-muted">Истекает через: <span id="accessTokenTimer" class="fw-bold">--:--</span></small>
                                 </div>
-                                <button class="btn btn-primary w-100" id="refreshTokenBtn" disabled>Обновить Access Token</button>
+                                <div class="mb-2">
+                                    <label class="form-label small mb-1">Refresh Token:</label>
+                                    <textarea id="refreshTokenDisplay" class="form-control form-control-sm" rows="2" readonly style="font-size: 0.75rem;"></textarea>
+                                    <small class="text-muted">Истекает через: <span id="refreshTokenTimer" class="fw-bold">--:--</span></small>
+                                </div>
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-primary" id="refreshTokenBtn" disabled>Обновить Access Token</button>
+                                    <button class="btn btn-danger btn-sm" id="revokeTokenBtn" disabled>Отозвать Refresh Token</button>
+                                </div>
                                 <div id="tokenStatus" class="mt-2"></div>
                             </div>
                         </div>
-                    </div>
-                </div>
-
-                <div class="card mt-3">
-                    <div class="card-header">
-                        <h5 class="mb-0">Тестирование защищенного API</h5>
-                    </div>
-                    <div class="card-body">
-                        <button class="btn btn-info" id="testApiBtn" disabled>Тестировать защищенный API</button>
-                        <div id="apiResult" class="mt-3"></div>
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Тестирование защищённого API</h5>
+                            </div>
+                            <div class="card-body">
+                                <button class="btn btn-info w-100" id="testApiBtn" disabled>Запросить защищённые данные</button>
+                                <div id="apiResult" class="mt-2"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 <div class="alert alert-info mt-3">
                     <strong>Инструкция:</strong>
                     <ol>
-                        <li>Войдите с учетными данными (username: admin, password: admin123 или зарегистрируйте нового пользователя)</li>
-                        <li>После входа вы получите Access Token (действителен 15 минут) и Refresh Token (действителен 7 дней)</li>
-                        <li>Наблюдайте за таймером обратного отсчета Access Token</li>
-                        <li>Когда Access Token истечет, используйте кнопку "Обновить Access Token" для получения нового токена</li>
-                        <li>Попробуйте использовать защищенный API до и после обновления токена</li>
+                        <li><strong>Зарегистрируйтесь</strong> — введите имя, email и пароль</li>
+                        <li><strong>Войдите</strong> — используя имя и пароль, которые указали при регистрации</li>
+                        <li>После входа вы получите <strong>Access Token</strong> (15 минут) и <strong>Refresh Token</strong> (7 дней)</li>
+                        <li>Нажмите <strong>«Запросить защищённые данные»</strong> — API вернёт ваши данные из токена</li>
+                        <li>Нажмите <strong>«Обновить Access Token»</strong> — получите новую пару токенов через Refresh Token</li>
+                        <li>Нажмите <strong>«Отозвать Refresh Token»</strong> — после этого обновление токена станет невозможным</li>
                     </ol>
                 </div>
             </section>
@@ -823,7 +845,31 @@ public class LoginRequest
             </section>
 
             <section class="mb-5">
-                <h3>5. DTOs/RefreshTokenRequest.cs</h3>
+                <h3>5. DTOs/RegisterRequest.cs</h3>
+                <div class="code-block">
+                    <pre><code>using System.ComponentModel.DataAnnotations;
+
+namespace Asp_Book.Chapter08.DTOs;
+
+public class RegisterRequest
+{
+    [Required]
+    [StringLength(20, MinimumLength = 3)]
+    public string Username { get; set; } = string.Empty;
+
+    [Required]
+    [EmailAddress]
+    public string Email { get; set; } = string.Empty;
+
+    [Required]
+    [StringLength(100, MinimumLength = 4)]
+    public string Password { get; set; } = string.Empty;
+}</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>6. DTOs/RefreshTokenRequest.cs</h3>
                 <div class="code-block">
                     <pre><code>using System.ComponentModel.DataAnnotations;
 
@@ -838,7 +884,7 @@ public class RefreshTokenRequest
             </section>
 
             <section class="mb-5">
-                <h3>6. DTOs/AuthResponse.cs</h3>
+                <h3>7. DTOs/AuthResponse.cs</h3>
                 <div class="code-block">
                     <pre><code>namespace Asp_Book.Chapter08.DTOs;
 
@@ -855,7 +901,7 @@ public class AuthResponse
             </section>
 
             <section class="mb-5">
-                <h3>7. Data/ApplicationDbContext.cs</h3>
+                <h3>8. Data/ApplicationDbContext.cs</h3>
                 <div class="code-block">
                     <pre><code>using Asp_Book.Chapter08.Models;
 using Microsoft.EntityFrameworkCore;
@@ -876,7 +922,7 @@ public class ApplicationDbContext : DbContext
             </section>
 
             <section class="mb-5">
-                <h3>8. Services/ITokenService.cs + TokenService.cs</h3>
+                <h3>9. Services/ITokenService.cs + TokenService.cs</h3>
                 <div class="code-block">
                     <pre><code>// ITokenService.cs
 using Asp_Book.Chapter08.Models;
@@ -1015,7 +1061,7 @@ public class TokenService : ITokenService
             </section>
 
             <section class="mb-5">
-                <h3>9. Services/IUserService.cs + UserService.cs</h3>
+                <h3>10. Services/IUserService.cs + UserService.cs</h3>
                 <div class="code-block">
                     <pre><code>// IUserService.cs
 using Asp_Book.Chapter08.Models;
@@ -1091,8 +1137,8 @@ public class UserService : IUserService
             </section>
 
             <section class="mb-5">
-                <h3>10. Controllers/AuthController.cs (с logout)</h3>
-                <p>Полный контроллер включая <strong>решение задания</strong> — эндпоинт <code>/api/auth/logout</code>:</p>
+                <h3>11. Controllers/AuthController.cs (с register и logout)</h3>
+                <p>Полный контроллер — регистрация, вход, обновление, отзыв токена и <strong>решение задания</strong> (logout):</p>
                 <div class="code-block">
                     <pre><code>using System.Security.Claims;
 using Asp_Book.Chapter08.DTOs;
@@ -1115,6 +1161,36 @@ public class AuthController : ControllerBase
         _tokenService = tokenService;
     }
 
+    // === Регистрация ===
+    [HttpPost("register")]
+    public async Task&lt;IActionResult&gt; Register([FromBody] RegisterRequest request)
+    {
+        var existingUser = await _userService.GetUserByUsernameAsync(request.Username);
+        if (existingUser != null)
+            return BadRequest(new { message = "Пользователь с таким именем уже существует" });
+
+        var user = await _userService.CreateUserAsync(
+            request.Username, request.Email, request.Password);
+
+        // Сразу выдаём токены после регистрации
+        var accessToken = _tokenService.GenerateAccessToken(user);
+        var refreshToken = _tokenService.GenerateRefreshToken();
+        var refreshTokenExpires = DateTime.UtcNow.AddDays(7);
+
+        await _tokenService.SaveRefreshTokenAsync(user.Id, refreshToken, refreshTokenExpires);
+
+        return Ok(new AuthResponse
+        {
+            AccessToken = accessToken,
+            RefreshToken = refreshToken,
+            Username = user.Username,
+            Role = user.Role,
+            AccessTokenExpires = DateTime.UtcNow.AddMinutes(15),
+            RefreshTokenExpires = refreshTokenExpires
+        });
+    }
+
+    // === Вход ===
     [HttpPost("login")]
     public async Task&lt;IActionResult&gt; Login([FromBody] LoginRequest request)
     {
@@ -1139,6 +1215,7 @@ public class AuthController : ControllerBase
         });
     }
 
+    // === Обновление токена ===
     [HttpPost("refresh")]
     public async Task&lt;IActionResult&gt; Refresh([FromBody] RefreshTokenRequest request)
     {
@@ -1172,6 +1249,7 @@ public class AuthController : ControllerBase
         });
     }
 
+    // === Отзыв конкретного refresh token ===
     [HttpPost("revoke")]
     public async Task&lt;IActionResult&gt; Revoke([FromBody] RefreshTokenRequest request)
     {
@@ -1179,22 +1257,19 @@ public class AuthController : ControllerBase
         return Ok(new { message = "Refresh token отозван" });
     }
 
-    // ===== РЕШЕНИЕ ЗАДАНИЯ =====
-    [Authorize]  // Требуется JWT токен!
+    // ===== РЕШЕНИЕ ЗАДАНИЯ: Logout =====
+    [Authorize]
     [HttpPost("logout")]
     public async Task&lt;IActionResult&gt; Logout()
     {
-        // 1. Извлекаем ID пользователя из JWT токена
         var userIdClaim = User.Claims
             .FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
 
         if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
             return Unauthorized(new { message = "Невозможно определить пользователя" });
 
-        // 2. Отзываем ВСЕ активные refresh токены этого пользователя
         var revokedCount = await _tokenService.RevokeAllUserTokensAsync(userId);
 
-        // 3. Возвращаем результат
         return Ok(new 
         { 
             message = $"Все сессии завершены. Отозвано токенов: {revokedCount}" 
@@ -1202,18 +1277,60 @@ public class AuthController : ControllerBase
     }
 }</code></pre>
                     <div class="code-explanation">
-                        <strong>Ключевые моменты решения:</strong>
+                        <strong>Ключевые моменты:</strong>
                         <ul>
-                            <li><code>[Authorize]</code> — эндпоинт доступен только с валидным JWT токеном</li>
-                            <li><code>ClaimTypes.NameIdentifier</code> — извлекаем ID пользователя, который был записан при генерации токена</li>
-                            <li><code>RevokeAllUserTokensAsync</code> — новый метод, который отзывает все активные токены пользователя</li>
+                            <li><code>Register</code> — создаёт пользователя и сразу выдаёт оба токена</li>
+                            <li><code>Login</code> — аутентифицирует по имени и паролю, выдаёт токены</li>
+                            <li><code>Refresh</code> — отзывает старый refresh token, выдаёт новую пару</li>
+                            <li><code>Revoke</code> — отзывает конкретный refresh token</li>
+                            <li><code>Logout</code> (решение задания) — отзывает ВСЕ токены пользователя</li>
                         </ul>
                     </div>
                 </div>
             </section>
 
             <section class="mb-5">
-                <h3>11. Program.cs (полный файл)</h3>
+                <h3>12. Controllers/ProtectedController.cs</h3>
+                <p>Контроллер для тестирования — доступен <strong>только с валидным JWT токеном</strong>:</p>
+                <div class="code-block">
+                    <pre><code>using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace Asp_Book.Chapter08.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+[Authorize]
+public class ProtectedController : ControllerBase
+{
+    [HttpGet("data")]
+    public IActionResult GetProtectedData()
+    {
+        var username = User.Identity?.Name ?? "Unknown";
+        var email = User.Claims
+            .FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value ?? "";
+        var role = User.Claims
+            .FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value ?? "";
+        var userId = User.Claims
+            .FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value ?? "";
+
+        return Ok(new
+        {
+            message = "Доступ к защищённым данным получен!",
+            user = new { id = userId, username, email, role },
+            serverTime = DateTime.UtcNow
+        });
+    }
+}</code></pre>
+                    <div class="code-explanation">
+                        <code>[Authorize]</code> на классе означает, что <strong>все</strong> эндпоинты требуют JWT токен. Данные извлекаются из Claims токена.
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>13. Program.cs (полный файл)</h3>
                 <div class="code-block">
                     <pre><code>using System.Text;
 using Asp_Book.Chapter08.Data;
@@ -1318,7 +1435,7 @@ app.Run();</code></pre>
             </section>
 
             <section class="mb-5">
-                <h3>12. Тестирование</h3>
+                <h3>14. Тестирование</h3>
 
                 <p><strong>Шаг 1 — Вход:</strong></p>
                 <div class="code-block">
@@ -1371,16 +1488,18 @@ Content-Type: application/json
             </section>
 
             <section class="mb-5">
-                <h3>13. Структура проекта</h3>
+                <h3>15. Структура проекта</h3>
                 <div class="code-block">
                     <pre><code>Asp_Book.Chapter08/
 ├── Controllers/
-│   └── AuthController.cs          — login, refresh, revoke, logout
+│   ├── AuthController.cs          — register, login, refresh, revoke, logout
+│   └── ProtectedController.cs     — защищённый API (GET /api/protected/data)
 ├── Data/
 │   └── ApplicationDbContext.cs    — DbContext с Users и RefreshTokens
 ├── DTOs/
 │   ├── AuthResponse.cs            — ответ с токенами
 │   ├── LoginRequest.cs            — запрос на вход
+│   ├── RegisterRequest.cs         — запрос на регистрацию
 │   └── RefreshTokenRequest.cs     — запрос на обновление/отзыв
 ├── Models/
 │   ├── RefreshToken.cs            — модель refresh токена
@@ -1410,8 +1529,58 @@ Content-Type: application/json
         let refreshToken = null;
         let accessTokenExpires = null;
         let refreshTokenExpires = null;
-        let accessTokenTimer = null;
-        let refreshTokenTimer = null;
+        let accessTokenTimerInterval = null;
+        let refreshTokenTimerInterval = null;
+
+        // Обработка токенов после успешного входа/регистрации
+        function handleAuthSuccess(result) {
+            accessToken = result.accessToken;
+            refreshToken = result.refreshToken;
+            accessTokenExpires = new Date(result.accessTokenExpires);
+            refreshTokenExpires = new Date(result.refreshTokenExpires);
+
+            document.getElementById('accessTokenDisplay').value = accessToken;
+            document.getElementById('refreshTokenDisplay').value = refreshToken;
+            document.getElementById('currentUser').textContent = result.username;
+            document.getElementById('currentRole').textContent = result.role;
+            document.getElementById('refreshTokenBtn').disabled = false;
+            document.getElementById('revokeTokenBtn').disabled = false;
+            document.getElementById('testApiBtn').disabled = false;
+
+            startTimers();
+        }
+
+        // Регистрация
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                username: document.getElementById('regUsername').value,
+                email: document.getElementById('regEmail').value,
+                password: document.getElementById('regPassword').value
+            };
+
+            try {
+                const response = await fetch(`${API_URL}/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                if (response.ok) {
+                    handleAuthSuccess(result);
+                    // Автозаполнение формы входа
+                    document.getElementById('loginUsername').value = data.username;
+                    document.getElementById('loginPassword').value = data.password;
+                    showRegisterStatus('Регистрация успешна! Токены получены.', 'success');
+                    showStatus('Вы вошли как ' + result.username, 'success');
+                } else {
+                    showRegisterStatus('Ошибка: ' + (result.message || 'Ошибка регистрации'), 'danger');
+                }
+            } catch (error) {
+                showRegisterStatus('Ошибка: ' + error.message, 'danger');
+            }
+        });
 
         // Вход
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
@@ -1430,18 +1599,8 @@ Content-Type: application/json
 
                 const result = await response.json();
                 if (response.ok) {
-                    accessToken = result.accessToken;
-                    refreshToken = result.refreshToken;
-                    accessTokenExpires = new Date(result.accessTokenExpires);
-                    refreshTokenExpires = new Date(result.refreshTokenExpires);
-
-                    document.getElementById('accessTokenDisplay').value = accessToken;
-                    document.getElementById('refreshTokenDisplay').value = refreshToken;
-                    document.getElementById('refreshTokenBtn').disabled = false;
-                    document.getElementById('testApiBtn').disabled = false;
-
-                    startTimers();
-                    showStatus('Токены получены успешно!', 'success');
+                    handleAuthSuccess(result);
+                    showStatus('Вход выполнен! Токены получены.', 'success');
                 } else {
                     showStatus('Ошибка: ' + (result.message || 'Неверные учетные данные'), 'danger');
                 }
@@ -1466,30 +1625,55 @@ Content-Type: application/json
 
                 const result = await response.json();
                 if (response.ok) {
-                    accessToken = result.accessToken;
-                    refreshToken = result.refreshToken;
-                    accessTokenExpires = new Date(result.accessTokenExpires);
-                    refreshTokenExpires = new Date(result.refreshTokenExpires);
-
-                    document.getElementById('accessTokenDisplay').value = accessToken;
-                    document.getElementById('refreshTokenDisplay').value = refreshToken;
-
-                    startTimers();
-                    showStatus('Access Token успешно обновлен!', 'success');
+                    handleAuthSuccess(result);
+                    showStatus('Access Token успешно обновлён!', 'success');
                 } else {
-                    showStatus('Ошибка обновления: ' + (result.message || 'Неизвестная ошибка'), 'danger');
+                    showStatus('Ошибка обновления: ' + (result.message || 'Refresh Token недействителен'), 'danger');
                 }
             } catch (error) {
                 showStatus('Ошибка: ' + error.message, 'danger');
             }
         });
 
-        // Тестирование API
+        // Отзыв Refresh Token
+        document.getElementById('revokeTokenBtn').addEventListener('click', async () => {
+            if (!refreshToken) {
+                showStatus('Нет Refresh Token для отзыва', 'warning');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/revoke`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ refreshToken: refreshToken })
+                });
+
+                const result = await response.json();
+                if (response.ok) {
+                    refreshToken = null;
+                    document.getElementById('refreshTokenDisplay').value = '(отозван)';
+                    document.getElementById('refreshTokenBtn').disabled = true;
+                    document.getElementById('revokeTokenBtn').disabled = true;
+                    document.getElementById('refreshTokenTimer').textContent = 'Отозван';
+                    document.getElementById('refreshTokenTimer').className = 'fw-bold text-danger';
+                    showStatus('Refresh Token отозван! Обновление токена теперь невозможно.', 'warning');
+                } else {
+                    showStatus('Ошибка: ' + (result.message || 'Не удалось отозвать'), 'danger');
+                }
+            } catch (error) {
+                showStatus('Ошибка: ' + error.message, 'danger');
+            }
+        });
+
+        // Тестирование защищённого API
         document.getElementById('testApiBtn').addEventListener('click', async () => {
             if (!accessToken) {
                 showStatus('Сначала войдите в систему', 'warning');
                 return;
             }
+
+            const resultDiv = document.getElementById('apiResult');
 
             try {
                 const response = await fetch('/api/Protected/data', {
@@ -1498,58 +1682,55 @@ Content-Type: application/json
                     }
                 });
 
-                const result = await response.json();
-                const resultDiv = document.getElementById('apiResult');
-                
                 if (response.ok) {
-                    resultDiv.innerHTML = `<div class="alert alert-success"><strong>Успешно!</strong><br>Данные: ${JSON.stringify(result, null, 2)}</div>`;
+                    const result = await response.json();
+                    resultDiv.innerHTML = `<div class="alert alert-success"><strong>Успешно (200 OK):</strong><pre class="mb-0 mt-1" style="color: inherit; background: transparent; border: none; padding: 0;">${JSON.stringify(result, null, 2)}</pre></div>`;
                 } else if (response.status === 401) {
-                    resultDiv.innerHTML = `<div class="alert alert-warning"><strong>Access Token истек!</strong><br>Используйте кнопку "Обновить Access Token" для получения нового токена.</div>`;
+                    resultDiv.innerHTML = `<div class="alert alert-warning"><strong>401 Unauthorized</strong> — Access Token истёк!<br>Нажмите «Обновить Access Token» для получения нового.</div>`;
                 } else {
-                    resultDiv.innerHTML = `<div class="alert alert-danger"><strong>Ошибка:</strong> ${result.message || 'Неизвестная ошибка'}</div>`;
+                    const result = await response.json();
+                    resultDiv.innerHTML = `<div class="alert alert-danger"><strong>Ошибка ${response.status}:</strong> ${result.message || 'Неизвестная ошибка'}</div>`;
                 }
             } catch (error) {
-                document.getElementById('apiResult').innerHTML = `<div class="alert alert-danger"><strong>Ошибка:</strong> ${error.message}</div>`;
+                resultDiv.innerHTML = `<div class="alert alert-danger"><strong>Ошибка:</strong> ${error.message}</div>`;
             }
         });
 
         // Запуск таймеров
         function startTimers() {
-            if (accessTokenTimer) clearInterval(accessTokenTimer);
-            if (refreshTokenTimer) clearInterval(refreshTokenTimer);
+            if (accessTokenTimerInterval) clearInterval(accessTokenTimerInterval);
+            if (refreshTokenTimerInterval) clearInterval(refreshTokenTimerInterval);
 
-            accessTokenTimer = setInterval(() => {
+            accessTokenTimerInterval = setInterval(() => {
                 if (accessTokenExpires) {
                     const now = new Date();
                     const diff = accessTokenExpires - now;
+                    const el = document.getElementById('accessTokenTimer');
                     if (diff > 0) {
                         const minutes = Math.floor(diff / 60000);
                         const seconds = Math.floor((diff % 60000) / 1000);
-                        document.getElementById('accessTokenTimer').textContent = 
-                            `${minutes}:${seconds.toString().padStart(2, '0')}`;
-                        
-                        if (diff < 60000) {
-                            document.getElementById('accessTokenTimer').className = 'fw-bold text-danger';
-                        }
+                        el.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                        el.className = diff < 60000 ? 'fw-bold text-danger' : 'fw-bold text-success';
                     } else {
-                        document.getElementById('accessTokenTimer').textContent = 'Истек';
-                        document.getElementById('accessTokenTimer').className = 'fw-bold text-danger';
+                        el.textContent = 'Истёк';
+                        el.className = 'fw-bold text-danger';
                     }
                 }
             }, 1000);
 
-            refreshTokenTimer = setInterval(() => {
+            refreshTokenTimerInterval = setInterval(() => {
                 if (refreshTokenExpires) {
                     const now = new Date();
                     const diff = refreshTokenExpires - now;
+                    const el = document.getElementById('refreshTokenTimer');
                     if (diff > 0) {
                         const days = Math.floor(diff / (1000 * 60 * 60 * 24));
                         const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                        document.getElementById('refreshTokenTimer').textContent = 
-                            `${days}д ${hours}ч`;
+                        el.textContent = `${days}д ${hours}ч`;
+                        el.className = 'fw-bold text-success';
                     } else {
-                        document.getElementById('refreshTokenTimer').textContent = 'Истек';
-                        document.getElementById('refreshTokenTimer').className = 'fw-bold text-danger';
+                        el.textContent = 'Истёк';
+                        el.className = 'fw-bold text-danger';
                     }
                 }
             }, 1000);
@@ -1557,13 +1738,20 @@ Content-Type: application/json
 
         function showStatus(text, type) {
             const statusDiv = document.getElementById('tokenStatus');
-            statusDiv.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            statusDiv.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show py-2" role="alert">
                 ${text}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert"></button>
             </div>`;
-            setTimeout(() => {
-                statusDiv.innerHTML = '';
-            }, 5000);
+            setTimeout(() => { statusDiv.innerHTML = ''; }, 5000);
+        }
+
+        function showRegisterStatus(text, type) {
+            const statusDiv = document.getElementById('registerStatus');
+            statusDiv.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show py-2" role="alert">
+                ${text}
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert"></button>
+            </div>`;
+            setTimeout(() => { statusDiv.innerHTML = ''; }, 5000);
         }
     </script>
 }

@@ -10,4 +10,5 @@ public interface ITokenService
     Task SaveRefreshTokenAsync(int userId, string refreshToken, DateTime expires);
     Task RevokeRefreshTokenAsync(string token);
     Task<bool> IsRefreshTokenValidAsync(string token);
+    Task<int> RevokeAllUserTokensAsync(int userId);
 }

@@ -95,4 +95,19 @@ public class TokenService : ITokenService
             && !refreshToken.IsRevoked 
             && refreshToken.Expires > DateTime.UtcNow;
     }
+
+    public async Task<int> RevokeAllUserTokensAsync(int userId)
+    {
+        var activeTokens = await _context.RefreshTokens
+            .Where(rt => rt.UserId == userId && !rt.IsRevoked && rt.Expires > DateTime.UtcNow)
+            .ToListAsync();
+
+        foreach (var token in activeTokens)
+        {
+            token.IsRevoked = true;
+        }
+
+        await _context.SaveChangesAsync();
+        return activeTokens.Count;
+    }
 }

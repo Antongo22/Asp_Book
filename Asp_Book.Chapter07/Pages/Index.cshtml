@@ -569,6 +569,16 @@ public class UsersController : ControllerBase
                 <h3>Как добавить JWT в Swagger для тестирования?</h3>
                 <p>По умолчанию Swagger не знает о JWT. Нужно добавить кнопку «Authorize» для ввода токена.</p>
 
+                <h4>1. Установка пакета Swagger</h4>
+                <div class="code-block">
+                    <pre><code># Пакет Swashbuckle — добавляет Swagger UI и OpenAPI
+dotnet add package Swashbuckle.AspNetCore</code></pre>
+                    <div class="code-explanation">
+                        Этот пакет предоставляет: <code>AddSwaggerGen()</code>, <code>UseSwagger()</code>, <code>UseSwaggerUI()</code> и пространство имён <code>Microsoft.OpenApi.Models</code> для классов <code>OpenApiInfo</code>, <code>OpenApiSecurityScheme</code> и т.д.
+                    </div>
+                </div>
+
+                <h4>2. Настройка Swagger с JWT</h4>
                 <div class="code-block">
                     <pre><code>// Program.cs
 using Microsoft.OpenApi.Models;

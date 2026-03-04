@@ -923,427 +923,717 @@ app.Run();</code></pre>
             </section>
 
             <section class="mb-5">
-                <h3>4. Клиентский код — JavaScript (браузер)</h3>
-                <p>Самый распространённый способ подключения к WebSocket — через встроенный объект <code>WebSocket</code> в браузере:</p>
+                <h3>4. Клиентская часть — Blazor WebSocket чат</h3>
+                <p><strong>Blazor</strong> — фреймворк от Microsoft для создания интерактивного UI полностью на C# (без JavaScript). Для подключения к WebSocket используется встроенный класс <code>ClientWebSocket</code>.</p>
+
+                <h4>Что такое Blazor?</h4>
+                <div class="table-responsive">
+                    <table class="table table-striped table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Вариант</th>
+                                <th>Где выполняется</th>
+                                <th>Описание</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Blazor Server</strong></td>
+                                <td>На сервере</td>
+                                <td>UI обновляется через SignalR, C# код работает на сервере</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Blazor WebAssembly (WASM)</strong></td>
+                                <td>В браузере</td>
+                                <td>.NET работает прямо в браузере через WebAssembly</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Blazor Web App (.NET 8+)</strong></td>
+                                <td>Гибрид</td>
+                                <td>Сочетает Server и WASM, выбирая оптимальный режим</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p>В любом варианте Blazor работает с <code>ClientWebSocket</code> одинаково — весь код на C#.</p>
+            </section>
+
+            <section class="mb-5">
+                <h3>5. Создание Blazor-проекта (клиент)</h3>
+                <p>Для создания Blazor-клиента, который подключается к нашему WebSocket серверу:</p>
+
+                <h4>Шаг 1: Создание проекта</h4>
                 <div class="code-block">
-                    <pre><code>// Определяем протокол (ws:// или wss://)
-const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-const wsUrl = `${protocol}//${window.location.host}/ws`;
+                    <pre><code># Создаём Blazor Web App проект
+dotnet new blazor -n WebSocketChat.Client --interactivity Server
 
-let ws = null;
-let userName = 'Пользователь';
-
-// Подключение к WebSocket
-function connect() {
-    ws = new WebSocket(wsUrl);
-
-    ws.onopen = () => {
-        console.log('WebSocket подключен');
-        addMessage('Система', 'Подключено', 'success');
-    };
-
-    ws.onmessage = (event) => {
-        const data = event.data;
-        addMessage('Сервер', data, 'info');
-    };
-
-    ws.onerror = (error) => {
-        console.error('WebSocket ошибка:', error);
-        addMessage('Система', 'Ошибка соединения', 'danger');
-    };
-
-    ws.onclose = () => {
-        console.log('WebSocket отключен');
-        addMessage('Система', 'Отключено', 'warning');
-    };
-}
-
-// Отправка сообщения
-function sendMessage(text) {
-    if (ws &amp;&amp; ws.readyState === WebSocket.OPEN) {
-        ws.send(`${userName}: ${text}`);
-    }
-}
-
-// Отключение
-function disconnect() {
-    if (ws) {
-        ws.close();
-        ws = null;
-    }
-}</code></pre>
+# Или Blazor WebAssembly (автономный)
+dotnet new blazorwasm -n WebSocketChat.Client</code></pre>
                     <div class="code-explanation">
-                        Это стандартный клиентский код для браузера. Объект <code>WebSocket</code> встроен во все современные браузеры — ничего устанавливать не нужно.
+                        <strong>Какой выбрать?</strong>
+                        <ul>
+                            <li><code>blazor</code> (Blazor Web App) — рекомендуется для .NET 8+, поддерживает оба режима</li>
+                            <li><code>blazorwasm</code> — автономное приложение, работает полностью в браузере</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>Шаг 2: Структура проекта Blazor</h4>
+                <div class="code-block">
+                    <pre><code>WebSocketChat.Client/
+├── Components/              — компоненты (Blazor Web App)
+│   ├── Layout/
+│   │   └── MainLayout.razor — главный layout
+│   ├── Pages/
+│   │   ├── Home.razor       — главная страница
+│   │   └── Chat.razor       — наш чат (создадим)
+│   ├── App.razor            — корневой компонент
+│   └── Routes.razor         — маршрутизация
+├── Services/
+│   └── WebSocketService.cs  — сервис для работы с WebSocket
+├── Program.cs               — точка входа
+└── WebSocketChat.Client.csproj</code></pre>
+                    <div class="code-explanation">
+                        В Blazor каждая страница — это <code>.razor</code> файл, который содержит <strong>HTML-разметку + C# код</strong> в одном файле. Файл <code>.razor</code> — аналог <code>.cshtml</code> из Razor Pages, но с интерактивностью.
                     </div>
                 </div>
             </section>
 
             <section class="mb-5">
-                <h3>5. Клиентский код — C# (консольное приложение / сервис)</h3>
-                <p>WebSocket можно использовать не только в браузере, но и из C#-кода — например, из консольного приложения, другого сервиса или бота. Для этого используется класс <code>ClientWebSocket</code> из пространства имён <code>System.Net.WebSockets</code>:</p>
+                <h3>6. Services/WebSocketService.cs — сервис для WebSocket</h3>
+                <p>Создадим <strong>сервис</strong>, который инкапсулирует всю работу с WebSocket. Это правильный подход — логика отделена от UI.</p>
+
                 <div class="code-block">
                     <pre><code>using System.Net.WebSockets;
 using System.Text;
 
-// Создаём клиент
-var ws = new ClientWebSocket();
+namespace WebSocketChat.Client.Services;
 
-// Подключаемся к серверу
-await ws.ConnectAsync(
-    new Uri("ws://localhost:5009/ws"), 
-    CancellationToken.None);
-
-Console.WriteLine("Подключено к WebSocket серверу!");
-
-// === Отправка сообщения ===
-var message = "Привет от C# клиента!";
-var bytes = Encoding.UTF8.GetBytes(message);
-await ws.SendAsync(
-    new ArraySegment&lt;byte&gt;(bytes),
-    WebSocketMessageType.Text,
-    endOfMessage: true,
-    CancellationToken.None);
-
-Console.WriteLine($"Отправлено: {message}");
-
-// === Получение сообщений в цикле ===
-var buffer = new byte[1024 * 4];
-
-while (ws.State == WebSocketState.Open)
+// Интерфейс сервиса — для DI и тестирования
+public interface IWebSocketService : IAsyncDisposable
 {
-    var result = await ws.ReceiveAsync(
-        new ArraySegment&lt;byte&gt;(buffer),
-        CancellationToken.None);
-
-    if (result.MessageType == WebSocketMessageType.Close)
-    {
-        // Сервер запросил закрытие
-        await ws.CloseAsync(
-            WebSocketCloseStatus.NormalClosure,
-            "Закрытие",
-            CancellationToken.None);
-        Console.WriteLine("Соединение закрыто сервером");
-        break;
-    }
-
-    var received = Encoding.UTF8.GetString(buffer, 0, result.Count);
-    Console.WriteLine($"Получено: {received}");
+    bool IsConnected { get; }
+    
+    // События для уведомления UI
+    event Action&lt;string&gt;? OnMessageReceived;
+    event Action&lt;bool&gt;? OnConnectionChanged;
+    event Action&lt;string&gt;? OnError;
+    
+    Task ConnectAsync(string serverUrl, CancellationToken ct = default);
+    Task SendAsync(string message, CancellationToken ct = default);
+    Task DisconnectAsync();
 }
 
-// === Корректное закрытие ===
-if (ws.State == WebSocketState.Open)
+public class WebSocketService : IWebSocketService
 {
-    await ws.CloseAsync(
-        WebSocketCloseStatus.NormalClosure,
-        "Выход",
-        CancellationToken.None);
+    private ClientWebSocket? _ws;
+    private CancellationTokenSource? _receiveCts;
+    
+    public bool IsConnected => _ws?.State == WebSocketState.Open;
+    
+    // События — UI подписывается на них для обновления
+    public event Action&lt;string&gt;? OnMessageReceived;
+    public event Action&lt;bool&gt;? OnConnectionChanged;
+    public event Action&lt;string&gt;? OnError;
+
+    public async Task ConnectAsync(string serverUrl, CancellationToken ct = default)
+    {
+        // Создаём новый WebSocket клиент
+        _ws = new ClientWebSocket();
+        _receiveCts = new CancellationTokenSource();
+
+        try
+        {
+            // Устанавливаем соединение
+            await _ws.ConnectAsync(new Uri(serverUrl), ct);
+            
+            // Уведомляем UI: подключено
+            OnConnectionChanged?.Invoke(true);
+            
+            // Запускаем фоновое чтение сообщений
+            _ = ReceiveLoopAsync(_receiveCts.Token);
+        }
+        catch (Exception ex)
+        {
+            OnError?.Invoke($"Ошибка подключения: {ex.Message}");
+            OnConnectionChanged?.Invoke(false);
+        }
+    }
+
+    public async Task SendAsync(string message, CancellationToken ct = default)
+    {
+        if (_ws?.State != WebSocketState.Open)
+        {
+            OnError?.Invoke("WebSocket не подключен");
+            return;
+        }
+
+        // Кодируем строку в байты (UTF-8)
+        var bytes = Encoding.UTF8.GetBytes(message);
+        
+        // Отправляем байты через WebSocket
+        await _ws.SendAsync(
+            new ArraySegment&lt;byte&gt;(bytes),
+            WebSocketMessageType.Text,
+            endOfMessage: true,
+            ct);
+    }
+
+    // Бесконечный цикл чтения входящих сообщений
+    private async Task ReceiveLoopAsync(CancellationToken ct)
+    {
+        var buffer = new byte[1024 * 4];  // Буфер 4 КБ
+
+        try
+        {
+            while (_ws?.State == WebSocketState.Open &amp;&amp; !ct.IsCancellationRequested)
+            {
+                // Ждём сообщение от сервера
+                var result = await _ws.ReceiveAsync(
+                    new ArraySegment&lt;byte&gt;(buffer), ct);
+
+                if (result.MessageType == WebSocketMessageType.Close)
+                {
+                    // Сервер закрыл соединение
+                    OnConnectionChanged?.Invoke(false);
+                    break;
+                }
+
+                // Декодируем байты → строка
+                var message = Encoding.UTF8.GetString(
+                    buffer, 0, result.Count);
+                
+                // Уведомляем UI: пришло сообщение
+                OnMessageReceived?.Invoke(message);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Нормальное завершение при отключении
+        }
+        catch (Exception ex)
+        {
+            OnError?.Invoke($"Ошибка чтения: {ex.Message}");
+        }
+        finally
+        {
+            OnConnectionChanged?.Invoke(false);
+        }
+    }
+
+    public async Task DisconnectAsync()
+    {
+        // Отменяем фоновое чтение
+        _receiveCts?.Cancel();
+
+        if (_ws?.State == WebSocketState.Open)
+        {
+            // Корректно закрываем WebSocket (отправляем Close frame)
+            await _ws.CloseAsync(
+                WebSocketCloseStatus.NormalClosure,
+                "Пользователь отключился",
+                CancellationToken.None);
+        }
+        
+        OnConnectionChanged?.Invoke(false);
+    }
+
+    // IAsyncDisposable — вызывается при удалении сервиса
+    public async ValueTask DisposeAsync()
+    {
+        await DisconnectAsync();
+        _ws?.Dispose();
+        _receiveCts?.Dispose();
+    }
 }</code></pre>
                     <div class="code-explanation">
-                        <strong>Ключевые классы:</strong>
+                        <strong>Зачем сервис, а не всё в компоненте?</strong>
+                        <ul>
+                            <li><strong>Разделение ответственности</strong> — сервис занимается WebSocket, компонент — UI</li>
+                            <li><strong>Переиспользование</strong> — сервис можно использовать в разных компонентах</li>
+                            <li><strong>DI (Dependency Injection)</strong> — сервис регистрируется в контейнере и внедряется</li>
+                            <li><strong>Тестирование</strong> — интерфейс <code>IWebSocketService</code> можно замокать</li>
+                        </ul>
+                        <br>
+                        <strong>Ключевые моменты:</strong>
                         <table class="table table-striped table-bordered mt-2">
                             <thead>
                                 <tr>
-                                    <th>Класс / Метод</th>
-                                    <th>Описание</th>
+                                    <th>Элемент</th>
+                                    <th>Зачем</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td><code>ClientWebSocket</code></td>
-                                    <td>Клиент WebSocket для .NET (System.Net.WebSockets)</td>
+                                    <td><code>event Action&lt;string&gt; OnMessageReceived</code></td>
+                                    <td>UI подписывается, чтобы получать сообщения</td>
                                 </tr>
                                 <tr>
-                                    <td><code>ConnectAsync(uri)</code></td>
-                                    <td>Устанавливает соединение с сервером</td>
+                                    <td><code>event Action&lt;bool&gt; OnConnectionChanged</code></td>
+                                    <td>UI узнаёт, когда состояние соединения меняется</td>
                                 </tr>
                                 <tr>
-                                    <td><code>SendAsync(buffer)</code></td>
-                                    <td>Отправляет данные серверу</td>
+                                    <td><code>CancellationTokenSource</code></td>
+                                    <td>Позволяет прервать фоновый цикл чтения</td>
                                 </tr>
                                 <tr>
-                                    <td><code>ReceiveAsync(buffer)</code></td>
-                                    <td>Читает входящее сообщение</td>
+                                    <td><code>IAsyncDisposable</code></td>
+                                    <td>Гарантирует корректное закрытие при уничтожении</td>
                                 </tr>
                                 <tr>
-                                    <td><code>CloseAsync()</code></td>
-                                    <td>Корректно закрывает соединение</td>
-                                </tr>
-                                <tr>
-                                    <td><code>ws.State</code></td>
-                                    <td>Текущее состояние (Open, Closed, и т.д.)</td>
+                                    <td><code>_ = ReceiveLoopAsync()</code></td>
+                                    <td>Fire-and-forget — запускает цикл без ожидания</td>
                                 </tr>
                             </tbody>
                         </table>
-                        <p class="mt-2"><strong>Когда использовать C#-клиент?</strong> Когда WebSocket нужен не в браузере, а в микросервисе, боте, фоновом сервисе, десктопном приложении и т.д.</p>
                     </div>
                 </div>
             </section>
 
             <section class="mb-5">
-                <h3>6. Клиентский код — Blazor (компонент)</h3>
-                <p><strong>Blazor</strong> — фреймворк от Microsoft для создания интерактивного UI на C# (без JavaScript). WebSocket в Blazor подключается так же через <code>ClientWebSocket</code>, но оборачивается в компонент:</p>
+                <h3>7. Регистрация сервиса в Program.cs</h3>
+                <p>Сервис нужно зарегистрировать в DI-контейнере:</p>
 
-                <h4>Установка пакета (для Blazor WebAssembly)</h4>
                 <div class="code-block">
-                    <pre><code># Blazor WebAssembly уже содержит System.Net.WebSockets
-# Для Blazor Server — ничего устанавливать не нужно, всё встроено</code></pre>
+                    <pre><code>// Program.cs (Blazor Web App)
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents();
+
+// Регистрируем WebSocket сервис как Scoped
+// (один экземпляр на одно соединение/пользователя)
+builder.Services.AddScoped&lt;IWebSocketService, WebSocketService&gt;();
+
+var app = builder.Build();
+
+app.UseStaticFiles();
+app.UseAntiforgery();
+
+app.MapRazorComponents&lt;App&gt;()
+    .AddInteractiveServerRenderMode();
+
+app.Run();</code></pre>
+                    <div class="code-explanation">
+                        <strong>Почему <code>Scoped</code>?</strong>
+                        <ul>
+                            <li><code>Scoped</code> — один экземпляр на одно соединение (в Blazor Server — на одну SignalR-сессию)</li>
+                            <li><code>Singleton</code> — один на всех — <strong>нельзя</strong>, т.к. у каждого пользователя свой WebSocket</li>
+                            <li><code>Transient</code> — новый на каждый запрос — <strong>нельзя</strong>, т.к. потеряем соединение</li>
+                        </ul>
+                    </div>
                 </div>
+            </section>
 
-                <h4>Компонент WebSocketChat.razor</h4>
+            <section class="mb-5">
+                <h3>8. Компонент Chat.razor — страница чата</h3>
+                <p>Теперь создаём компонент, который использует <code>WebSocketService</code> и отображает чат:</p>
+
                 <div class="code-block">
-                    <pre><code>@@using System.Net.WebSockets
-@@using System.Text
+                    <pre><code>@@page "/chat"
+@@using WebSocketChat.Client.Services
+@@inject IWebSocketService WsService
 @@implements IAsyncDisposable
+@@rendermode InteractiveServer
 
-&lt;h3&gt;WebSocket чат (Blazor)&lt;/h3&gt;
+&lt;h3&gt;💬 WebSocket чат&lt;/h3&gt;
 
+&lt;!-- Статус подключения --&gt;
 &lt;div class="mb-3"&gt;
-    &lt;input @@bind="userName" placeholder="Ваше имя" class="form-control" /&gt;
-&lt;/div&gt;
-
-@@if (!isConnected)
-{
-    &lt;button class="btn btn-success" @@onclick="Connect"&gt;Подключиться&lt;/button&gt;
-}
-else
-{
-    &lt;button class="btn btn-danger" @@onclick="Disconnect"&gt;Отключиться&lt;/button&gt;
-    
-    &lt;div class="mt-3 border rounded p-3" 
-         style="height: 300px; overflow-y: auto; background: #1e1e1e; color: #fff;"&gt;
-        @@foreach (var msg in messages)
-        {
-            &lt;div&gt;@@msg&lt;/div&gt;
-        }
-    &lt;/div&gt;
-
-    &lt;div class="input-group mt-2"&gt;
-        &lt;input @@bind="currentMessage" 
-               @@onkeydown="HandleKeyDown"
-               placeholder="Сообщение..." 
-               class="form-control" /&gt;
-        &lt;button class="btn btn-primary" @@onclick="SendMessage"&gt;
-            Отправить
-        &lt;/button&gt;
-    &lt;/div&gt;
-}
-
-&lt;div class="mt-2"&gt;
-    &lt;span class="badge @@(isConnected ? "bg-success" : "bg-secondary")"&gt;
-        @@(isConnected ? "Подключён" : "Отключён")
+    &lt;span class="badge @@(isConnected ? "bg-success" : "bg-secondary") fs-6"&gt;
+        @@(isConnected ? "🟢 Подключён" : "🔴 Отключён")
     &lt;/span&gt;
 &lt;/div&gt;
 
-@@code {
-    private ClientWebSocket? ws;
-    private string userName = "";
-    private string currentMessage = "";
-    private bool isConnected = false;
-    private List&lt;string&gt; messages = new();
-    private CancellationTokenSource cts = new();
-
-    private async Task Connect()
-    {
-        if (string.IsNullOrWhiteSpace(userName)) return;
-
-        ws = new ClientWebSocket();
-
-        // Определяем URL (в Blazor Server используем NavigationManager)
-        var uri = new Uri("ws://localhost:5009/ws");
-
-        try
-        {
-            await ws.ConnectAsync(uri, cts.Token);
-            isConnected = true;
-            messages.Add("✅ Подключено к серверу");
-
-            // Запускаем фоновое чтение сообщений
-            _ = ReceiveLoop();
-        }
-        catch (Exception ex)
-        {
-            messages.Add($"❌ Ошибка подключения: {ex.Message}");
-        }
-
-        StateHasChanged();
-    }
-
-    private async Task SendMessage()
-    {
-        if (ws?.State != WebSocketState.Open || 
-            string.IsNullOrWhiteSpace(currentMessage))
-            return;
-
-        var text = $"{userName}: {currentMessage}";
-        var bytes = Encoding.UTF8.GetBytes(text);
-
-        await ws.SendAsync(
-            new ArraySegment&lt;byte&gt;(bytes),
-            WebSocketMessageType.Text,
-            endOfMessage: true,
-            cts.Token);
-
-        currentMessage = "";
-        StateHasChanged();
-    }
-
-    private async Task ReceiveLoop()
-    {
-        var buffer = new byte[1024 * 4];
-
-        try
-        {
-            while (ws?.State == WebSocketState.Open)
-            {
-                var result = await ws.ReceiveAsync(
-                    new ArraySegment&lt;byte&gt;(buffer), 
-                    cts.Token);
-
-                if (result.MessageType == WebSocketMessageType.Close)
+&lt;!-- Форма ввода имени + подключение --&gt;
+@@if (!isConnected)
+{
+    &lt;div class="card mb-3"&gt;
+        &lt;div class="card-body"&gt;
+            &lt;div class="mb-3"&gt;
+                &lt;label class="form-label"&gt;Ваше имя:&lt;/label&gt;
+                &lt;input @@bind="userName" 
+                       placeholder="Введите имя..." 
+                       class="form-control" /&gt;
+            &lt;/div&gt;
+            &lt;div class="mb-3"&gt;
+                &lt;label class="form-label"&gt;Адрес сервера:&lt;/label&gt;
+                &lt;input @@bind="serverUrl" 
+                       class="form-control" /&gt;
+            &lt;/div&gt;
+            &lt;button class="btn btn-success" 
+                    @@onclick="ConnectAsync"
+                    disabled="@@isConnecting"&gt;
+                @@if (isConnecting)
                 {
-                    messages.Add("🔌 Сервер закрыл соединение");
-                    break;
+                    &lt;span class="spinner-border spinner-border-sm"&gt;&lt;/span&gt;
+                    &lt;span&gt; Подключение...&lt;/span&gt;
                 }
-
-                var msg = Encoding.UTF8.GetString(
-                    buffer, 0, result.Count);
-                messages.Add(msg);
-
-                // Обновляем UI из фонового потока
-                await InvokeAsync(StateHasChanged);
-            }
-        }
-        catch (OperationCanceledException)
+                else
+                {
+                    &lt;span&gt;🔌 Подключиться&lt;/span&gt;
+                }
+            &lt;/button&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+}
+else
+{
+    &lt;!-- Область сообщений --&gt;
+    &lt;div class="border rounded p-3 mb-3" 
+         style="height: 400px; overflow-y: auto; background: #1a1a2e; color: #eee;"
+         id="chatArea"&gt;
+        @@if (messages.Count == 0)
         {
-            // Отмена — нормальное поведение при Disconnect
+            &lt;p class="text-muted text-center"&gt;Нет сообщений&lt;/p&gt;
         }
-        catch (Exception ex)
+        @@foreach (var msg in messages)
         {
-            messages.Add($"❌ Ошибка: {ex.Message}");
-            await InvokeAsync(StateHasChanged);
+            &lt;div class="mb-2 p-2 rounded" 
+                 style="background: @@(msg.IsSystem ? "#2d2d44" : "#16213e")"&gt;
+                &lt;small class="text-warning"&gt;@@msg.Sender&lt;/small&gt;
+                &lt;br /&gt;
+                &lt;span&gt;@@msg.Text&lt;/span&gt;
+                &lt;small class="text-muted float-end"&gt;@@msg.Time&lt;/small&gt;
+            &lt;/div&gt;
+        }
+    &lt;/div&gt;
+
+    &lt;!-- Ввод сообщения --&gt;
+    &lt;div class="input-group mb-3"&gt;
+        &lt;input @@bind="currentMessage" 
+               @@bind:event="oninput"
+               @@onkeydown="HandleKeyDown"
+               placeholder="Введите сообщение..." 
+               class="form-control" /&gt;
+        &lt;button class="btn btn-primary" @@onclick="SendAsync"&gt;
+            📤 Отправить
+        &lt;/button&gt;
+    &lt;/div&gt;
+
+    &lt;button class="btn btn-outline-danger" @@onclick="DisconnectAsync"&gt;
+        🔌 Отключиться
+    &lt;/button&gt;
+}
+
+&lt;!-- Ошибки --&gt;
+@@if (!string.IsNullOrEmpty(errorMessage))
+{
+    &lt;div class="alert alert-danger mt-3"&gt;
+        @@errorMessage
+    &lt;/div&gt;
+}
+
+@@code {
+    // === Состояние компонента ===
+    private string userName = "";
+    private string serverUrl = "ws://localhost:5009/ws";
+    private string currentMessage = "";
+    private string errorMessage = "";
+    private bool isConnected = false;
+    private bool isConnecting = false;
+    private List&lt;ChatMessage&gt; messages = new();
+
+    // === Жизненный цикл: подписка на события ===
+    protected override void OnInitialized()
+    {
+        // Подписываемся на события сервиса
+        WsService.OnMessageReceived += HandleMessageReceived;
+        WsService.OnConnectionChanged += HandleConnectionChanged;
+        WsService.OnError += HandleError;
+    }
+
+    // === Подключение ===
+    private async Task ConnectAsync()
+    {
+        if (string.IsNullOrWhiteSpace(userName))
+        {
+            errorMessage = "Введите имя!";
+            return;
         }
 
-        isConnected = false;
-        await InvokeAsync(StateHasChanged);
+        errorMessage = "";
+        isConnecting = true;
+        StateHasChanged();
+
+        await WsService.ConnectAsync(serverUrl);
+        
+        isConnecting = false;
+        
+        if (WsService.IsConnected)
+        {
+            AddSystemMessage("✅ Подключено к серверу");
+        }
+    }
+
+    // === Отправка ===
+    private async Task SendAsync()
+    {
+        if (string.IsNullOrWhiteSpace(currentMessage)) return;
+
+        var fullMessage = $"{userName}: {currentMessage}";
+        await WsService.SendAsync(fullMessage);
+        
+        currentMessage = "";  // Очищаем поле ввода
+    }
+
+    // === Обработчики событий от сервиса ===
+    
+    // Пришло сообщение
+    private void HandleMessageReceived(string message)
+    {
+        // Парсим "connectionId: userName: текст"
+        var parts = message.Split(':', 3);
+        var sender = parts.Length >= 2 ? parts[1].Trim() : "Неизвестный";
+        var text = parts.Length >= 3 ? parts[2].Trim() : message;
+
+        messages.Add(new ChatMessage(sender, text, false));
+        
+        // ВАЖНО: InvokeAsync — обновление UI из фонового потока
+        InvokeAsync(StateHasChanged);
+    }
+
+    // Изменилось состояние соединения
+    private void HandleConnectionChanged(bool connected)
+    {
+        isConnected = connected;
+        if (!connected)
+        {
+            AddSystemMessage("🔌 Отключено от сервера");
+        }
+        InvokeAsync(StateHasChanged);
+    }
+
+    // Произошла ошибка
+    private void HandleError(string error)
+    {
+        errorMessage = error;
+        InvokeAsync(StateHasChanged);
+    }
+
+    // === Вспомогательные методы ===
+    
+    private void AddSystemMessage(string text)
+    {
+        messages.Add(new ChatMessage("Система", text, true));
     }
 
     private async Task HandleKeyDown(KeyboardEventArgs e)
     {
         if (e.Key == "Enter")
-            await SendMessage();
+            await SendAsync();
     }
 
-    private async Task Disconnect()
+    private async Task DisconnectAsync()
     {
-        if (ws?.State == WebSocketState.Open)
-        {
-            await ws.CloseAsync(
-                WebSocketCloseStatus.NormalClosure,
-                "Выход", cts.Token);
-        }
-
-        isConnected = false;
-        messages.Add("🔌 Отключено");
-        StateHasChanged();
+        await WsService.DisconnectAsync();
     }
 
-    // IAsyncDisposable — корректная очистка при уничтожении компонента
+    // === IAsyncDisposable — ОБЯЗАТЕЛЬНО ===
+    // Вызывается когда пользователь уходит со страницы
     public async ValueTask DisposeAsync()
     {
-        cts.Cancel();
-        if (ws?.State == WebSocketState.Open)
-        {
-            await ws.CloseAsync(
-                WebSocketCloseStatus.NormalClosure,
-                "Компонент уничтожен",
-                CancellationToken.None);
-        }
-        ws?.Dispose();
-        cts.Dispose();
+        // Отписываемся от событий (предотвращаем утечки памяти)
+        WsService.OnMessageReceived -= HandleMessageReceived;
+        WsService.OnConnectionChanged -= HandleConnectionChanged;
+        WsService.OnError -= HandleError;
+
+        // Закрываем WebSocket
+        await WsService.DisposeAsync();
+    }
+
+    // === Модель сообщения ===
+    private record ChatMessage(
+        string Sender, 
+        string Text, 
+        bool IsSystem)
+    {
+        public string Time { get; } = DateTime.Now.ToString("HH:mm:ss");
     }
 }</code></pre>
                     <div class="code-explanation">
-                        <strong>Ключевые моменты Blazor + WebSocket:</strong>
+                        <strong>Разбор ключевых концепций Blazor:</strong>
                         <table class="table table-striped table-bordered mt-2">
                             <thead>
                                 <tr>
-                                    <th>Элемент</th>
-                                    <th>Зачем нужен</th>
+                                    <th>Директива / Элемент</th>
+                                    <th>Что делает</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td><code>&#64;implements IAsyncDisposable</code></td>
-                                    <td>Корректно закрывает WebSocket при уходе со страницы</td>
+                                    <td><code>&#64;page "/chat"</code></td>
+                                    <td>Маршрут страницы — доступна по <code>/chat</code></td>
                                 </tr>
                                 <tr>
-                                    <td><code>CancellationTokenSource</code></td>
-                                    <td>Отменяет фоновые операции при отключении</td>
+                                    <td><code>&#64;inject IWebSocketService WsService</code></td>
+                                    <td>Внедрение зависимости (DI) — получаем сервис</td>
+                                </tr>
+                                <tr>
+                                    <td><code>&#64;implements IAsyncDisposable</code></td>
+                                    <td>Компонент освобождает ресурсы при уничтожении</td>
+                                </tr>
+                                <tr>
+                                    <td><code>&#64;rendermode InteractiveServer</code></td>
+                                    <td>Компонент интерактивный (обрабатывает события)</td>
+                                </tr>
+                                <tr>
+                                    <td><code>&#64;bind="currentMessage"</code></td>
+                                    <td>Двусторонняя привязка: input ↔ переменная C#</td>
+                                </tr>
+                                <tr>
+                                    <td><code>&#64;onclick="SendAsync"</code></td>
+                                    <td>Обработка клика — вызов C# метода</td>
+                                </tr>
+                                <tr>
+                                    <td><code>&#64;onkeydown="HandleKeyDown"</code></td>
+                                    <td>Обработка нажатия клавиши (Enter → отправить)</td>
+                                </tr>
+                                <tr>
+                                    <td><code>&#64;if / &#64;foreach</code></td>
+                                    <td>Условный рендеринг и циклы прямо в разметке</td>
+                                </tr>
+                                <tr>
+                                    <td><code>StateHasChanged()</code></td>
+                                    <td>Говорит Blazor: «перерисуй компонент»</td>
                                 </tr>
                                 <tr>
                                     <td><code>InvokeAsync(StateHasChanged)</code></td>
-                                    <td>Обновляет UI из фонового потока (ReceiveLoop)</td>
+                                    <td>То же, но безопасно из фонового потока</td>
                                 </tr>
                                 <tr>
-                                    <td><code>_ = ReceiveLoop()</code></td>
-                                    <td>Запускает бесконечный цикл чтения без await (fire-and-forget)</td>
-                                </tr>
-                                <tr>
-                                    <td><code>&#64;bind</code></td>
-                                    <td>Двусторонняя привязка данных (вместо document.getElementById)</td>
-                                </tr>
-                                <tr>
-                                    <td><code>&#64;onclick</code></td>
-                                    <td>Обработка событий на C# (вместо addEventListener)</td>
+                                    <td><code>OnInitialized()</code></td>
+                                    <td>Вызывается при создании компонента (подписка на события)</td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
+            </section>
 
-                <h4 class="mt-3">Использование компонента</h4>
+            <section class="mb-5">
+                <h3>9. Почему InvokeAsync(StateHasChanged)?</h3>
+                <p>Это один из самых важных моментов в Blazor. Разберём подробно:</p>
+
                 <div class="code-block">
-                    <pre><code>&lt;!-- В любом .razor файле или странице --&gt;
-&lt;WebSocketChat /&gt;</code></pre>
-                </div>
+                    <pre><code>// ReceiveLoopAsync работает в ФОНОВОМ потоке
+// (запущен через _ = ReceiveLoopAsync())
 
-                <div class="alert alert-info mt-3">
-                    <h5>Сравнение подходов: JavaScript vs C# vs Blazor</h5>
-                    <table class="table table-striped table-bordered mt-2">
-                        <thead>
-                            <tr>
-                                <th>Подход</th>
-                                <th>Где используется</th>
-                                <th>Плюсы</th>
-                                <th>Минусы</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td><strong>JavaScript</strong> (WebSocket API)</td>
-                                <td>Браузер, фронтенд</td>
-                                <td>Встроен в браузер, без установки</td>
-                                <td>Только в браузере</td>
-                            </tr>
-                            <tr>
-                                <td><strong>C#</strong> (ClientWebSocket)</td>
-                                <td>Сервисы, боты, консоль</td>
-                                <td>Работает везде в .NET</td>
-                                <td>Нет UI «из коробки»</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Blazor</strong> (ClientWebSocket + компонент)</td>
-                                <td>Браузер (через WASM или Server)</td>
-                                <td>Всё на C#, типизация, переиспользование</td>
-                                <td>Сложнее настройки, тяжелее JS</td>
-                            </tr>
-                        </tbody>
-                    </table>
+// ❌ НЕПРАВИЛЬНО — вызов из фонового потока
+private void HandleMessageReceived(string message)
+{
+    messages.Add(new ChatMessage(...));
+    StateHasChanged();  // ОШИБКА! Фоновый поток не может обновлять UI
+}
+
+// ✅ ПРАВИЛЬНО — переключаемся в UI-поток
+private void HandleMessageReceived(string message)
+{
+    messages.Add(new ChatMessage(...));
+    InvokeAsync(StateHasChanged);  // Безопасно обновляем UI
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Аналогия:</strong> Это как в WPF / WinForms, где нельзя обновлять UI из другого потока. Blazor работает так же — UI обновляется только из <strong>синхронизационного контекста</strong>. <code>InvokeAsync()</code> переключает выполнение в правильный контекст.
+                        <br><br>
+                        <strong>Правило:</strong> Если код вызывается из <strong>обработчика события Blazor</strong> (<code>&#64;onclick</code>, <code>&#64;onchange</code>) — <code>StateHasChanged()</code> вызывается автоматически. Если из <strong>фонового потока</strong> (событие сервиса, таймер) — нужен <code>InvokeAsync(StateHasChanged)</code>.
+                    </div>
                 </div>
             </section>
 
             <section class="mb-5">
-                <h3>7. Структура проекта</h3>
+                <h3>10. IAsyncDisposable — зачем и когда</h3>
+                <p>Когда пользователь уходит со страницы <code>/chat</code>, Blazor <strong>уничтожает</strong> компонент. Но WebSocket-соединение всё ещё открыто! Его нужно закрыть.</p>
+
+                <div class="code-block">
+                    <pre><code>// Компонент реализует IAsyncDisposable
+@@implements IAsyncDisposable
+
+@@code {
+    // Вызывается автоматически при уничтожении компонента
+    public async ValueTask DisposeAsync()
+    {
+        // 1. Отписываемся от событий (предотвращаем утечки памяти)
+        WsService.OnMessageReceived -= HandleMessageReceived;
+        WsService.OnConnectionChanged -= HandleConnectionChanged;
+        WsService.OnError -= HandleError;
+
+        // 2. Закрываем WebSocket-соединение
+        await WsService.DisposeAsync();
+    }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Что будет без IAsyncDisposable?</strong>
+                        <table class="table table-striped table-bordered mt-2">
+                            <thead>
+                                <tr>
+                                    <th>Без Dispose</th>
+                                    <th>С Dispose</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>WebSocket остаётся открытым ❌</td>
+                                    <td>WebSocket корректно закрывается ✅</td>
+                                </tr>
+                                <tr>
+                                    <td>Сервер думает, что клиент ещё онлайн ❌</td>
+                                    <td>Сервер удаляет клиента из словаря ✅</td>
+                                </tr>
+                                <tr>
+                                    <td>Утечка памяти (события не отписаны) ❌</td>
+                                    <td>Ресурсы освобождены ✅</td>
+                                </tr>
+                                <tr>
+                                    <td>При повторном открытии — дубли сообщений ❌</td>
+                                    <td>Чистый старт ✅</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>11. Структура проекта (полная)</h3>
+                <div class="code-block">
+                    <pre><code>📁 Сервер (Asp_Book.Chapter09)
+├── Middleware/
+│   └── WebSocketMiddleware.cs    — обработка WS-соединений
+├── Controllers/
+│   └── WebSocketController.cs    — API с информацией о WS
+├── Pages/
+│   └── Index.cshtml              — UI демонстрации (Razor Pages)
+├── Program.cs                    — UseWebSockets() + UseMiddleware
+└── appsettings.json
+
+📁 Клиент (WebSocketChat.Client — Blazor)
+├── Components/
+│   ├── Pages/
+│   │   └── Chat.razor            — страница чата
+│   ├── Layout/
+│   │   └── MainLayout.razor      — главный layout
+│   ├── App.razor
+│   └── Routes.razor
+├── Services/
+│   └── WebSocketService.cs       — сервис WebSocket (логика)
+├── Program.cs                    — DI + запуск Blazor
+└── WebSocketChat.Client.csproj</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>12. Тестирование</h3>
+                <p><strong>Шаг 1:</strong> Запустите сервер (Asp_Book.Chapter09) — он слушает WebSocket на <code>/ws</code>.</p>
+                <p><strong>Шаг 2:</strong> Запустите Blazor-клиент — откройте страницу <code>/chat</code>.</p>
+                <p><strong>Шаг 3:</strong> Введите имя, укажите адрес сервера <code>ws://localhost:5009/ws</code> и нажмите «Подключиться».</p>
+                <p><strong>Шаг 4:</strong> Откройте вторую вкладку (или демо-страницу сервера) — сообщения будут видны обоим.</p>
+                <p><strong>Шаг 5:</strong> Уйдите со страницы <code>/chat</code> — WebSocket автоматически закроется (IAsyncDisposable).</p>
+
+                <div class="alert alert-info">
+                    <strong>Также можно проверить через демо-страницу сервера:</strong>
+                    <p>Сервер (Chapter 9) имеет встроенный JS-чат на главной странице. Blazor-клиент и JS-клиент работают с одним и тем же WebSocket middleware — они видят сообщения друг друга.</p>
+                </div>
+            </section>
                 <div class="code-block">
                     <pre><code>Asp_Book.Chapter09/
 ├── Controllers/

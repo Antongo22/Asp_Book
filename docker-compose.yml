@@ -1,8 +1,8 @@
 services:
   gateway:
     build:
-      context: ./Asp_Book.Gateway
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Asp_Book.Gateway/Dockerfile
     ports:
       - "5000:5000"
     environment:
@@ -13,8 +13,8 @@ services:
 
   chapter01:
     build:
-      context: ./Asp_Book.Chapter01
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Asp_Book.Chapter01/Dockerfile
     ports:
       - "5001:5001"
     environment:
@@ -25,8 +25,8 @@ services:
 
   chapter02:
     build:
-      context: ./Asp_Book.Chapter02
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Asp_Book.Chapter02/Dockerfile
     ports:
       - "5002:5002"
     environment:
@@ -37,8 +37,8 @@ services:
 
   chapter03:
     build:
-      context: ./Asp_Book.Chapter03
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Asp_Book.Chapter03/Dockerfile
     ports:
       - "5003:5003"
     environment:
@@ -49,8 +49,8 @@ services:
 
   chapter04:
     build:
-      context: ./Asp_Book.Chapter04
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Asp_Book.Chapter04/Dockerfile
     ports:
       - "5004:5004"
     environment:
@@ -61,8 +61,8 @@ services:
 
   chapter05:
     build:
-      context: ./Asp_Book.Chapter05
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Asp_Book.Chapter05/Dockerfile
     ports:
       - "5005:5005"
     environment:
@@ -73,8 +73,8 @@ services:
 
   chapter06:
     build:
-      context: ./Asp_Book.Chapter06
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Asp_Book.Chapter06/Dockerfile
     ports:
       - "5006:5006"
     environment:
@@ -85,8 +85,8 @@ services:
 
   chapter07:
     build:
-      context: ./Asp_Book.Chapter07
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Asp_Book.Chapter07/Dockerfile
     ports:
       - "5007:5007"
     environment:
@@ -97,8 +97,8 @@ services:
 
   chapter08:
     build:
-      context: ./Asp_Book.Chapter08
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Asp_Book.Chapter08/Dockerfile
     ports:
       - "5008:5008"
     environment:
@@ -109,8 +109,8 @@ services:
 
   chapter09:
     build:
-      context: ./Asp_Book.Chapter09
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Asp_Book.Chapter09/Dockerfile
     ports:
       - "5009:5009"
     environment:
@@ -121,8 +121,8 @@ services:
 
   chapter10:
     build:
-      context: ./Asp_Book.Chapter10
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Asp_Book.Chapter10/Dockerfile
     ports:
       - "5010:5010"
     environment:
@@ -133,8 +133,8 @@ services:
 
   chapter11:
     build:
-      context: ./Asp_Book.Chapter11
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Asp_Book.Chapter11/Dockerfile
     ports:
       - "5011:5011"
     environment:
@@ -145,8 +145,8 @@ services:
 
   chapter12:
     build:
-      context: ./Asp_Book.Chapter12
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Asp_Book.Chapter12/Dockerfile
     ports:
       - "5012:5012"
     environment:

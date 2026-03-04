@@ -4,9 +4,11 @@ EXPOSE 5011
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
-COPY ["Asp_Book.Chapter11.csproj", "./"]
-RUN dotnet restore "Asp_Book.Chapter11.csproj"
-COPY . .
+COPY ["Directory.Packages.props", "./"]
+COPY ["Asp_Book.Chapter11/Asp_Book.Chapter11.csproj", "Asp_Book.Chapter11/"]
+RUN dotnet restore "Asp_Book.Chapter11/Asp_Book.Chapter11.csproj"
+COPY Asp_Book.Chapter11/ ./Asp_Book.Chapter11/
+WORKDIR /src/Asp_Book.Chapter11
 RUN dotnet build "Asp_Book.Chapter11.csproj" -c Release -o /app/build
 
 FROM build AS publish

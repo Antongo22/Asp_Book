@@ -4,9 +4,11 @@ EXPOSE 5003
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
-COPY ["Asp_Book.Chapter03.csproj", "./"]
-RUN dotnet restore "Asp_Book.Chapter03.csproj"
-COPY . .
+COPY ["Directory.Packages.props", "./"]
+COPY ["Asp_Book.Chapter03/Asp_Book.Chapter03.csproj", "Asp_Book.Chapter03/"]
+RUN dotnet restore "Asp_Book.Chapter03/Asp_Book.Chapter03.csproj"
+COPY Asp_Book.Chapter03/ ./Asp_Book.Chapter03/
+WORKDIR /src/Asp_Book.Chapter03
 RUN dotnet build "Asp_Book.Chapter03.csproj" -c Release -o /app/build
 
 FROM build AS publish

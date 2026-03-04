@@ -206,6 +206,258 @@
             </section>
 
             <section class="mb-5">
+                <h3>Как программа определяет порт для запуска?</h3>
+                <p>При запуске ASP.NET Core приложения движок ищет настройки порта в <strong>нескольких источниках</strong>, с определённым приоритетом. Побеждает тот, кто указан последним (с наивысшим приоритетом).</p>
+
+                <h4>Источники конфигурации (от низшего к высшему приоритету):</h4>
+                <div class="table-responsive">
+                    <table class="table table-striped table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Приоритет</th>
+                                <th>Источник</th>
+                                <th>Где находится</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>1 (низший)</td>
+                                <td>По умолчанию</td>
+                                <td>Встроен в Kestrel — <code>http://localhost:5000</code></td>
+                            </tr>
+                            <tr>
+                                <td>2</td>
+                                <td><code>appsettings.json</code></td>
+                                <td>Секция <code>Kestrel:Endpoints</code> или <code>Urls</code></td>
+                            </tr>
+                            <tr>
+                                <td>3</td>
+                                <td><code>launchSettings.json</code></td>
+                                <td><code>Properties/launchSettings.json</code> → <code>applicationUrl</code></td>
+                            </tr>
+                            <tr>
+                                <td>4</td>
+                                <td>Переменная окружения</td>
+                                <td><code>ASPNETCORE_URLS</code></td>
+                            </tr>
+                            <tr>
+                                <td>5</td>
+                                <td>Аргумент командной строки</td>
+                                <td><code>--urls</code></td>
+                            </tr>
+                            <tr>
+                                <td>6 (высший)</td>
+                                <td>Код в <code>Program.cs</code></td>
+                                <td><code>builder.WebHost.UseUrls()</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="alert alert-warning">
+                    <strong>Важно:</strong> <code>launchSettings.json</code> работает <strong>только при локальной разработке</strong> (через <code>dotnet run</code> или Visual Studio). В Docker или на сервере этот файл <strong>игнорируется</strong>.
+                </div>
+
+                <h4>1. launchSettings.json (локальная разработка)</h4>
+                <p>Этот файл находится в <code>Properties/launchSettings.json</code> и содержит профили запуска:</p>
+                <div class="code-block">
+                    <pre><code>{
+  "profiles": {
+    "http": {
+      "commandName": "Project",
+      "applicationUrl": "http://localhost:5001",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+    "https": {
+      "commandName": "Project",
+      "applicationUrl": "https://localhost:7229;http://localhost:5001",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    }
+  }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Разбор:</strong>
+                        <ul>
+                            <li><code>"http"</code> и <code>"https"</code> — это <strong>имена профилей</strong> (можно назвать как угодно)</li>
+                            <li><code>"applicationUrl"</code> — URL и порт для запуска</li>
+                            <li>Несколько URL разделяются точкой с запятой (<code>;</code>)</li>
+                            <li><code>"ASPNETCORE_ENVIRONMENT"</code> — задаёт режим (Development/Production)</li>
+                        </ul>
+                        <br>
+                        Запуск с конкретным профилем:
+                        <pre><code>dotnet run --launch-profile "https"</code></pre>
+                        По умолчанию используется <strong>первый профиль</strong> в файле.
+                    </div>
+                </div>
+
+                <h4>2. Переменная окружения ASPNETCORE_URLS</h4>
+                <p>Самый распространённый способ задать порт на сервере или в Docker:</p>
+                <div class="code-block">
+                    <pre><code># Windows (PowerShell)
+$env:ASPNETCORE_URLS="http://+:8080"
+dotnet run
+
+# Linux / macOS
+export ASPNETCORE_URLS="http://+:8080"
+dotnet run
+
+# Несколько URL
+$env:ASPNETCORE_URLS="http://+:5000;https://+:5001"</code></pre>
+                    <div class="code-explanation">
+                        <ul>
+                            <li><code>+</code> — слушать на <strong>всех сетевых интерфейсах</strong> (не только localhost)</li>
+                            <li><code>localhost</code> — слушать только локальные подключения</li>
+                            <li><code>*</code> — аналог <code>+</code>, слушать на всех интерфейсах</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>3. В Dockerfile (Docker)</h4>
+                <p>В Docker порт задаётся через переменную окружения <code>ENV</code>:</p>
+                <div class="code-block">
+                    <pre><code># Dockerfile
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
+WORKDIR /app
+EXPOSE 5001
+
+# ... сборка ...
+
+FROM base AS final
+WORKDIR /app
+COPY --from=publish /app/publish .
+
+# Задаём порт через переменную окружения
+ENV ASPNETCORE_URLS=http://+:5001
+
+ENTRYPOINT ["dotnet", "Asp_Book.Chapter01.dll"]</code></pre>
+                    <div class="code-explanation">
+                        <strong>Разбор:</strong>
+                        <ul>
+                            <li><code>EXPOSE 5001</code> — объявляет порт (документация для Docker, <strong>не открывает</strong> порт)</li>
+                            <li><code>ENV ASPNETCORE_URLS=http://+:5001</code> — <strong>реально</strong> задаёт порт для приложения</li>
+                            <li><code>http://+:5001</code> — слушать порт 5001 на всех интерфейсах (обязательно <code>+</code>, а не <code>localhost</code>, чтобы Docker мог пробросить порт)</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>4. Аргумент командной строки --urls</h4>
+                <p>Можно передать порт прямо при запуске:</p>
+                <div class="code-block">
+                    <pre><code># Запуск на конкретном порту
+dotnet run --urls "http://localhost:3000"
+
+# Несколько URL
+dotnet run --urls "http://localhost:3000;https://localhost:3001"</code></pre>
+                    <div class="code-explanation">
+                        Аргумент <code>--urls</code> <strong>перекрывает</strong> <code>launchSettings.json</code> и переменные окружения. Удобно для быстрой проверки.
+                    </div>
+                </div>
+
+                <h4>5. Напрямую в коде (Program.cs)</h4>
+                <p>Можно задать порт программно — это имеет <strong>наивысший приоритет</strong>:</p>
+                <div class="code-block">
+                    <pre><code>var builder = WebApplication.CreateBuilder(args);
+
+// Способ 1: UseUrls
+builder.WebHost.UseUrls("http://+:5001");
+
+// Способ 2: Конфигурация Kestrel (более гибкий)
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.ListenAnyIP(5001);           // HTTP на всех интерфейсах
+    options.ListenAnyIP(5002, listenOptions =>
+    {
+        listenOptions.UseHttps();         // HTTPS
+    });
+    options.ListenLocalhost(5003);       // Только локальные подключения
+});
+
+var app = builder.Build();
+// ...</code></pre>
+                    <div class="code-explanation">
+                        <ul>
+                            <li><code>UseUrls()</code> — простой способ, но жёстко прописывает URL в коде</li>
+                            <li><code>ConfigureKestrel()</code> — гибкий способ, позволяет настраивать отдельные порты, HTTPS-сертификаты и т.д.</li>
+                            <li><code>ListenAnyIP()</code> — слушать на всех интерфейсах (аналог <code>+</code>)</li>
+                            <li><code>ListenLocalhost()</code> — слушать только на <code>127.0.0.1</code></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>6. Через appsettings.json</h4>
+                <p>Можно указать URL в конфигурационном файле:</p>
+                <div class="code-block">
+                    <pre><code>{
+  "Urls": "http://+:5001",
+  "Kestrel": {
+    "Endpoints": {
+      "Http": {
+        "Url": "http://+:5001"
+      },
+      "Https": {
+        "Url": "https://+:5002"
+      }
+    }
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information"
+    }
+  }
+}</code></pre>
+                    <div class="code-explanation">
+                        <ul>
+                            <li><code>"Urls"</code> — простой способ указать URL</li>
+                            <li><code>"Kestrel:Endpoints"</code> — более детальная конфигурация (можно указать разные порты для HTTP/HTTPS)</li>
+                            <li>Удобно для production — меняешь конфиг, не трогая код</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>Что рекомендуется?</h4>
+                <div class="table-responsive">
+                    <table class="table table-striped table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Сценарий</th>
+                                <th>Рекомендуемый способ</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Локальная разработка</td>
+                                <td><code>launchSettings.json</code> — настраивается один раз и работает</td>
+                            </tr>
+                            <tr>
+                                <td>Docker</td>
+                                <td><code>ENV ASPNETCORE_URLS</code> в Dockerfile</td>
+                            </tr>
+                            <tr>
+                                <td>Сервер (production)</td>
+                                <td>Переменная окружения <code>ASPNETCORE_URLS</code> или <code>appsettings.json</code></td>
+                            </tr>
+                            <tr>
+                                <td>Быстрая проверка</td>
+                                <td><code>dotnet run --urls "http://localhost:3000"</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="alert alert-info">
+                    <strong>Как проверить, на каком порту запущено приложение?</strong>
+                    <p>При запуске в консоли появится строка вида:</p>
+                    <pre><code>info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://localhost:5001</code></pre>
+                    <p>Если строки нет — включите уровень логирования <code>Information</code> для <code>Microsoft.Hosting.Lifetime</code>.</p>
+                </div>
+            </section>
+
+            <section class="mb-5">
                 <h3>Что такое Middleware?</h3>
                 <p>Middleware — это компоненты, которые формируют конвейер обработки HTTP-запросов. Каждый middleware может:</p>
                 <ul>
@@ -507,85 +759,6 @@ Content-Length: 156
 
                 <div class="alert alert-info mt-3">
                     <strong>Попробуйте:</strong> Откройте <a href="/swagger">Swagger UI</a> и посмотрите, как формируются HTTP запросы при вызове API эндпоинтов. Вы увидите все компоненты: метод, URL, заголовки и тело запроса.
-                </div>
-            </section>
-
-            <section class="mb-5">
-                <h3>IActionResult и типы возвращаемых значений</h3>
-                <p><strong>IActionResult</strong> — это интерфейс, который представляет результат выполнения действия контроллера. Он позволяет возвращать различные типы HTTP-ответов.</p>
-                
-                <h4>Основные типы возвращаемых значений:</h4>
-                <ul>
-                    <li><strong>IActionResult</strong> — базовый интерфейс для всех результатов действий</li>
-                    <li><strong>ActionResult&lt;T&gt;</strong> — обобщенный тип, который может возвращать как данные типа T, так и IActionResult</li>
-                    <li><strong>Прямой возврат типа</strong> — можно возвращать напрямую объект (автоматически оборачивается в Ok())</li>
-                </ul>
-
-                <div class="code-block mt-3">
-                    <pre><code>// 1. IActionResult - самый гибкий вариант
-[HttpGet("{id}")]
-public IActionResult GetProduct(int id)
-{
-    if (id <= 0)
-        return BadRequest("ID должен быть положительным");
-    
-    var product = FindProduct(id);
-    if (product == null)
-        return NotFound();
-    
-    return Ok(product); // 200 OK
-}
-
-// 2. ActionResult&lt;T&gt; - типобезопасный вариант
-[HttpGet("{id}")]
-public ActionResult&lt;ProductDto&gt; GetProduct(int id)
-{
-    var product = FindProduct(id);
-    if (product == null)
-        return NotFound(); // Возвращает 404
-    
-    return product; // Автоматически оборачивается в Ok(product)
-}
-
-// 3. Прямой возврат типа - самый простой вариант
-[HttpGet]
-public IEnumerable&lt;ProductDto&gt; GetProducts()
-{
-    return GetAllProducts(); // Автоматически 200 OK
-}
-
-// 4. Task&lt;IActionResult&gt; - для асинхронных методов
-[HttpGet("{id}")]
-public async Task&lt;IActionResult&gt; GetProductAsync(int id)
-{
-    var product = await FindProductAsync(id);
-    if (product == null)
-        return NotFound();
-    
-    return Ok(product);
-}</code></pre>
-                    <div class="code-explanation">
-                        <strong>Объяснение:</strong>
-                        <ul>
-                            <li><code>IActionResult</code> — позволяет возвращать разные типы ответов (Ok, BadRequest, NotFound и т.д.)</li>
-                            <li><code>ActionResult&lt;T&gt;</code> — типобезопасный вариант, который автоматически определяет тип ответа</li>
-                            <li><code>Ok()</code> — возвращает статус 200 с данными</li>
-                            <li><code>BadRequest()</code> — возвращает статус 400 (ошибка запроса)</li>
-                            <li><code>NotFound()</code> — возвращает статус 404 (ресурс не найден)</li>
-                            <li><code>Created()</code> — возвращает статус 201 (ресурс создан)</li>
-                            <li><code>NoContent()</code> — возвращает статус 204 (нет содержимого)</li>
-                        </ul>
-                    </div>
-                </div>
-
-                <h4>Когда использовать каждый вариант:</h4>
-                <div class="alert alert-info">
-                    <ul>
-                        <li><strong>IActionResult</strong> — когда нужно возвращать разные типы ответов в зависимости от условий</li>
-                        <li><strong>ActionResult&lt;T&gt;</strong> — когда метод обычно возвращает данные типа T, но может вернуть ошибку</li>
-                        <li><strong>Прямой возврат типа</strong> — когда метод всегда возвращает успешный результат</li>
-                        <li><strong>Task&lt;IActionResult&gt;</strong> — для асинхронных операций (см. главу 3 про async/await)</li>
-                    </ul>
                 </div>
             </section>
 

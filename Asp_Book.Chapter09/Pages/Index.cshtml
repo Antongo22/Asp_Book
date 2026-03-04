@@ -177,6 +177,196 @@ app.Run();</code></pre>
             </section>
 
             <section class="mb-5">
+                <h3>Почему WebSocket передаёт данные в байтах?</h3>
+                <p>Если вы посмотрите на код WebSocket, вы увидите <code>byte[]</code>, <code>ArraySegment&lt;byte&gt;</code>, <code>Encoding.UTF8.GetBytes()</code> и т.д. Почему нельзя просто отправить строку? Разберёмся.</p>
+
+                <h4>1. Всё в сети — это байты</h4>
+                <p>Любые данные, передаваемые по сети (текст, изображения, видео, файлы), в конечном счёте представляют собой <strong>последовательность байтов</strong> (нулей и единиц). Компьютер не понимает «строки» — он понимает только числа.</p>
+
+                <div class="code-block">
+                    <pre><code>// Строка "Привет" — это не то, что видит компьютер.
+// Для компьютера это набор чисел (байтов):
+
+string text = "Привет";
+byte[] bytes = Encoding.UTF8.GetBytes(text);
+// bytes = [208, 159, 209, 128, 208, 184, 208, 178, 208, 181, 209, 130]
+//          П          р          и          в          е          т
+
+// Каждая буква в UTF-8 может занимать от 1 до 4 байт
+// Латиница: 1 байт ('A' = 65)
+// Кириллица: 2 байта ('П' = 208, 159)</code></pre>
+                    <div class="code-explanation">
+                        <strong>Кодировка UTF-8</strong> — стандарт, по которому символы превращаются в байты. Это как «словарь» для перевода между человеческим текстом и машинным представлением.
+                    </div>
+                </div>
+
+                <h4>2. WebSocket — это транспортный протокол</h4>
+                <p>WebSocket — <strong>низкоуровневый</strong> протокол. Он не знает, что вы отправляете — текст, JSON, картинку или видео. Он просто передаёт <strong>кадры (frames)</strong> с байтами.</p>
+
+                <div class="table-responsive">
+                    <table class="table table-striped table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Протокол</th>
+                                <th>Уровень абстракции</th>
+                                <th>Что принимает</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>HTTP (REST API)</strong></td>
+                                <td>Высокий</td>
+                                <td>Строки (JSON, XML, HTML) — <code>Content-Type</code> указывает формат</td>
+                            </tr>
+                            <tr>
+                                <td><strong>SignalR</strong></td>
+                                <td>Высокий</td>
+                                <td>Объекты C# — автоматическая сериализация</td>
+                            </tr>
+                            <tr>
+                                <td><strong>WebSocket</strong></td>
+                                <td>Низкий</td>
+                                <td><strong>Байты</strong> — вы сами решаете, как их кодировать</td>
+                            </tr>
+                            <tr>
+                                <td><strong>TCP</strong></td>
+                                <td>Самый низкий</td>
+                                <td>Сырой поток байтов (без «сообщений»)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>HTTP/REST и SignalR — <strong>абстракции поверх</strong> более низких протоколов. Они автоматически преобразуют строки/объекты в байты и обратно. WebSocket этого не делает — вы работаете с байтами <strong>напрямую</strong>.</p>
+
+                <h4>3. Два типа кадров (frames)</h4>
+                <p>WebSocket поддерживает два типа данных:</p>
+
+                <div class="table-responsive">
+                    <table class="table table-striped table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Тип кадра</th>
+                                <th>Что передаёт</th>
+                                <th>Когда использовать</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>WebSocketMessageType.Text</code></td>
+                                <td>Текст (байты в кодировке UTF-8)</td>
+                                <td>Чат, JSON-сообщения, уведомления</td>
+                            </tr>
+                            <tr>
+                                <td><code>WebSocketMessageType.Binary</code></td>
+                                <td>Бинарные данные (любые байты)</td>
+                                <td>Файлы, изображения, аудио, протоколы</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>Даже когда вы отправляете «текст», на самом деле отправляются <strong>байты</strong>. Разница только в том, что получатель знает: эти байты нужно декодировать как UTF-8 строку.</p>
+
+                <h4>4. Как это выглядит в коде</h4>
+                <div class="code-block">
+                    <pre><code>// === ОТПРАВКА ===
+// 1. Берём строку
+string message = "Привет!";
+
+// 2. Кодируем строку в байты (UTF-8)
+byte[] messageBytes = Encoding.UTF8.GetBytes(message);
+
+// 3. Оборачиваем в ArraySegment (указатель на область массива)
+var segment = new ArraySegment&lt;byte&gt;(messageBytes);
+
+// 4. Отправляем байты через WebSocket
+await webSocket.SendAsync(
+    segment,                           // что отправляем (байты)
+    WebSocketMessageType.Text,         // тип: текст
+    endOfMessage: true,                // это конец сообщения
+    CancellationToken.None);           // без отмены
+
+
+// === ПОЛУЧЕНИЕ ===
+// 1. Создаём буфер — «ведро» для принимаемых байтов
+var buffer = new byte[1024 * 4];  // 4 КБ
+
+// 2. Ждём данные от клиента
+var result = await webSocket.ReceiveAsync(
+    new ArraySegment&lt;byte&gt;(buffer),    // куда записать байты
+    CancellationToken.None);
+
+// 3. Декодируем байты обратно в строку
+string received = Encoding.UTF8.GetString(
+    buffer,           // массив байтов
+    0,                // начинать с позиции 0
+    result.Count);    // сколько байтов было получено
+
+Console.WriteLine(received);  // "Привет!"</code></pre>
+                    <div class="code-explanation">
+                        <strong>Ключевые элементы:</strong>
+                        <ul>
+                            <li><code>Encoding.UTF8.GetBytes(string)</code> — строка → байты (для отправки)</li>
+                            <li><code>Encoding.UTF8.GetString(byte[], offset, count)</code> — байты → строка (после получения)</li>
+                            <li><code>ArraySegment&lt;byte&gt;</code> — обёртка над массивом, указывающая «от какого байта до какого» работать</li>
+                            <li><code>result.Count</code> — сколько байтов реально пришло (буфер может быть больше)</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>5. Зачем нужен буфер (buffer)?</h4>
+                <p>Буфер — это <strong>заранее выделенный участок памяти</strong>, куда WebSocket записывает входящие данные.</p>
+
+                <div class="code-block">
+                    <pre><code>// Создаём буфер на 4 КБ (4096 байтов)
+var buffer = new byte[1024 * 4];
+
+// WebSocket записывает полученные байты В ЭТОТ буфер
+var result = await webSocket.ReceiveAsync(
+    new ArraySegment&lt;byte&gt;(buffer), CancellationToken.None);
+
+// result.Count = 12 (пришло 12 байтов)
+// buffer[0..11] = полезные данные
+// buffer[12..4095] = мусор (неиспользованная часть буфера)
+
+// Поэтому при декодировке указываем ТОЧНОЕ количество байтов:
+var text = Encoding.UTF8.GetString(buffer, 0, result.Count);</code></pre>
+                    <div class="code-explanation">
+                        <strong>Почему не создавать новый массив каждый раз?</strong> Потому что выделение памяти — дорогая операция. WebSocket получает сообщения <strong>в цикле</strong> (тысячи раз в секунду в нагруженных приложениях). Переиспользование одного буфера значительно <strong>снижает нагрузку на сборщик мусора (GC)</strong> и повышает производительность.
+                    </div>
+                </div>
+
+                <h4>6. Почему JavaScript не работает с байтами?</h4>
+                <p>Вы могли заметить, что в JavaScript отправка выглядит гораздо проще:</p>
+
+                <div class="code-block">
+                    <pre><code>// JavaScript — просто строка!
+ws.send("Привет!");
+
+// Получение — тоже строка
+ws.onmessage = (event) => {
+    console.log(event.data);  // "Привет!"
+};</code></pre>
+                    <div class="code-explanation">
+                        Браузерный API <code>WebSocket</code> <strong>автоматически</strong> выполняет конвертацию строка ↔ байты. Вы этого не видите, но внутри происходит то же самое: строка кодируется в UTF-8 байты перед отправкой и декодируется при получении.
+                        <br><br>
+                        В C# (.NET) вы работаете <strong>ближе к «железу»</strong>, поэтому конвертация делается явно. Это даёт больше контроля (можно отправлять бинарные данные, выбирать кодировку, управлять буфером), но требует больше кода.
+                    </div>
+                </div>
+
+                <div class="alert alert-info mt-3">
+                    <h5>Итого: Почему байты?</h5>
+                    <ul>
+                        <li><strong>Универсальность</strong> — байты могут представлять что угодно: текст, JSON, файлы, изображения, аудио</li>
+                        <li><strong>Производительность</strong> — работа с байтами напрямую быстрее, чем автоматическая сериализация</li>
+                        <li><strong>Контроль</strong> — вы сами выбираете кодировку, формат и размер буфера</li>
+                        <li><strong>Совместимость</strong> — байтовый протокол работает между любыми языками и платформами</li>
+                    </ul>
+                </div>
+            </section>
+
+            <section class="mb-5">
                 <h3>Чтение и отправка сообщений</h3>
                 <p>После установления соединения нужно в <strong>цикле</strong> читать входящие сообщения и обрабатывать их.</p>
 

@@ -2,7 +2,6 @@ using System.IO;
 using System.Text;
 using Microsoft.AspNetCore.DataProtection;
 using Asp_Book.Chapter11.Hubs;
-using Asp_Book.Chapter11.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.IdentityModel.Tokens;
@@ -135,10 +134,6 @@ app.UseRouting();
 
 app.UseAuthentication();
 app.UseAuthorization();
-
-// WebSocket с авторизацией
-app.UseWebSockets();
-app.UseMiddleware<AuthorizedWebSocketMiddleware>();
 
 app.MapRazorPages();
 app.MapControllers();

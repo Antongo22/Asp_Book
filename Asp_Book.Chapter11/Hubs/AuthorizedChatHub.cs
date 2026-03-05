@@ -13,11 +13,11 @@ public class AuthorizedChatHub : Hub
         await Clients.All.SendAsync("ReceiveMessage", username, message);
     }
 
-    // Отправка сообщения конкретному пользователю по имени
-    public async Task SendToUser(string targetUser, string message)
+    // Отправка сообщения конкретному пользователю по ConnectionId
+    public async Task SendToUser(string connectionId, string message)
     {
         var username = Context.User?.Identity?.Name ?? "Unknown";
-        await Clients.User(targetUser).SendAsync("ReceiveMessage", username, message);
+        await Clients.Client(connectionId).SendAsync("ReceiveMessage", username, message);
     }
 
     // Отправка только администраторам

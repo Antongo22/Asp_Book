@@ -299,6 +299,384 @@ app.Run();</code></pre>
             </section>
 
             <section class="mb-5">
+                <h3>Как SignalR выбирает транспорт?</h3>
+                <p>Одно из главных преимуществ SignalR — <strong>автоматический выбор транспорта</strong>. При подключении клиент и сервер «договариваются» о лучшем доступном способе связи.</p>
+
+                <h4>Процесс подключения (Negotiation)</h4>
+                <div class="code-block">
+                    <pre><code>// Что происходит при вызове connection.StartAsync():
+
+// Шаг 1: Клиент отправляет HTTP POST на /chathub/negotiate
+// POST http://localhost:5010/chathub/negotiate?negotiateVersion=1
+
+// Шаг 2: Сервер отвечает JSON с доступными транспортами:
+{
+  "negotiateVersion": 1,
+  "connectionId": "a1b2c3d4...",
+  "connectionToken": "xyz789...",
+  "availableTransports": [
+    { "transport": "WebSockets",       "transferFormats": ["Text", "Binary"] },
+    { "transport": "ServerSentEvents", "transferFormats": ["Text"] },
+    { "transport": "LongPolling",      "transferFormats": ["Text", "Binary"] }
+  ]
+}
+
+// Шаг 3: Клиент выбирает лучший транспорт (WebSockets → SSE → Long Polling)
+// Шаг 4: Устанавливается соединение выбранным транспортом</code></pre>
+                    <div class="code-explanation">
+                        <strong>Приоритет транспортов (от лучшего к худшему):</strong>
+                        <table class="table table-striped table-bordered mt-2">
+                            <thead>
+                                <tr>
+                                    <th>Транспорт</th>
+                                    <th>Как работает</th>
+                                    <th>Когда используется</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>WebSockets</strong></td>
+                                    <td>Двусторонний канал поверх одного TCP-соединения</td>
+                                    <td>По умолчанию (если поддерживается сервером и сетью)</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Server-Sent Events (SSE)</strong></td>
+                                    <td>Однонаправленный поток от сервера к клиенту (HTTP)</td>
+                                    <td>Если WebSocket заблокирован (прокси, firewall)</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Long Polling</strong></td>
+                                    <td>Клиент постоянно отправляет HTTP запросы</td>
+                                    <td>Крайний вариант — работает везде, но неэффективный</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <h4>Принудительный выбор транспорта</h4>
+                <p>Можно заставить клиента использовать конкретный транспорт:</p>
+                <div class="code-block">
+                    <pre><code>// C# клиент — только WebSocket
+var connection = new HubConnectionBuilder()
+    .WithUrl("http://localhost:5010/chathub", options =>
+    {
+        options.Transports = Microsoft.AspNetCore.Http.Connections.HttpTransportType.WebSockets;
+    })
+    .Build();
+
+// Или пропустить negotiate (чуть быстрее подключение)
+var connection = new HubConnectionBuilder()
+    .WithUrl("http://localhost:5010/chathub", options =>
+    {
+        options.SkipNegotiation = true;  // Не делать POST /negotiate
+        options.Transports = Microsoft.AspNetCore.Http.Connections.HttpTransportType.WebSockets;
+    })
+    .Build();</code></pre>
+                    <div class="code-explanation">
+                        <code>SkipNegotiation = true</code> — пропускает шаг согласования и сразу открывает WebSocket. Работает <strong>только</strong> с WebSocket-транспортом. Может ускорить подключение на ~100-200мс.
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Жизненный цикл Hub</h3>
+                <p>Hub — это <strong>не синглтон</strong>. Каждый вызов метода создаёт <strong>новый экземпляр</strong> Hub. Это важно понимать:</p>
+
+                <div class="code-block">
+                    <pre><code>public class ChatHub : Hub
+{
+    // ❌ НЕПРАВИЛЬНО — переменная сбрасывается при каждом вызове
+    private int messageCount = 0;
+
+    public async Task SendToAll(string user, string message)
+    {
+        messageCount++;  // Всегда будет 1!
+        await Clients.All.SendAsync("ReceiveMessage", user, message);
+    }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Почему так?</strong> Hub создаётся заново для каждого вызова метода. После выполнения метода экземпляр уничтожается. Это похоже на контроллеры — они тоже создаются на каждый запрос.
+                    </div>
+                </div>
+
+                <h4>Как хранить состояние?</h4>
+                <div class="code-block">
+                    <pre><code>// ✅ ПРАВИЛЬНО — используем внешний сервис (через DI)
+public class ChatHub : Hub
+{
+    private readonly IChatStateService _state;
+
+    // Конструктор — DI внедрит сервис
+    public ChatHub(IChatStateService state)
+    {
+        _state = state;
+    }
+
+    public async Task SendToAll(string user, string message)
+    {
+        _state.IncrementMessageCount();
+        var count = _state.GetMessageCount();
+        await Clients.All.SendAsync("ReceiveMessage", user, 
+            $"[#{count}] {message}");
+    }
+}
+
+// Сервис для хранения состояния
+public interface IChatStateService
+{
+    void IncrementMessageCount();
+    int GetMessageCount();
+    void AddUser(string connectionId, string userName);
+    void RemoveUser(string connectionId);
+    Dictionary&lt;string, string&gt; GetOnlineUsers();
+}
+
+public class ChatStateService : IChatStateService
+{
+    // ConcurrentDictionary — потокобезопасный словарь
+    private readonly ConcurrentDictionary&lt;string, string&gt; _users = new();
+    private int _messageCount = 0;
+
+    public void IncrementMessageCount() =&gt; Interlocked.Increment(ref _messageCount);
+    public int GetMessageCount() =&gt; _messageCount;
+    public void AddUser(string connectionId, string userName) =&gt; _users[connectionId] = userName;
+    public void RemoveUser(string connectionId) =&gt; _users.TryRemove(connectionId, out _);
+    public Dictionary&lt;string, string&gt; GetOnlineUsers() =&gt; new(_users);
+}
+
+// Регистрация в Program.cs как Singleton (одно состояние на всех)
+builder.Services.AddSingleton&lt;IChatStateService, ChatStateService&gt;();</code></pre>
+                    <div class="code-explanation">
+                        <strong>Ключевые моменты:</strong>
+                        <ul>
+                            <li><strong>Hub</strong> — transient (новый на каждый вызов), НЕ хранит состояние</li>
+                            <li><strong>Сервис</strong> — singleton (один на всех), хранит общее состояние</li>
+                            <li><code>ConcurrentDictionary</code> — потокобезопасный словарь (множество клиентов одновременно)</li>
+                            <li><code>Interlocked.Increment</code> — атомарная операция (потокобезопасный счётчик)</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Отправка сообщений из контроллера (не из Hub)</h3>
+                <p>Иногда нужно отправить сообщение клиентам <strong>не из Hub</strong>, а из обычного контроллера или сервиса. Для этого используется <code>IHubContext&lt;T&gt;</code>.</p>
+
+                <div class="code-block">
+                    <pre><code>using Microsoft.AspNetCore.SignalR;
+
+[ApiController]
+[Route("api/[controller]")]
+public class NotificationsController : ControllerBase
+{
+    // Внедряем IHubContext через DI
+    private readonly IHubContext&lt;ChatHub&gt; _hubContext;
+
+    public NotificationsController(IHubContext&lt;ChatHub&gt; hubContext)
+    {
+        _hubContext = hubContext;
+    }
+
+    // POST /api/notifications/broadcast
+    [HttpPost("broadcast")]
+    public async Task&lt;IActionResult&gt; Broadcast([FromBody] string message)
+    {
+        // Отправляем всем подключённым к ChatHub
+        await _hubContext.Clients.All.SendAsync("ReceiveMessage", "Сервер", message);
+        return Ok("Сообщение отправлено всем");
+    }
+
+    // POST /api/notifications/user/{connectionId}
+    [HttpPost("user/{connectionId}")]
+    public async Task&lt;IActionResult&gt; SendToUser(string connectionId, [FromBody] string message)
+    {
+        await _hubContext.Clients.Client(connectionId)
+            .SendAsync("ReceiveMessage", "Сервер", message);
+        return Ok($"Отправлено клиенту {connectionId}");
+    }
+
+    // POST /api/notifications/group/{groupName}
+    [HttpPost("group/{groupName}")]
+    public async Task&lt;IActionResult&gt; SendToGroup(string groupName, [FromBody] string message)
+    {
+        await _hubContext.Clients.Group(groupName)
+            .SendAsync("ReceiveMessage", "Сервер", message);
+        return Ok($"Отправлено группе {groupName}");
+    }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Когда это нужно?</strong>
+                        <ul>
+                            <li><strong>REST API → уведомление в реальном времени</strong> — например, при создании заказа через API уведомить менеджеров через SignalR</li>
+                            <li><strong>Фоновые задачи</strong> — отправка прогресса длительной операции</li>
+                            <li><strong>Внешние события</strong> — Webhook получил данные → отправить клиентам</li>
+                        </ul>
+                        <br>
+                        <strong>Важно:</strong> <code>IHubContext</code> не имеет доступа к <code>Context.ConnectionId</code> и <code>Clients.Caller</code> — вы не «внутри» Hub, а снаружи. Доступны только <code>All</code>, <code>Client(id)</code>, <code>Group(name)</code>.
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Типизированные Hub (Strongly Typed Hub)</h3>
+                <p>Вместо «магических строк» (<code>"ReceiveMessage"</code>) можно создать <strong>интерфейс</strong> для клиентских методов. Это даёт проверку типов на этапе компиляции.</p>
+
+                <div class="code-block">
+                    <pre><code>// 1. Интерфейс клиентских методов
+public interface IChatClient
+{
+    Task ReceiveMessage(string user, string message);
+    Task UserConnected(string connectionId);
+    Task UserDisconnected(string connectionId);
+    Task OnlineUsersUpdated(Dictionary&lt;string, string&gt; users);
+}
+
+// 2. Hub наследуется от Hub&lt;IChatClient&gt;
+public class ChatHub : Hub&lt;IChatClient&gt;
+{
+    public async Task SendToAll(string user, string message)
+    {
+        // ✅ Вместо: Clients.All.SendAsync("ReceiveMessage", user, message)
+        // Теперь: типобезопасный вызов
+        await Clients.All.ReceiveMessage(user, message);
+    }
+
+    public override async Task OnConnectedAsync()
+    {
+        // ✅ Компилятор проверит имя метода и типы аргументов
+        await Clients.All.UserConnected(Context.ConnectionId);
+        await base.OnConnectedAsync();
+    }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Преимущества типизированного Hub:</strong>
+                        <table class="table table-striped table-bordered mt-2">
+                            <thead>
+                                <tr>
+                                    <th>Обычный Hub</th>
+                                    <th>Типизированный Hub&lt;T&gt;</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>Clients.All.SendAsync("ReceiveMessage", user, msg)</code></td>
+                                    <td><code>Clients.All.ReceiveMessage(user, msg)</code></td>
+                                </tr>
+                                <tr>
+                                    <td>Опечатка в имени метода → ошибка в runtime</td>
+                                    <td>Опечатка → ошибка компиляции ✅</td>
+                                </tr>
+                                <tr>
+                                    <td>Неверный тип аргумента → ошибка в runtime</td>
+                                    <td>Неверный тип → ошибка компиляции ✅</td>
+                                </tr>
+                                <tr>
+                                    <td>Нет автодополнения (IntelliSense)</td>
+                                    <td>Полное автодополнение ✅</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Передача сложных объектов</h3>
+                <p>SignalR автоматически сериализует/десериализует объекты в JSON. Можно передавать не только строки:</p>
+
+                <div class="code-block">
+                    <pre><code>// Модель сообщения
+public class ChatMessage
+{
+    public string User { get; set; } = "";
+    public string Text { get; set; } = "";
+    public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+    public string? ReplyTo { get; set; }  // ID сообщения, на которое отвечают
+}
+
+// Hub с объектами
+public class ChatHub : Hub
+{
+    public async Task SendMessage(ChatMessage message)
+    {
+        // SignalR автоматически десериализует JSON → ChatMessage
+        message.Timestamp = DateTime.UtcNow;
+        
+        // И сериализует обратно в JSON для всех клиентов
+        await Clients.All.SendAsync("NewMessage", message);
+    }
+}
+
+// C# клиент — отправка объекта
+await connection.InvokeAsync("SendMessage", new ChatMessage
+{
+    User = "Алиса",
+    Text = "Привет!",
+    ReplyTo = null
+});
+
+// C# клиент — получение объекта
+connection.On&lt;ChatMessage&gt;("NewMessage", (msg) =>
+{
+    Console.WriteLine($"[{msg.Timestamp:HH:mm:ss}] {msg.User}: {msg.Text}");
+});</code></pre>
+                    <div class="code-explanation">
+                        SignalR использует <code>System.Text.Json</code> для сериализации по умолчанию. Объект <code>ChatMessage</code> автоматически преобразуется в JSON при отправке и обратно при получении — никакой ручной работы с байтами или JSON-строками.
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Обработка ошибок в Hub</h3>
+                <p>Если в методе Hub возникает исключение, клиент получит ошибку через <code>InvokeAsync</code>:</p>
+
+                <div class="code-block">
+                    <pre><code>public class ChatHub : Hub
+{
+    public async Task SendToUser(string connectionId, string user, string message)
+    {
+        if (string.IsNullOrEmpty(message))
+        {
+            // Клиент получит HubException
+            throw new HubException("Сообщение не может быть пустым");
+        }
+
+        if (string.IsNullOrEmpty(connectionId))
+        {
+            throw new HubException("Не указан получатель");
+        }
+
+        await Clients.Client(connectionId).SendAsync("ReceiveMessage", user, message);
+    }
+}
+
+// C# клиент — перехват ошибки
+try
+{
+    await connection.InvokeAsync("SendToUser", targetId, userName, "");
+}
+catch (HubException ex)
+{
+    // ex.Message = "Сообщение не может быть пустым"
+    Console.WriteLine($"Ошибка Hub: {ex.Message}");
+}
+catch (Exception ex)
+{
+    // Другие ошибки (сеть, таймаут и т.д.)
+    Console.WriteLine($"Ошибка: {ex.Message}");
+}</code></pre>
+                    <div class="code-explanation">
+                        <ul>
+                            <li><code>HubException</code> — специальное исключение SignalR, его сообщение <strong>передаётся клиенту</strong></li>
+                            <li>Обычные исключения (<code>Exception</code>) тоже перехватываются клиентом, но по соображениям безопасности их сообщение <strong>не передаётся</strong> (только «An unexpected error occurred»)</li>
+                            <li>Для передачи деталей обычных исключений — оберните их в <code>HubException</code></li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
                 <h3>Клиент — консольное приложение на C#</h3>
                 <p>Для подключения к SignalR Hub из C# используется пакет <code>Microsoft.AspNetCore.SignalR.Client</code>.</p>
 

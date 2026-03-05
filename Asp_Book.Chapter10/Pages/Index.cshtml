@@ -288,88 +288,228 @@ app.Run();</code></pre>
             </section>
 
             <section class="mb-5">
-                <h3>Клиентский код (JavaScript)</h3>
-                <p>Для работы с SignalR на клиенте нужна библиотека <code>@@microsoft/signalr</code>.</p>
+                <h3>Клиент — консольное приложение на C#</h3>
+                <p>Для подключения к SignalR Hub из C# используется пакет <code>Microsoft.AspNetCore.SignalR.Client</code>.</p>
 
-                <h4>Подключение библиотеки через CDN:</h4>
+                <h4>Шаг 1: Создание проекта и установка пакета</h4>
                 <div class="code-block">
-                    <pre><code>&lt;script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.0/signalr.min.js"&gt;&lt;/script&gt;</code></pre>
+                    <pre><code># Создаём консольное приложение
+dotnet new console -n SignalRChat.Console
+
+cd SignalRChat.Console
+
+# Устанавливаем SignalR клиент
+dotnet add package Microsoft.AspNetCore.SignalR.Client</code></pre>
+                    <div class="code-explanation">
+                        В отличие от WebSocket (<code>ClientWebSocket</code>), SignalR-клиент <strong>не встроен</strong> в .NET — нужен NuGet пакет <code>Microsoft.AspNetCore.SignalR.Client</code>.
+                    </div>
                 </div>
 
-                <h4>Использование:</h4>
+                <h4>Шаг 2: Program.cs — полный код клиента</h4>
                 <div class="code-block">
-                    <pre><code>// 1. Создаём соединение
-const connection = new signalR.HubConnectionBuilder()
-    .withUrl("/chathub")  // URL Hub из Program.cs
-    .build();
+                    <pre><code>using Microsoft.AspNetCore.SignalR.Client;
 
-// 2. Подписываемся на событие "ReceiveMessage"
-connection.on("ReceiveMessage", (user, message) => {
-    console.log(`${user}: ${message}`);
-    // Добавляем сообщение в UI
+const string hubUrl = "http://localhost:5010/chathub";
+
+Console.WriteLine("=== SignalR Чат (консольный клиент) ===");
+Console.Write("Введите ваше имя: ");
+var userName = Console.ReadLine()?.Trim() ?? "Аноним";
+
+// 1. Создаём соединение с Hub
+var connection = new HubConnectionBuilder()
+    .WithUrl(hubUrl)
+    .WithAutomaticReconnect()  // Автопереподключение при обрыве
+    .Build();
+
+// 2. Подписываемся на события от сервера
+connection.On&lt;string, string&gt;("ReceiveMessage", (user, message) =>
+{
+    Console.WriteLine($"💬 {user}: {message}");
 });
 
-// 3. Подписываемся на подключение/отключение
-connection.on("UserConnected", (connectionId) => {
-    console.log(`Пользователь подключился: ${connectionId}`);
+connection.On&lt;string&gt;("UserConnected", (connectionId) =>
+{
+    Console.WriteLine($"🟢 Подключился: {connectionId[..8]}...");
 });
 
-connection.on("UserDisconnected", (connectionId) => {
-    console.log(`Пользователь отключился: ${connectionId}`);
+connection.On&lt;string&gt;("UserDisconnected", (connectionId) =>
+{
+    Console.WriteLine($"🔴 Отключился: {connectionId[..8]}...");
 });
 
-// 4. Подключаемся к Hub
-connection.start()
-    .then(() => {
-        console.log('SignalR подключен');
-        console.log('Мой ID:', connection.connectionId);
-    })
-    .catch(err => console.error('Ошибка:', err));
+// Обработка переподключения
+connection.Reconnecting += error =>
+{
+    Console.WriteLine("⏳ Переподключение...");
+    return Task.CompletedTask;
+};
 
-// 5. Вызываем метод на сервере
-function sendToAll(user, message) {
-    connection.invoke("SendToAll", user, message)
-        .catch(err => console.error('Ошибка отправки:', err));
+connection.Reconnected += newConnectionId =>
+{
+    Console.WriteLine($"✅ Переподключено! Новый ID: {newConnectionId?[..8]}...");
+    return Task.CompletedTask;
+};
+
+connection.Closed += error =>
+{
+    Console.WriteLine("🔌 Соединение закрыто.");
+    return Task.CompletedTask;
+};
+
+// 3. Подключаемся к Hub
+try
+{
+    Console.WriteLine($"\nПодключение к {hubUrl}...");
+    await connection.StartAsync();
+    Console.WriteLine($"✅ Подключено! Мой ID: {connection.ConnectionId?[..8]}...\n");
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"❌ Ошибка подключения: {ex.Message}");
+    return;
 }
 
-// 6. Вызываем метод для отправки конкретному пользователю
-function sendToUser(connectionId, user, message) {
-    connection.invoke("SendToUser", connectionId, user, message)
-        .catch(err => console.error('Ошибка:', err));
-}</code></pre>
+// 4. Основной цикл — отправка сообщений
+Console.WriteLine("Команды:");
+Console.WriteLine("  [текст]           — отправить всем");
+Console.WriteLine("  /pm [id] [текст]  — приватное сообщение");
+Console.WriteLine("  /id               — показать свой Connection ID");
+Console.WriteLine("  exit              — выход\n");
+
+while (connection.State == HubConnectionState.Connected)
+{
+    var input = Console.ReadLine();
+    if (string.IsNullOrEmpty(input)) continue;
+
+    if (input.ToLower() == "exit")
+        break;
+
+    if (input.ToLower() == "/id")
+    {
+        Console.WriteLine($"📋 Ваш Connection ID: {connection.ConnectionId}");
+        continue;
+    }
+
+    if (input.StartsWith("/pm "))
+    {
+        // Формат: /pm connectionId сообщение
+        var parts = input.Split(' ', 3);
+        if (parts.Length &lt; 3)
+        {
+            Console.WriteLine("Формат: /pm [connectionId] [сообщение]");
+            continue;
+        }
+        await connection.InvokeAsync("SendToUser", parts[1], userName, parts[2]);
+        continue;
+    }
+
+    // Отправка всем
+    await connection.InvokeAsync("SendToAll", userName, input);
+}
+
+// 5. Корректное отключение
+await connection.StopAsync();
+Console.WriteLine("🔌 Отключено.");</code></pre>
                     <div class="code-explanation">
-                        <strong>Ключевые методы клиента:</strong>
-                        <table class="table table-striped table-bordered mt-2">
-                            <thead>
-                                <tr>
-                                    <th>Метод</th>
-                                    <th>Описание</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td><code>connection.on("Event", callback)</code></td>
-                                    <td>Подписка на событие от сервера</td>
-                                </tr>
-                                <tr>
-                                    <td><code>connection.invoke("Method", args)</code></td>
-                                    <td>Вызов метода на сервере</td>
-                                </tr>
-                                <tr>
-                                    <td><code>connection.start()</code></td>
-                                    <td>Установить соединение</td>
-                                </tr>
-                                <tr>
-                                    <td><code>connection.stop()</code></td>
-                                    <td>Закрыть соединение</td>
-                                </tr>
-                                <tr>
-                                    <td><code>connection.connectionId</code></td>
-                                    <td>Уникальный ID текущего соединения</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                        <strong>Ключевые отличия от WebSocket (Глава 9):</strong>
+                        <ul>
+                            <li><strong>Нет работы с байтами</strong> — SignalR автоматически сериализует/десериализует данные</li>
+                            <li><strong>Нет фонового потока</strong> — <code>connection.On()</code> автоматически слушает события</li>
+                            <li><strong>Вызов методов по имени</strong> — <code>InvokeAsync("SendToAll", ...)</code> вместо отправки строк</li>
+                            <li><strong>Автопереподключение</strong> — <code>WithAutomaticReconnect()</code> всё делает сам</li>
+                        </ul>
                     </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>Разбор ключевых моментов</h3>
+
+                <h4>HubConnectionBuilder — создание соединения</h4>
+                <div class="code-block">
+                    <pre><code>var connection = new HubConnectionBuilder()
+    .WithUrl("http://localhost:5010/chathub")   // URL Hub из Program.cs
+    .WithAutomaticReconnect()                    // Переподключение при обрыве
+    .Build();</code></pre>
+                    <div class="code-explanation">
+                        <code>HubConnectionBuilder</code> — паттерн Builder для настройки соединения. Аналог <code>WebApplicationBuilder</code> для сервера.
+                    </div>
+                </div>
+
+                <h4 class="mt-4">connection.On — подписка на события</h4>
+                <div class="code-block">
+                    <pre><code>// Сервер вызывает: Clients.All.SendAsync("ReceiveMessage", user, message)
+// Клиент получает:
+connection.On&lt;string, string&gt;("ReceiveMessage", (user, message) =>
+{
+    Console.WriteLine($"{user}: {message}");
+});
+
+// Типы в On&lt;T1, T2&gt; должны совпадать с типами аргументов SendAsync!</code></pre>
+                    <div class="code-explanation">
+                        <ul>
+                            <li><code>On&lt;string, string&gt;("ReceiveMessage", ...)</code> — подписка на событие с двумя строковыми аргументами</li>
+                            <li>Имя события (<code>"ReceiveMessage"</code>) должно точно совпадать с тем, что отправляет сервер</li>
+                            <li>Количество и типы аргументов в <code>On&lt;...&gt;</code> должны совпадать с <code>SendAsync</code></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4 class="mt-4">connection.InvokeAsync — вызов метода на сервере</h4>
+                <div class="code-block">
+                    <pre><code>// Вызываем метод SendToAll на сервере (в ChatHub)
+await connection.InvokeAsync("SendToAll", userName, message);
+
+// Это эквивалентно вызову метода:
+// public async Task SendToAll(string user, string message) { ... }</code></pre>
+                    <div class="code-explanation">
+                        <code>InvokeAsync</code> — удалённый вызов метода (RPC). Первый аргумент — <strong>имя метода</strong> в Hub, остальные — его параметры. SignalR сам сериализует данные в JSON и передаёт на сервер.
+                    </div>
+                </div>
+
+                <h4 class="mt-4">Сравнение: SignalR C# клиент vs WebSocket C# клиент</h4>
+                <div class="table-responsive">
+                    <table class="table table-striped table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Действие</th>
+                                <th>WebSocket (Глава 9)</th>
+                                <th>SignalR</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Пакет</td>
+                                <td>Встроен (<code>System.Net.WebSockets</code>)</td>
+                                <td><code>Microsoft.AspNetCore.SignalR.Client</code></td>
+                            </tr>
+                            <tr>
+                                <td>Подключение</td>
+                                <td><code>ws.ConnectAsync(uri, ct)</code></td>
+                                <td><code>connection.StartAsync()</code></td>
+                            </tr>
+                            <tr>
+                                <td>Отправка</td>
+                                <td><code>ws.SendAsync(bytes, ...)</code></td>
+                                <td><code>connection.InvokeAsync("Method", args)</code></td>
+                            </tr>
+                            <tr>
+                                <td>Получение</td>
+                                <td>Цикл <code>ReceiveAsync</code> + декодирование байтов</td>
+                                <td><code>connection.On("Event", callback)</code></td>
+                            </tr>
+                            <tr>
+                                <td>Переподключение</td>
+                                <td>Вручную</td>
+                                <td><code>WithAutomaticReconnect()</code></td>
+                            </tr>
+                            <tr>
+                                <td>Сериализация</td>
+                                <td>Вручную (<code>Encoding.UTF8</code>)</td>
+                                <td>Автоматическая (JSON)</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </section>
 
@@ -552,89 +692,209 @@ app.Run();</code></pre>
             </section>
 
             <section class="mb-5">
-                <h3>3. Клиентский код (JavaScript)</h3>
-                <p>Подключение библиотеки:</p>
+                <h3>3. Консольный клиент (C#)</h3>
+
+                <h4>Создание проекта:</h4>
                 <div class="code-block">
-                    <pre><code>&lt;script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.0/signalr.min.js"&gt;&lt;/script&gt;</code></pre>
+                    <pre><code># Создаём консольное приложение
+dotnet new console -n SignalRChat.Console
+
+cd SignalRChat.Console
+
+# Устанавливаем SignalR клиент
+dotnet add package Microsoft.AspNetCore.SignalR.Client</code></pre>
                 </div>
 
-                <p>Полный клиентский код:</p>
+                <h4>Program.cs — полный код:</h4>
                 <div class="code-block">
-                    <pre><code>let connection = null;
-let userName = '';
+                    <pre><code>using Microsoft.AspNetCore.SignalR.Client;
 
-// Подключение
-function connect() {
-    userName = document.getElementById('userNameInput').value.trim();
-    
-    // 1. Создаём соединение
-    connection = new signalR.HubConnectionBuilder()
-        .withUrl("/chathub")
-        .build();
+const string hubUrl = "http://localhost:5010/chathub";
 
-    // 2. Подписываемся на события
-    connection.on("ReceiveMessage", (user, message) => {
-        addMessage(user, message, 'info');
-    });
+Console.WriteLine("=== SignalR Чат (консольный клиент) ===");
+Console.Write("Введите ваше имя: ");
+var userName = Console.ReadLine()?.Trim() ?? "Аноним";
 
-    connection.on("UserConnected", (id) => {
-        addMessage('Система', `Подключился: ${id.substring(0, 8)}`, 'success');
-    });
+// 1. Создаём соединение с Hub
+var connection = new HubConnectionBuilder()
+    .WithUrl(hubUrl)
+    .WithAutomaticReconnect()
+    .Build();
 
-    connection.on("UserDisconnected", (id) => {
-        addMessage('Система', `Отключился: ${id.substring(0, 8)}`, 'warning');
-    });
+// 2. Подписываемся на события от сервера
+connection.On&lt;string, string&gt;("ReceiveMessage", (user, message) =>
+{
+    Console.WriteLine($"💬 {user}: {message}");
+});
 
-    // 3. Подключаемся
-    connection.start()
-        .then(() => {
-            console.log('SignalR подключен, ID:', connection.connectionId);
-        })
-        .catch(err => console.error('Ошибка:', err));
+connection.On&lt;string&gt;("UserConnected", (connectionId) =>
+{
+    Console.WriteLine($"🟢 Подключился: {connectionId[..8]}...");
+});
+
+connection.On&lt;string&gt;("UserDisconnected", (connectionId) =>
+{
+    Console.WriteLine($"🔴 Отключился: {connectionId[..8]}...");
+});
+
+connection.Reconnecting += error =>
+{
+    Console.WriteLine("⏳ Переподключение...");
+    return Task.CompletedTask;
+};
+
+connection.Reconnected += newConnectionId =>
+{
+    Console.WriteLine($"✅ Переподключено! Новый ID: {newConnectionId?[..8]}...");
+    return Task.CompletedTask;
+};
+
+connection.Closed += error =>
+{
+    Console.WriteLine("🔌 Соединение закрыто.");
+    return Task.CompletedTask;
+};
+
+// 3. Подключаемся
+try
+{
+    Console.WriteLine($"\nПодключение к {hubUrl}...");
+    await connection.StartAsync();
+    Console.WriteLine($"✅ Подключено! Мой ID: {connection.ConnectionId?[..8]}...\n");
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"❌ Ошибка подключения: {ex.Message}");
+    return;
 }
 
-// Отправка всем
-function sendToAll(message) {
-    connection.invoke("SendToAll", userName, message)
-        .catch(err => console.error('Ошибка:', err));
-}
+// 4. Основной цикл
+Console.WriteLine("Команды:");
+Console.WriteLine("  [текст]           — отправить всем");
+Console.WriteLine("  /pm [id] [текст]  — приватное сообщение");
+Console.WriteLine("  /id               — показать свой Connection ID");
+Console.WriteLine("  exit              — выход\n");
 
-// Отправка конкретному
-function sendToUser(connectionId, message) {
-    connection.invoke("SendToUser", connectionId, userName, message)
-        .catch(err => console.error('Ошибка:', err));
-}
+while (connection.State == HubConnectionState.Connected)
+{
+    var input = Console.ReadLine();
+    if (string.IsNullOrEmpty(input)) continue;
 
-// Отключение
-function disconnect() {
-    if (connection) {
-        connection.stop();
-        connection = null;
+    if (input.ToLower() == "exit")
+        break;
+
+    if (input.ToLower() == "/id")
+    {
+        Console.WriteLine($"📋 Ваш Connection ID: {connection.ConnectionId}");
+        continue;
     }
-}</code></pre>
+
+    if (input.StartsWith("/pm "))
+    {
+        var parts = input.Split(' ', 3);
+        if (parts.Length &lt; 3)
+        {
+            Console.WriteLine("Формат: /pm [connectionId] [сообщение]");
+            continue;
+        }
+        await connection.InvokeAsync("SendToUser", parts[1], userName, parts[2]);
+        continue;
+    }
+
+    await connection.InvokeAsync("SendToAll", userName, input);
+}
+
+await connection.StopAsync();
+Console.WriteLine("🔌 Отключено.");</code></pre>
+                    <div class="code-explanation">
+                        <strong>Что нужно запомнить:</strong>
+                        <ul>
+                            <li><code>HubConnectionBuilder</code> — создание и настройка соединения</li>
+                            <li><code>connection.On&lt;T1, T2&gt;("Event", handler)</code> — подписка на события от сервера</li>
+                            <li><code>connection.InvokeAsync("Method", args)</code> — вызов метода Hub на сервере</li>
+                            <li><code>WithAutomaticReconnect()</code> — автопереподключение при обрыве связи</li>
+                            <li><code>connection.State</code> — текущее состояние (<code>Connected</code>, <code>Disconnected</code>, <code>Reconnecting</code>)</li>
+                        </ul>
+                    </div>
                 </div>
             </section>
 
             <section class="mb-5">
-                <h3>4. Структура проекта</h3>
+                <h3>4. Запуск и тестирование</h3>
+
+                <h4>Шаг 1: Запустите сервер</h4>
                 <div class="code-block">
-                    <pre><code>Asp_Book.Chapter10/
+                    <pre><code># Терминал 1 — сервер
+cd Asp_Book.Chapter10
+dotnet run</code></pre>
+                </div>
+
+                <h4>Шаг 2: Запустите первого клиента</h4>
+                <div class="code-block">
+                    <pre><code># Терминал 2 — клиент Алиса
+cd SignalRChat.Console
+dotnet run</code></pre>
+                </div>
+
+                <h4>Шаг 3: Запустите второго клиента</h4>
+                <div class="code-block">
+                    <pre><code># Терминал 3 — клиент Боб
+cd SignalRChat.Console
+dotnet run</code></pre>
+                </div>
+
+                <h4>Пример работы:</h4>
+                <div class="code-block">
+                    <pre><code>=== Терминал 2 (Алиса) ===
+=== SignalR Чат (консольный клиент) ===
+Введите ваше имя: Алиса
+
+Подключение к http://localhost:5010/chathub...
+✅ Подключено! Мой ID: a1b2c3d4...
+
+Привет всем!
+💬 Алиса: Привет всем!
+💬 Боб: Привет, Алиса!
+/id
+📋 Ваш Connection ID: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+
+
+=== Терминал 3 (Боб) ===
+=== SignalR Чат (консольный клиент) ===
+Введите ваше имя: Боб
+
+Подключение к http://localhost:5010/chathub...
+✅ Подключено! Мой ID: f9e8d7c6...
+
+🟢 Подключился: a1b2c3d4...
+💬 Алиса: Привет всем!
+Привет, Алиса!
+💬 Боб: Привет, Алиса!
+/pm a1b2c3d4-e5f6-7890-abcd-ef1234567890 Это приватное!
+exit
+🔌 Отключено.</code></pre>
+                </div>
+
+                <div class="alert alert-info mt-3">
+                    <strong>Также работает вместе с демо-страницей:</strong>
+                    <p>Консольный C# клиент и браузерный JS-чат (демо на этой странице) подключаются к одному Hub — они видят сообщения друг друга.</p>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>5. Структура проекта</h3>
+                <div class="code-block">
+                    <pre><code>📁 Сервер (Asp_Book.Chapter10)
 ├── Hubs/
 │   └── ChatHub.cs                — SignalR Hub (SendToAll, SendToUser, ...)
 ├── Pages/
-│   └── Index.cshtml              — UI с чатом + клиентский JS
+│   └── Index.cshtml              — UI демонстрации (браузер)
 ├── Program.cs                    — AddSignalR() + MapHub
-└── appsettings.json</code></pre>
-                </div>
-            </section>
+└── appsettings.json
 
-            <section class="mb-5">
-                <h3>5. Тестирование</h3>
-                <p><strong>Шаг 1:</strong> Откройте страницу главы 10 в двух вкладках.</p>
-                <p><strong>Шаг 2:</strong> В каждой вкладке введите имя и подключитесь.</p>
-                <p><strong>Шаг 3:</strong> Отправьте сообщение — оно появится в обеих вкладках.</p>
-                <p><strong>Шаг 4:</strong> Скопируйте Connection ID из одной вкладки и отправьте приватное сообщение из другой.</p>
-                <p><strong>Шаг 5:</strong> Отключитесь — во второй вкладке появится уведомление об отключении.</p>
+📁 Клиент (SignalRChat.Console)
+└── Program.cs                    — весь код клиента</code></pre>
+                </div>
             </section>
         </div>
     </div>

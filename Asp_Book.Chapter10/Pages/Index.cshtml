@@ -285,6 +285,17 @@ app.Run();</code></pre>
                         </ol>
                     </div>
                 </div>
+
+                <div class="alert alert-warning mt-3">
+                    <strong>Важно: НЕ устанавливайте пакет <code>Microsoft.AspNetCore.SignalR</code>!</strong>
+                    <p>В .NET 6+ SignalR <strong>уже встроен</strong> в фреймворк. Методы <code>AddSignalR()</code> и <code>MapHub&lt;T&gt;()</code> доступны «из коробки» в проекте <code>Microsoft.NET.Sdk.Web</code>.</p>
+                    <p>Пакет <code>Microsoft.AspNetCore.SignalR</code> (версии 1.x) — это <strong>старая версия</strong> для ASP.NET Core 2.x. Если его установить в .NET 10 проект, произойдёт конфликт протоколов и клиент не сможет подключиться (ошибка парсинга JSON).</p>
+                    <p><strong>Что нужно устанавливать:</strong></p>
+                    <ul>
+                        <li><strong>Сервер (ASP.NET проект)</strong> — ничего, SignalR уже встроен</li>
+                        <li><strong>C# клиент (консольное приложение)</strong> — <code>dotnet add package Microsoft.AspNetCore.SignalR.Client</code></li>
+                    </ul>
+                </div>
             </section>
 
             <section class="mb-5">

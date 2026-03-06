@@ -655,586 +655,136 @@ dotnet test --filter "SendMessageAsync_ShouldSaveMessage"</code></pre>
                 <h3>Задание для закрепления</h3>
                 <div class="alert alert-warning">
                     <h5>Ваша задача:</h5>
-                    <p>Напишите тесты для чат-приложения. Нужно реализовать:</p>
+                    <p>Напишите тесты для <strong>калькулятора из главы 1</strong> (<code>CalculatorController</code>). Нужно реализовать:</p>
                     <ul>
-                        <li><strong>Тест сервиса</strong> <code>SendMessageAsync</code> — сообщение сохраняется в БД, все поля заполнены</li>
-                        <li><strong>Тест сервиса</strong> <code>GetMessagesAsync</code> — возвращает все сообщения в правильном порядке</li>
-                        <li><strong>Тест сервиса</strong> <code>GetMessagesAsync(groupId)</code> — фильтрация по группе работает корректно</li>
-                        <li><strong>Тест сервиса</strong> <code>CreateGroupAsync</code> — группа создаётся и получает ID</li>
-                        <li><strong>Тест контроллера</strong> <code>SendMessage</code> — возвращает <code>OkObjectResult</code> с правильными данными</li>
-                        <li><strong>Тест контроллера</strong> <code>GetMessages</code> — возвращает <code>OkObjectResult</code> со списком сообщений</li>
+                        <li><strong>Тест сложения</strong> <code>Add</code> — возвращает <code>OkObjectResult</code> с правильной суммой</li>
+                        <li><strong>Тест вычитания</strong> <code>Subtract</code> — возвращает <code>OkObjectResult</code> с правильной разностью</li>
+                        <li><strong>Тест умножения</strong> <code>Multiply</code> — возвращает <code>OkObjectResult</code> с правильным произведением</li>
+                        <li><strong>Тест деления</strong> <code>Divide</code> — возвращает <code>OkObjectResult</code> с правильным частным</li>
+                        <li><strong>Тест деления на ноль</strong> <code>Divide(B=0)</code> — возвращает <code>BadRequestObjectResult</code> с ошибкой</li>
+                        <li><strong>Параметризованные тесты</strong> <code>[Theory] + [InlineData]</code> — проверка нескольких наборов данных для каждой операции</li>
+                        <li><strong>Граничные случаи:</strong> отрицательные числа, нули, большие числа, дробные числа</li>
                     </ul>
-                    <p><strong>Используйте:</strong> In-Memory Database с уникальным именем (<code>Guid.NewGuid()</code>) и паттерн AAA.</p>
+                    <p><strong>Используйте:</strong> паттерн AAA (Arrange-Act-Assert), атрибуты <code>[Fact]</code> и <code>[Theory]</code>.</p>
+                    <p><strong>Напоминание:</strong> Контроллер калькулятора из главы 1:</p>
+                    <div class="code-block">
+                        <pre><code>[ApiController]
+[Route("api/[controller]")]
+public class CalculatorController : ControllerBase
+{
+    [HttpPost("add")]
+    public IActionResult Add([FromBody] CalculationRequest request)
+    {
+        var result = request.A + request.B;
+        return Ok(new { result = result, operation = "add" });
+    }
+
+    [HttpPost("subtract")]
+    public IActionResult Subtract([FromBody] CalculationRequest request)
+    {
+        var result = request.A - request.B;
+        return Ok(new { result = result, operation = "subtract" });
+    }
+
+    [HttpPost("multiply")]
+    public IActionResult Multiply([FromBody] CalculationRequest request)
+    {
+        var result = request.A * request.B;
+        return Ok(new { result = result, operation = "multiply" });
+    }
+
+    [HttpPost("divide")]
+    public IActionResult Divide([FromBody] CalculationRequest request)
+    {
+        if (request.B == 0)
+            return BadRequest(new { error = "Деление на ноль невозможно" });
+        var result = request.A / (double)request.B;
+        return Ok(new { result = result, operation = "divide" });
+    }
+}
+
+public class CalculationRequest
+{
+    public double A { get; set; }
+    public double B { get; set; }
+}</code></pre>
+                    </div>
                 </div>
             </section>
         </div>
 
         <div class="tab-pane fade" id="answers" role="tabpanel">
-            <h2>Полное решение: Тестирование чата</h2>
-            <p>Ниже — все файлы основного проекта и тестов.</p>
+            <h2>Полное решение: Тесты для калькулятора из главы 1</h2>
+            <p>Ниже — полный код тестов для <code>CalculatorController</code> из первой главы.</p>
 
             <section class="mb-5">
-                <h3>1. Models/Message.cs</h3>
+                <h3>1. Контроллер калькулятора (из главы 1)</h3>
+                <p>Это код, который мы тестируем — он уже существует в <code>Asp_Book.Chapter01</code>:</p>
                 <div class="code-block">
-                    <pre><code>namespace Asp_Book.Chapter12.Models;
+                    <pre><code>using Microsoft.AspNetCore.Mvc;
 
-public class Message
-{
-    public int Id { get; set; }
-    public string Text { get; set; } = string.Empty;
-    public string Sender { get; set; } = string.Empty;
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public int? GroupId { get; set; }
-}</code></pre>
-                </div>
-            </section>
-
-            <section class="mb-5">
-                <h3>2. Models/ChatGroup.cs</h3>
-                <div class="code-block">
-                    <pre><code>namespace Asp_Book.Chapter12.Models;
-
-public class ChatGroup
-{
-    public int Id { get; set; }
-    public string Name { get; set; } = string.Empty;
-    public List&lt;Message&gt; Messages { get; set; } = new();
-}</code></pre>
-                </div>
-            </section>
-
-            <section class="mb-5">
-                <h3>3. Data/ChatDbContext.cs</h3>
-                <div class="code-block">
-                    <pre><code>using Asp_Book.Chapter12.Models;
-using Microsoft.EntityFrameworkCore;
-
-namespace Asp_Book.Chapter12.Data;
-
-public class ChatDbContext : DbContext
-{
-    public ChatDbContext(DbContextOptions&lt;ChatDbContext&gt; options)
-        : base(options)
-    {
-    }
-
-    public DbSet&lt;Message&gt; Messages { get; set; }
-    public DbSet&lt;ChatGroup&gt; ChatGroups { get; set; }
-}</code></pre>
-                </div>
-            </section>
-
-            <section class="mb-5">
-                <h3>4. Services/IChatService.cs</h3>
-                <div class="code-block">
-                    <pre><code>using Asp_Book.Chapter12.Models;
-
-namespace Asp_Book.Chapter12.Services;
-
-public interface IChatService
-{
-    Task&lt;Message&gt; SendMessageAsync(string text, string sender, int? groupId = null);
-    Task&lt;List&lt;Message&gt;&gt; GetMessagesAsync(int? groupId = null);
-    Task&lt;ChatGroup&gt; CreateGroupAsync(string name);
-}</code></pre>
-                </div>
-            </section>
-
-            <section class="mb-5">
-                <h3>5. Services/ChatService.cs</h3>
-                <div class="code-block">
-                    <pre><code>using Asp_Book.Chapter12.Data;
-using Asp_Book.Chapter12.Models;
-using Microsoft.EntityFrameworkCore;
-
-namespace Asp_Book.Chapter12.Services;
-
-public class ChatService : IChatService
-{
-    private readonly ChatDbContext _context;
-
-    public ChatService(ChatDbContext context)
-    {
-        _context = context;
-    }
-
-    public async Task&lt;Message&gt; SendMessageAsync(string text, string sender, int? groupId = null)
-    {
-        var message = new Message
-        {
-            Text = text,
-            Sender = sender,
-            GroupId = groupId,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        _context.Messages.Add(message);
-        await _context.SaveChangesAsync();
-        return message;
-    }
-
-    public async Task&lt;List&lt;Message&gt;&gt; GetMessagesAsync(int? groupId = null)
-    {
-        var query = _context.Messages.AsQueryable();
-
-        if (groupId.HasValue)
-        {
-            query = query.Where(m => m.GroupId == groupId);
-        }
-
-        return await query.OrderBy(m => m.CreatedAt).ToListAsync();
-    }
-
-    public async Task&lt;ChatGroup&gt; CreateGroupAsync(string name)
-    {
-        var group = new ChatGroup { Name = name };
-        _context.ChatGroups.Add(group);
-        await _context.SaveChangesAsync();
-        return group;
-    }
-}</code></pre>
-                </div>
-            </section>
-
-            <section class="mb-5">
-                <h3>6. Controllers/ChatController.cs</h3>
-                <div class="code-block">
-                    <pre><code>using Asp_Book.Chapter12.Models;
-using Asp_Book.Chapter12.Services;
-using Microsoft.AspNetCore.Mvc;
-
-namespace Asp_Book.Chapter12.Controllers;
+namespace Asp_Book.Chapter01.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class ChatController : ControllerBase
+public class CalculatorController : ControllerBase
 {
-    private readonly IChatService _chatService;
-
-    public ChatController(IChatService chatService)
+    [HttpPost("add")]
+    public IActionResult Add([FromBody] CalculationRequest request)
     {
-        _chatService = chatService;
+        var result = request.A + request.B;
+        return Ok(new { result = result, operation = "add" });
     }
 
-    [HttpPost("messages")]
-    public async Task&lt;IActionResult&gt; SendMessage([FromBody] SendMessageRequest request)
+    [HttpPost("subtract")]
+    public IActionResult Subtract([FromBody] CalculationRequest request)
     {
-        var message = await _chatService.SendMessageAsync(
-            request.Text,
-            request.Sender,
-            request.GroupId);
-        return Ok(message);
+        var result = request.A - request.B;
+        return Ok(new { result = result, operation = "subtract" });
     }
 
-    [HttpGet("messages")]
-    public async Task&lt;IActionResult&gt; GetMessages([FromQuery] int? groupId = null)
+    [HttpPost("multiply")]
+    public IActionResult Multiply([FromBody] CalculationRequest request)
     {
-        var messages = await _chatService.GetMessagesAsync(groupId);
-        return Ok(messages);
+        var result = request.A * request.B;
+        return Ok(new { result = result, operation = "multiply" });
     }
 
-    [HttpPost("groups")]
-    public async Task&lt;IActionResult&gt; CreateGroup([FromBody] CreateGroupRequest request)
+    [HttpPost("divide")]
+    public IActionResult Divide([FromBody] CalculationRequest request)
     {
-        var group = await _chatService.CreateGroupAsync(request.Name);
-        return Ok(group);
-    }
-}
-
-public class SendMessageRequest
-{
-    public string Text { get; set; } = string.Empty;
-    public string Sender { get; set; } = string.Empty;
-    public int? GroupId { get; set; }
-}
-
-public class CreateGroupRequest
-{
-    public string Name { get; set; } = string.Empty;
-}</code></pre>
-                </div>
-            </section>
-
-            <section class="mb-5">
-                <h3>7. Program.cs (полный файл)</h3>
-                <div class="code-block">
-                    <pre><code>using Asp_Book.Chapter12.Data;
-using Asp_Book.Chapter12.Services;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.OpenApi.Models;
-
-var builder = WebApplication.CreateBuilder(args);
-
-builder.Services.AddControllers();
-builder.Services.AddRazorPages().AddRazorRuntimeCompilation();
-
-// In-Memory Database для демонстрации
-builder.Services.AddDbContext&lt;ChatDbContext&gt;(options =>
-    options.UseInMemoryDatabase("ChatDb"));
-
-// Регистрация сервиса
-builder.Services.AddScoped&lt;IChatService, ChatService&gt;();
-
-// Swagger
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c =>
-{
-    c.SwaggerDoc("v1", new OpenApiInfo
-    {
-        Title = "Глава 12: Тестирование",
-        Version = "v1",
-        Description = "Тестирование API и EF Core с In-Memory Database"
-    });
-});
-
-var app = builder.Build();
-
-app.UseSwagger();
-app.UseSwaggerUI();
-app.UseStaticFiles();
-app.UseRouting();
-app.UseAuthorization();
-
-app.MapRazorPages();
-app.MapControllers();
-
-app.Run();</code></pre>
-                </div>
-            </section>
-
-            <section class="mb-5">
-                <h3>8. Тесты: ChatServiceTests.cs</h3>
-                <p>Полный набор тестов для сервиса <code>ChatService</code>:</p>
-                <div class="code-block">
-                    <pre><code>using Asp_Book.Chapter12.Data;
-using Asp_Book.Chapter12.Services;
-using Microsoft.EntityFrameworkCore;
-using Xunit;
-
-namespace Asp_Book.Chapter12.Tests;
-
-public class ChatServiceTests
-{
-    // Создание In-Memory базы данных для каждого теста
-    private ChatDbContext GetInMemoryDbContext()
-    {
-        var options = new DbContextOptionsBuilder&lt;ChatDbContext&gt;()
-            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
-            .Options;
-
-        return new ChatDbContext(options);
-    }
-
-    // ========== Тесты SendMessageAsync ==========
-
-    [Fact]
-    public async Task SendMessageAsync_ValidData_ReturnsSavedMessage()
-    {
-        // Arrange
-        var context = GetInMemoryDbContext();
-        var service = new ChatService(context);
-
-        // Act
-        var message = await service.SendMessageAsync("Привет", "User1");
-
-        // Assert — проверяем возвращённый объект
-        Assert.NotNull(message);
-        Assert.Equal("Привет", message.Text);
-        Assert.Equal("User1", message.Sender);
-        Assert.True(message.Id > 0);               // ID назначен
-        Assert.Null(message.GroupId);               // Без группы
-        Assert.True(message.CreatedAt &lt;= DateTime.UtcNow);  // Дата не в будущем
-    }
-
-    [Fact]
-    public async Task SendMessageAsync_WithGroup_SavesGroupId()
-    {
-        // Arrange
-        var context = GetInMemoryDbContext();
-        var service = new ChatService(context);
-        var group = await service.CreateGroupAsync("Тестовая группа");
-
-        // Act
-        var message = await service.SendMessageAsync("В группе", "User1", group.Id);
-
-        // Assert
-        Assert.Equal(group.Id, message.GroupId);
-    }
-
-    [Fact]
-    public async Task SendMessageAsync_MessagePersistsInDatabase()
-    {
-        // Arrange
-        var context = GetInMemoryDbContext();
-        var service = new ChatService(context);
-
-        // Act
-        var message = await service.SendMessageAsync("Тест БД", "User1");
-
-        // Assert — проверяем, что сообщение реально в базе
-        var savedMessage = await context.Messages.FindAsync(message.Id);
-        Assert.NotNull(savedMessage);
-        Assert.Equal("Тест БД", savedMessage!.Text);
-        Assert.Equal("User1", savedMessage.Sender);
-    }
-
-    // ========== Тесты GetMessagesAsync ==========
-
-    [Fact]
-    public async Task GetMessagesAsync_EmptyDb_ReturnsEmptyList()
-    {
-        // Arrange
-        var context = GetInMemoryDbContext();
-        var service = new ChatService(context);
-
-        // Act
-        var messages = await service.GetMessagesAsync();
-
-        // Assert
-        Assert.NotNull(messages);
-        Assert.Empty(messages);  // Пустая БД — пустой список
-    }
-
-    [Fact]
-    public async Task GetMessagesAsync_MultipleMessages_ReturnsAll()
-    {
-        // Arrange
-        var context = GetInMemoryDbContext();
-        var service = new ChatService(context);
-
-        await service.SendMessageAsync("Сообщение 1", "User1");
-        await service.SendMessageAsync("Сообщение 2", "User2");
-        await service.SendMessageAsync("Сообщение 3", "User1");
-
-        // Act
-        var messages = await service.GetMessagesAsync();
-
-        // Assert
-        Assert.Equal(3, messages.Count);
-        Assert.Equal("Сообщение 1", messages[0].Text);
-        Assert.Equal("Сообщение 2", messages[1].Text);
-        Assert.Equal("Сообщение 3", messages[2].Text);
-    }
-
-    [Fact]
-    public async Task GetMessagesAsync_WithGroupFilter_ReturnsOnlyGroupMessages()
-    {
-        // Arrange
-        var context = GetInMemoryDbContext();
-        var service = new ChatService(context);
-
-        var group = await service.CreateGroupAsync("Группа 1");
-        await service.SendMessageAsync("В группе", "User1", group.Id);
-        await service.SendMessageAsync("Без группы", "User2", null);
-        await service.SendMessageAsync("Тоже в группе", "User3", group.Id);
-
-        // Act
-        var groupMessages = await service.GetMessagesAsync(group.Id);
-        var allMessages = await service.GetMessagesAsync(null);
-
-        // Assert
-        Assert.Equal(2, groupMessages.Count);   // Только 2 из группы
-        Assert.Equal(3, allMessages.Count);      // Всего 3
-        Assert.All(groupMessages, m => Assert.Equal(group.Id, m.GroupId));
-    }
-
-    // ========== Тесты CreateGroupAsync ==========
-
-    [Fact]
-    public async Task CreateGroupAsync_ValidName_ReturnsGroupWithId()
-    {
-        // Arrange
-        var context = GetInMemoryDbContext();
-        var service = new ChatService(context);
-
-        // Act
-        var group = await service.CreateGroupAsync("Мой чат");
-
-        // Assert
-        Assert.NotNull(group);
-        Assert.Equal("Мой чат", group.Name);
-        Assert.True(group.Id > 0);
-
-        // Проверяем что группа в БД
-        var savedGroup = await context.ChatGroups.FindAsync(group.Id);
-        Assert.NotNull(savedGroup);
-    }
-
-    [Fact]
-    public async Task CreateGroupAsync_MultipleCalls_CreatesMultipleGroups()
-    {
-        // Arrange
-        var context = GetInMemoryDbContext();
-        var service = new ChatService(context);
-
-        // Act
-        var group1 = await service.CreateGroupAsync("Группа 1");
-        var group2 = await service.CreateGroupAsync("Группа 2");
-
-        // Assert
-        Assert.NotEqual(group1.Id, group2.Id);  // Разные ID
-        Assert.Equal(2, await context.ChatGroups.CountAsync());
-    }
-}</code></pre>
-                    <div class="code-explanation">
-                        <strong>Всего 8 тестов для сервиса:</strong>
-                        <ul>
-                            <li>3 теста на <code>SendMessageAsync</code> — валидные данные, с группой, проверка БД</li>
-                            <li>3 теста на <code>GetMessagesAsync</code> — пустая БД, несколько сообщений, фильтр по группе</li>
-                            <li>2 теста на <code>CreateGroupAsync</code> — создание одной и нескольких групп</li>
-                        </ul>
-                    </div>
-                </div>
-            </section>
-
-            <section class="mb-5">
-                <h3>9. Тесты: ChatControllerTests.cs</h3>
-                <p>Тесты для контроллера — проверяем HTTP-ответы:</p>
-                <div class="code-block">
-                    <pre><code>using Asp_Book.Chapter12.Controllers;
-using Asp_Book.Chapter12.Data;
-using Asp_Book.Chapter12.Models;
-using Asp_Book.Chapter12.Services;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Xunit;
-
-namespace Asp_Book.Chapter12.Tests;
-
-public class ChatControllerTests
-{
-    private ChatDbContext GetInMemoryDbContext()
-    {
-        var options = new DbContextOptionsBuilder&lt;ChatDbContext&gt;()
-            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
-            .Options;
-        return new ChatDbContext(options);
-    }
-
-    // Создаём контроллер с реальным сервисом и In-Memory БД
-    private ChatController CreateController(ChatDbContext context)
-    {
-        var service = new ChatService(context);
-        return new ChatController(service);
-    }
-
-    [Fact]
-    public async Task SendMessage_ValidData_ReturnsOkWithMessage()
-    {
-        // Arrange
-        var context = GetInMemoryDbContext();
-        var controller = CreateController(context);
-
-        var request = new SendMessageRequest
+        if (request.B == 0)
         {
-            Text = "Привет из теста",
-            Sender = "TestUser"
-        };
-
-        // Act
-        var result = await controller.SendMessage(request);
-
-        // Assert
-        var okResult = Assert.IsType&lt;OkObjectResult&gt;(result);  // HTTP 200
-        var message = Assert.IsType&lt;Message&gt;(okResult.Value);   // Тело = Message
-        Assert.Equal("Привет из теста", message.Text);
-        Assert.Equal("TestUser", message.Sender);
-        Assert.True(message.Id > 0);
+            return BadRequest(new { error = "Деление на ноль невозможно" });
+        }
+        var result = request.A / (double)request.B;
+        return Ok(new { result = result, operation = "divide" });
     }
+}
 
-    [Fact]
-    public async Task GetMessages_EmptyDb_ReturnsOkWithEmptyList()
-    {
-        // Arrange
-        var context = GetInMemoryDbContext();
-        var controller = CreateController(context);
-
-        // Act
-        var result = await controller.GetMessages();
-
-        // Assert
-        var okResult = Assert.IsType&lt;OkObjectResult&gt;(result);
-        var messages = Assert.IsType&lt;List&lt;Message&gt;&gt;(okResult.Value);
-        Assert.Empty(messages);
-    }
-
-    [Fact]
-    public async Task GetMessages_WithMessages_ReturnsOkWithList()
-    {
-        // Arrange
-        var context = GetInMemoryDbContext();
-        var service = new ChatService(context);
-        var controller = new ChatController(service);
-
-        // Подготавливаем данные через сервис
-        await service.SendMessageAsync("Msg 1", "User1");
-        await service.SendMessageAsync("Msg 2", "User2");
-
-        // Act
-        var result = await controller.GetMessages();
-
-        // Assert
-        var okResult = Assert.IsType&lt;OkObjectResult&gt;(result);
-        var messages = Assert.IsType&lt;List&lt;Message&gt;&gt;(okResult.Value);
-        Assert.Equal(2, messages.Count);
-    }
-
-    [Fact]
-    public async Task CreateGroup_ValidName_ReturnsOkWithGroup()
-    {
-        // Arrange
-        var context = GetInMemoryDbContext();
-        var controller = CreateController(context);
-
-        var request = new CreateGroupRequest { Name = "Тестовая группа" };
-
-        // Act
-        var result = await controller.CreateGroup(request);
-
-        // Assert
-        var okResult = Assert.IsType&lt;OkObjectResult&gt;(result);
-        var group = Assert.IsType&lt;ChatGroup&gt;(okResult.Value);
-        Assert.Equal("Тестовая группа", group.Name);
-        Assert.True(group.Id > 0);
-    }
-
-    [Fact]
-    public async Task GetMessages_WithGroupFilter_ReturnsFilteredMessages()
-    {
-        // Arrange
-        var context = GetInMemoryDbContext();
-        var service = new ChatService(context);
-        var controller = new ChatController(service);
-
-        var group = await service.CreateGroupAsync("Фильтр");
-        await service.SendMessageAsync("В группе", "User1", group.Id);
-        await service.SendMessageAsync("Без группы", "User2");
-
-        // Act
-        var result = await controller.GetMessages(group.Id);
-
-        // Assert
-        var okResult = Assert.IsType&lt;OkObjectResult&gt;(result);
-        var messages = Assert.IsType&lt;List&lt;Message&gt;&gt;(okResult.Value);
-        Assert.Single(messages);
-        Assert.Equal("В группе", messages[0].Text);
-    }
+public class CalculationRequest
+{
+    public double A { get; set; }
+    public double B { get; set; }
 }</code></pre>
-                    <div class="code-explanation">
-                        <strong>Всего 5 тестов для контроллера:</strong>
-                        <ul>
-                            <li><code>SendMessage</code> — возвращает 200 OK с Message</li>
-                            <li><code>GetMessages</code> (пустая БД) — возвращает 200 OK с пустым списком</li>
-                            <li><code>GetMessages</code> (с данными) — возвращает 200 OK со списком</li>
-                            <li><code>CreateGroup</code> — возвращает 200 OK с ChatGroup</li>
-                            <li><code>GetMessages</code> (с фильтром) — возвращает только сообщения группы</li>
-                        </ul>
-                    </div>
                 </div>
             </section>
 
             <section class="mb-5">
-                <h3>10. Тестовый проект: .csproj</h3>
+                <h3>2. Создание тестового проекта</h3>
+                <div class="code-block">
+                    <pre><code># Создаём тестовый проект
+dotnet new xunit -n Asp_Book.Chapter01.Tests
+
+cd Asp_Book.Chapter01.Tests
+
+# Добавляем ссылку на проект первой главы
+dotnet add reference ../Asp_Book.Chapter01/Asp_Book.Chapter01.csproj</code></pre>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>3. Тестовый проект: .csproj</h3>
                 <div class="code-block">
                     <pre><code>&lt;Project Sdk="Microsoft.NET.Sdk"&gt;
   &lt;PropertyGroup&gt;
@@ -1248,72 +798,534 @@ public class ChatControllerTests
     &lt;PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" /&gt;
     &lt;PackageReference Include="xunit" Version="2.6.2" /&gt;
     &lt;PackageReference Include="xunit.runner.visualstudio" Version="2.5.4" /&gt;
-    &lt;PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.3" /&gt;
   &lt;/ItemGroup&gt;
 
   &lt;ItemGroup&gt;
-    &lt;ProjectReference Include="..\Asp_Book.Chapter12\Asp_Book.Chapter12.csproj" /&gt;
+    &lt;ProjectReference Include="..\Asp_Book.Chapter01\Asp_Book.Chapter01.csproj" /&gt;
   &lt;/ItemGroup&gt;
 &lt;/Project&gt;</code></pre>
+                    <div class="code-explanation">
+                        <strong>Обратите внимание:</strong> В отличие от тестов с EF Core, здесь <strong>не нужен</strong> пакет <code>Microsoft.EntityFrameworkCore.InMemory</code>, т.к. калькулятор не работает с базой данных. Нужны только <code>xunit</code> и ссылка на основной проект.
+                    </div>
                 </div>
             </section>
 
             <section class="mb-5">
-                <h3>11. Структура проекта</h3>
+                <h3>4. CalculatorControllerTests.cs — основные тесты [Fact]</h3>
+                <p>Тесты каждой операции по отдельности:</p>
                 <div class="code-block">
-                    <pre><code># Основной проект
-Asp_Book.Chapter12/
+                    <pre><code>using Asp_Book.Chapter01.Controllers;
+using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
+using Xunit;
+
+namespace Asp_Book.Chapter01.Tests;
+
+public class CalculatorControllerTests
+{
+    // Создаём контроллер — нет зависимостей, просто new
+    private readonly CalculatorController _controller = new();
+
+    // Вспомогательный метод: извлечь значение из анонимного объекта
+    // Контроллер возвращает Ok(new { result = ..., operation = "..." })
+    // OkObjectResult.Value — это анонимный объект, его удобно читать через JSON
+    private T GetPropertyFromResult&lt;T&gt;(IActionResult actionResult, string propertyName)
+    {
+        var okResult = Assert.IsType&lt;OkObjectResult&gt;(actionResult);
+        var json = JsonSerializer.Serialize(okResult.Value);
+        var doc = JsonDocument.Parse(json);
+        var prop = doc.RootElement.GetProperty(propertyName);
+        
+        if (typeof(T) == typeof(double))
+            return (T)(object)prop.GetDouble();
+        if (typeof(T) == typeof(string))
+            return (T)(object)prop.GetString()!;
+        
+        return JsonSerializer.Deserialize&lt;T&gt;(prop.GetRawText())!;
+    }
+
+    // ========== Тесты сложения (Add) ==========
+
+    [Fact]
+    public void Add_TwoPositiveNumbers_ReturnsCorrectSum()
+    {
+        // Arrange
+        var request = new CalculationRequest { A = 5, B = 3 };
+
+        // Act
+        var result = _controller.Add(request);
+
+        // Assert
+        Assert.IsType&lt;OkObjectResult&gt;(result);        // HTTP 200
+        var sum = GetPropertyFromResult&lt;double&gt;(result, "result");
+        Assert.Equal(8, sum);                           // 5 + 3 = 8
+
+        var operation = GetPropertyFromResult&lt;string&gt;(result, "operation");
+        Assert.Equal("add", operation);                 // Операция = "add"
+    }
+
+    [Fact]
+    public void Add_NegativeNumbers_ReturnsCorrectSum()
+    {
+        // Arrange
+        var request = new CalculationRequest { A = -10, B = -5 };
+
+        // Act
+        var result = _controller.Add(request);
+
+        // Assert
+        var sum = GetPropertyFromResult&lt;double&gt;(result, "result");
+        Assert.Equal(-15, sum);  // -10 + (-5) = -15
+    }
+
+    [Fact]
+    public void Add_ZeroAndNumber_ReturnsNumber()
+    {
+        // Arrange
+        var request = new CalculationRequest { A = 0, B = 42 };
+
+        // Act
+        var result = _controller.Add(request);
+
+        // Assert
+        var sum = GetPropertyFromResult&lt;double&gt;(result, "result");
+        Assert.Equal(42, sum);  // 0 + 42 = 42
+    }
+
+    // ========== Тесты вычитания (Subtract) ==========
+
+    [Fact]
+    public void Subtract_TwoNumbers_ReturnsCorrectDifference()
+    {
+        // Arrange
+        var request = new CalculationRequest { A = 10, B = 3 };
+
+        // Act
+        var result = _controller.Subtract(request);
+
+        // Assert
+        Assert.IsType&lt;OkObjectResult&gt;(result);
+        var diff = GetPropertyFromResult&lt;double&gt;(result, "result");
+        Assert.Equal(7, diff);  // 10 - 3 = 7
+
+        var operation = GetPropertyFromResult&lt;string&gt;(result, "operation");
+        Assert.Equal("subtract", operation);
+    }
+
+    [Fact]
+    public void Subtract_SameNumbers_ReturnsZero()
+    {
+        // Arrange
+        var request = new CalculationRequest { A = 5, B = 5 };
+
+        // Act
+        var result = _controller.Subtract(request);
+
+        // Assert
+        var diff = GetPropertyFromResult&lt;double&gt;(result, "result");
+        Assert.Equal(0, diff);  // 5 - 5 = 0
+    }
+
+    // ========== Тесты умножения (Multiply) ==========
+
+    [Fact]
+    public void Multiply_TwoNumbers_ReturnsCorrectProduct()
+    {
+        // Arrange
+        var request = new CalculationRequest { A = 4, B = 7 };
+
+        // Act
+        var result = _controller.Multiply(request);
+
+        // Assert
+        Assert.IsType&lt;OkObjectResult&gt;(result);
+        var product = GetPropertyFromResult&lt;double&gt;(result, "result");
+        Assert.Equal(28, product);  // 4 * 7 = 28
+
+        var operation = GetPropertyFromResult&lt;string&gt;(result, "operation");
+        Assert.Equal("multiply", operation);
+    }
+
+    [Fact]
+    public void Multiply_ByZero_ReturnsZero()
+    {
+        // Arrange
+        var request = new CalculationRequest { A = 999, B = 0 };
+
+        // Act
+        var result = _controller.Multiply(request);
+
+        // Assert
+        var product = GetPropertyFromResult&lt;double&gt;(result, "result");
+        Assert.Equal(0, product);  // 999 * 0 = 0
+    }
+
+    [Fact]
+    public void Multiply_NegativeByNegative_ReturnsPositive()
+    {
+        // Arrange
+        var request = new CalculationRequest { A = -3, B = -4 };
+
+        // Act
+        var result = _controller.Multiply(request);
+
+        // Assert
+        var product = GetPropertyFromResult&lt;double&gt;(result, "result");
+        Assert.Equal(12, product);  // (-3) * (-4) = 12
+    }
+
+    // ========== Тесты деления (Divide) ==========
+
+    [Fact]
+    public void Divide_TwoNumbers_ReturnsCorrectQuotient()
+    {
+        // Arrange
+        var request = new CalculationRequest { A = 10, B = 2 };
+
+        // Act
+        var result = _controller.Divide(request);
+
+        // Assert
+        Assert.IsType&lt;OkObjectResult&gt;(result);
+        var quotient = GetPropertyFromResult&lt;double&gt;(result, "result");
+        Assert.Equal(5, quotient);  // 10 / 2 = 5
+
+        var operation = GetPropertyFromResult&lt;string&gt;(result, "operation");
+        Assert.Equal("divide", operation);
+    }
+
+    [Fact]
+    public void Divide_ByZero_ReturnsBadRequest()
+    {
+        // Arrange
+        var request = new CalculationRequest { A = 10, B = 0 };
+
+        // Act
+        var result = _controller.Divide(request);
+
+        // Assert — ожидаем BadRequest, а не OkObjectResult!
+        var badResult = Assert.IsType&lt;BadRequestObjectResult&gt;(result);
+        Assert.NotNull(badResult.Value);  // Есть сообщение об ошибке
+    }
+
+    [Fact]
+    public void Divide_FractionalResult_ReturnsCorrectValue()
+    {
+        // Arrange
+        var request = new CalculationRequest { A = 7, B = 2 };
+
+        // Act
+        var result = _controller.Divide(request);
+
+        // Assert
+        var quotient = GetPropertyFromResult&lt;double&gt;(result, "result");
+        Assert.Equal(3.5, quotient);  // 7 / 2 = 3.5
+    }
+
+    [Fact]
+    public void Divide_ZeroByNumber_ReturnsZero()
+    {
+        // Arrange
+        var request = new CalculationRequest { A = 0, B = 5 };
+
+        // Act
+        var result = _controller.Divide(request);
+
+        // Assert
+        var quotient = GetPropertyFromResult&lt;double&gt;(result, "result");
+        Assert.Equal(0, quotient);  // 0 / 5 = 0
+    }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>Что покрывают 13 тестов [Fact]:</strong>
+                        <table class="table table-striped table-bordered mt-2">
+                            <thead>
+                                <tr>
+                                    <th>Операция</th>
+                                    <th>Тесты</th>
+                                    <th>Что проверяем</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>Add</code></td>
+                                    <td>3 теста</td>
+                                    <td>Положительные числа, отрицательные, ноль</td>
+                                </tr>
+                                <tr>
+                                    <td><code>Subtract</code></td>
+                                    <td>2 теста</td>
+                                    <td>Обычное вычитание, одинаковые числа</td>
+                                </tr>
+                                <tr>
+                                    <td><code>Multiply</code></td>
+                                    <td>3 теста</td>
+                                    <td>Обычное умножение, на ноль, два отрицательных</td>
+                                </tr>
+                                <tr>
+                                    <td><code>Divide</code></td>
+                                    <td>4 теста</td>
+                                    <td>Обычное деление, на ноль (BadRequest), дробный результат, ноль делить на число</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <p class="mt-2"><strong>Ключевой момент:</strong> Контроллер возвращает <strong>анонимный объект</strong> <code>new { result, operation }</code>. Чтобы проверить его свойства в тестах, мы сериализуем <code>OkObjectResult.Value</code> в JSON и извлекаем нужные значения через <code>JsonDocument</code>.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>5. Параметризованные тесты [Theory] + [InlineData]</h3>
+                <p>Один метод — множество наборов данных. Каждый <code>[InlineData]</code> запускает тест отдельно:</p>
+                <div class="code-block">
+                    <pre><code>using Asp_Book.Chapter01.Controllers;
+using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
+using Xunit;
+
+namespace Asp_Book.Chapter01.Tests;
+
+public class CalculatorParameterizedTests
+{
+    private readonly CalculatorController _controller = new();
+
+    private double GetResult(IActionResult actionResult)
+    {
+        var okResult = Assert.IsType&lt;OkObjectResult&gt;(actionResult);
+        var json = JsonSerializer.Serialize(okResult.Value);
+        var doc = JsonDocument.Parse(json);
+        return doc.RootElement.GetProperty("result").GetDouble();
+    }
+
+    // ========== Сложение: множество комбинаций ==========
+
+    [Theory]
+    [InlineData(2, 3, 5)]         // Обычное сложение
+    [InlineData(0, 0, 0)]         // Ноль + ноль
+    [InlineData(-1, 1, 0)]        // Отрицательное + положительное
+    [InlineData(-5, -3, -8)]      // Два отрицательных
+    [InlineData(100, 200, 300)]   // Большие числа
+    [InlineData(0.1, 0.2, 0.3)]  // Дробные числа
+    [InlineData(999999, 1, 1000000)] // Граничные значения
+    public void Add_VariousInputs_ReturnsCorrectSum(
+        double a, double b, double expected)
+    {
+        // Arrange
+        var request = new CalculationRequest { A = a, B = b };
+
+        // Act
+        var result = _controller.Add(request);
+
+        // Assert
+        var sum = GetResult(result);
+        Assert.Equal(expected, sum, precision: 10);
+        // precision: 10 — точность до 10 знаков после запятой
+        // (нужно для дробных чисел, т.к. 0.1 + 0.2 ≈ 0.30000000000000004)
+    }
+
+    // ========== Вычитание: множество комбинаций ==========
+
+    [Theory]
+    [InlineData(10, 3, 7)]        // Обычное
+    [InlineData(5, 5, 0)]         // Одинаковые → 0
+    [InlineData(3, 10, -7)]       // Результат отрицательный
+    [InlineData(-5, -3, -2)]      // Оба отрицательных
+    [InlineData(0, 7, -7)]        // Ноль минус число
+    [InlineData(100.5, 0.5, 100)] // Дробные
+    public void Subtract_VariousInputs_ReturnsCorrectDifference(
+        double a, double b, double expected)
+    {
+        var request = new CalculationRequest { A = a, B = b };
+        var result = _controller.Subtract(request);
+        Assert.Equal(expected, GetResult(result), precision: 10);
+    }
+
+    // ========== Умножение: множество комбинаций ==========
+
+    [Theory]
+    [InlineData(3, 4, 12)]        // Обычное
+    [InlineData(0, 100, 0)]       // Ноль * число = 0
+    [InlineData(100, 0, 0)]       // Число * ноль = 0
+    [InlineData(-2, 3, -6)]       // Отрицательное * положительное
+    [InlineData(-2, -3, 6)]       // Два отрицательных = положительное
+    [InlineData(1, 999, 999)]     // Умножение на 1
+    [InlineData(0.5, 4, 2)]       // Дробное
+    public void Multiply_VariousInputs_ReturnsCorrectProduct(
+        double a, double b, double expected)
+    {
+        var request = new CalculationRequest { A = a, B = b };
+        var result = _controller.Multiply(request);
+        Assert.Equal(expected, GetResult(result), precision: 10);
+    }
+
+    // ========== Деление: множество комбинаций ==========
+
+    [Theory]
+    [InlineData(10, 2, 5)]        // Целое деление
+    [InlineData(7, 2, 3.5)]       // Дробный результат
+    [InlineData(1, 3, 0.3333333333333333)]  // Бесконечная дробь
+    [InlineData(0, 5, 0)]         // Ноль делить на число = 0
+    [InlineData(-10, 2, -5)]      // Отрицательное делить на положительное
+    [InlineData(-10, -2, 5)]      // Два отрицательных = положительное
+    [InlineData(100, 100, 1)]     // Число делить на себя = 1
+    public void Divide_VariousInputs_ReturnsCorrectQuotient(
+        double a, double b, double expected)
+    {
+        var request = new CalculationRequest { A = a, B = b };
+        var result = _controller.Divide(request);
+        Assert.Equal(expected, GetResult(result), precision: 10);
+    }
+
+    // ========== Деление на ноль — всегда BadRequest ==========
+
+    [Theory]
+    [InlineData(1)]       // Положительное / 0
+    [InlineData(-1)]      // Отрицательное / 0
+    [InlineData(0)]       // 0 / 0
+    [InlineData(999999)]  // Большое число / 0
+    public void Divide_ByZero_AlwaysReturnsBadRequest(double a)
+    {
+        // Arrange
+        var request = new CalculationRequest { A = a, B = 0 };
+
+        // Act
+        var result = _controller.Divide(request);
+
+        // Assert — всегда BadRequest, независимо от числителя
+        Assert.IsType&lt;BadRequestObjectResult&gt;(result);
+    }
+}</code></pre>
+                    <div class="code-explanation">
+                        <strong>[Theory] vs [Fact] — когда что использовать:</strong>
+                        <table class="table table-striped table-bordered mt-2">
+                            <thead>
+                                <tr>
+                                    <th>Атрибут</th>
+                                    <th>Когда использовать</th>
+                                    <th>Пример в нашем проекте</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>[Fact]</code></td>
+                                    <td>Конкретный сценарий, один набор данных</td>
+                                    <td><code>Divide_ByZero_ReturnsBadRequest</code></td>
+                                </tr>
+                                <tr>
+                                    <td><code>[Theory]</code></td>
+                                    <td>Один сценарий, много наборов данных</td>
+                                    <td><code>Add_VariousInputs_ReturnsCorrectSum</code></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <p class="mt-2"><strong>Параметр <code>precision</code>:</strong> В <code>Assert.Equal(expected, actual, precision: 10)</code> указывает, сколько знаков после запятой сравнивать. Это важно для дробных чисел, т.к. <code>0.1 + 0.2</code> в IEEE 754 не равно ровно <code>0.3</code>.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>6. Итоговая сводка тестов</h3>
+                <div class="table-responsive">
+                    <table class="table table-striped table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Файл</th>
+                                <th>Класс</th>
+                                <th>Кол-во тестов</th>
+                                <th>Что проверяет</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>CalculatorControllerTests.cs</code></td>
+                                <td><code>CalculatorControllerTests</code></td>
+                                <td>13 ([Fact])</td>
+                                <td>Каждая операция отдельно, граничные случаи, типы IActionResult</td>
+                            </tr>
+                            <tr>
+                                <td><code>CalculatorParameterizedTests.cs</code></td>
+                                <td><code>CalculatorParameterizedTests</code></td>
+                                <td>31 ([Theory])</td>
+                                <td>Массовая проверка с разными входными данными</td>
+                            </tr>
+                            <tr>
+                                <td colspan="2"><strong>Итого</strong></td>
+                                <td><strong>44 теста</strong></td>
+                                <td>Полное покрытие калькулятора</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="mb-5">
+                <h3>7. Структура проекта</h3>
+                <div class="code-block">
+                    <pre><code># Основной проект (глава 1 — уже существует)
+Asp_Book.Chapter01/
 ├── Controllers/
-│   └── ChatController.cs           — API: send, messages, groups
-├── Data/
-│   └── ChatDbContext.cs            — DbContext (Messages, ChatGroups)
-├── Models/
-│   ├── Message.cs                  — модель сообщения
-│   └── ChatGroup.cs                — модель группы
-├── Services/
-│   ├── IChatService.cs             — интерфейс сервиса
-│   └── ChatService.cs              — реализация (CRUD с EF Core)
-├── Program.cs                      — InMemoryDb + DI + Swagger
+│   └── CalculatorController.cs      — 4 операции: add, subtract, multiply, divide
+├── Program.cs
 └── appsettings.json
 
-# Тестовый проект
-Asp_Book.Chapter12.Tests/
-├── ChatServiceTests.cs             — 8 unit тестов сервиса
-├── ChatControllerTests.cs          — 5 integration тестов контроллера
-└── Asp_Book.Chapter12.Tests.csproj — ссылка на основной проект</code></pre>
+# Тестовый проект (создаём новый)
+Asp_Book.Chapter01.Tests/
+├── CalculatorControllerTests.cs     — 13 тестов [Fact]
+├── CalculatorParameterizedTests.cs  — 31 тест [Theory] + [InlineData]
+└── Asp_Book.Chapter01.Tests.csproj  — xunit + ссылка на Chapter01</code></pre>
                 </div>
             </section>
 
             <section class="mb-5">
-                <h3>12. Запуск тестов</h3>
+                <h3>8. Запуск тестов</h3>
 
-                <p><strong>Из командной строки:</strong></p>
+                <p><strong>Из терминала:</strong></p>
                 <div class="code-block">
-                    <pre><code># Запуск всех тестов
+                    <pre><code># Перейти в папку тестов
+cd Asp_Book.Chapter01.Tests
+
+# Запуск всех тестов
 dotnet test
 
 # Подробный вывод
 dotnet test --verbosity normal
 
 # Ожидаемый результат:
-# Passed!  - Failed: 0, Passed: 13, Skipped: 0, Total: 13</code></pre>
+# Passed!  - Failed: 0, Passed: 44, Skipped: 0, Total: 44</code></pre>
                 </div>
 
                 <p><strong>Из Visual Studio:</strong></p>
                 <div class="code-block">
-                    <pre><code>// 1. Откройте Test Explorer: Test → Test Explorer
+                    <pre><code>// 1. Откройте Test Explorer: Test → Test Explorer (Ctrl+E, T)
 // 2. Нажмите "Run All Tests" (▶)
 // 3. Зелёная галочка ✅ — тест прошёл
 // 4. Красный крестик ❌ — тест упал (кликните для деталей)</code></pre>
                 </div>
 
-                <p><strong>Запуск конкретного теста:</strong></p>
+                <p><strong>Фильтрация тестов:</strong></p>
                 <div class="code-block">
-                    <pre><code># Только тесты сервиса:
-dotnet test --filter "FullyQualifiedName~ChatServiceTests"
+                    <pre><code># Только [Fact] тесты:
+dotnet test --filter "FullyQualifiedName~CalculatorControllerTests"
 
-# Только один тест:
-dotnet test --filter "SendMessageAsync_ValidData_ReturnsSavedMessage"</code></pre>
+# Только [Theory] тесты:
+dotnet test --filter "FullyQualifiedName~CalculatorParameterizedTests"
+
+# Только тесты деления:
+dotnet test --filter "DisplayName~Divide"
+
+# Только один конкретный тест:
+dotnet test --filter "Divide_ByZero_ReturnsBadRequest"</code></pre>
+                </div>
+
+                <div class="alert alert-info mt-3">
+                    <strong>Почему калькулятор — идеальный пример для обучения тестированию:</strong>
+                    <ul class="mb-0">
+                        <li><strong>Нет зависимостей</strong> — не нужна база данных, DI, моки</li>
+                        <li><strong>Чистая логика</strong> — вход → выход, легко предсказать результат</li>
+                        <li><strong>Есть граничные случаи</strong> — деление на ноль, отрицательные числа</li>
+                        <li><strong>Подходит для [Theory]</strong> — одна логика, много входных данных</li>
+                        <li><strong>Проверяет IActionResult</strong> — OkObjectResult vs BadRequestObjectResult</li>
+                    </ul>
                 </div>
             </section>
         </div>

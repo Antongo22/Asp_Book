@@ -853,6 +853,30 @@ public async Task&lt;IActionResult&gt; GetProductAsync(int id)
                     <li>Генерация клиентского кода</li>
                 </ul>
 
+                <h4>Установка Swagger в проект</h4>
+                <p>В ASP.NET Core Swagger реализуется через библиотеку <strong>Swashbuckle.AspNetCore</strong>. Установить её можно через NuGet — например, из терминала:</p>
+
+                <div class="code-block mt-3">
+                    <pre><code>dotnet add package Swashbuckle.AspNetCore</code></pre>
+                    <div class="code-explanation">
+                        <strong>Объяснение:</strong>
+                        Эта команда добавляет пакет <code>Swashbuckle.AspNetCore</code> в файл проекта (<code>.csproj</code>). Также пакет можно установить через NuGet Package Manager в Visual Studio или JetBrains Rider, найдя его по имени <code>Swashbuckle.AspNetCore</code>.
+                    </div>
+                </div>
+
+                <p>После установки пакета в файле <code>.csproj</code> появится строка:</p>
+                <div class="code-block mt-3">
+                    <pre><code>&lt;ItemGroup&gt;
+    &lt;PackageReference Include="Swashbuckle.AspNetCore" /&gt;
+&lt;/ItemGroup&gt;</code></pre>
+                </div>
+
+                <p>Методы <code>AddSwaggerGen</code>, <code>UseSwagger</code> и <code>UseSwaggerUI</code> становятся доступны сразу после установки пакета без дополнительных <code>using</code> — их расширения объявлены в пространствах имён <code>Microsoft.Extensions.DependencyInjection</code> и <code>Microsoft.AspNetCore.Builder</code>, которые уже используются в шаблоне проекта. А если вы хотите настроить описание документации через <code>OpenApiInfo</code> (как в примере ниже), понадобится добавить директиву:</p>
+
+                <div class="code-block mt-3">
+                    <pre><code>using Microsoft.OpenApi.Models;</code></pre>
+                </div>
+
                 <div class="code-block mt-3">
                     <pre><code>// Настройка Swagger в Program.cs
 builder.Services.AddSwaggerGen(c =>
